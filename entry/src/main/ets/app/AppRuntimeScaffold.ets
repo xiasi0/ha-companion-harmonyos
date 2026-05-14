@@ -13,6 +13,12 @@ function isSettingsNavigationRoute(route: number): boolean {
     route === AppRoute.SERVER_SETTINGS;
 }
 
+function isSettingsNativeFeatureRoute(route: number): boolean {
+  return route === AppRoute.NOTIFICATION_SETTINGS ||
+    route === AppRoute.SENSOR_SETTINGS ||
+    route === AppRoute.SENSOR_UPDATE_FREQUENCY;
+}
+
 @Component
 export struct AppRuntimeScaffold {
   @Prop appLocked: boolean = false;
@@ -47,6 +53,9 @@ export struct AppRuntimeScaffold {
   }
 
   private isSettingsFlowVisible(): boolean {
+    if (this.settingsLayerVisible && isSettingsNativeFeatureRoute(this.route)) {
+      return true;
+    }
     return this.companionSettingsFlowVisible || isSettingsNavigationRoute(this.route);
   }
 
@@ -122,7 +131,7 @@ export struct AppRuntimeScaffold {
     }
     .width('100%')
     .height('100%')
-    .ignoreLayoutSafeArea(AppRootLayoutSafeArea.nonSafeAreaTypes(), AppRootLayoutSafeArea.ignoredTopEdges())
+    .ignoreLayoutSafeArea(AppRootLayoutSafeArea.nonSafeAreaTypes(), AppRootLayoutSafeArea.ignoredImmersiveEdges())
     .backgroundColor(HaTheme.background(this.dark))
     .onAreaChange((oldArea: Area, newArea: Area) => {
       this.onViewportAreaChange(newArea.width, newArea.height);

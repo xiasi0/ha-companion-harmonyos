@@ -75,6 +75,7 @@ struct NotificationDetailDialog {
 
 @Component
 export struct NotificationHistoryPage {
+  @Prop contentMaxWidth: number = SettingsUiConfig.contentMaxWidth;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   @StorageLink('notificationHistoryRevision') @Watch('onHistoryRevisionChanged') historyRevision: number = 0;
   @State records: NotificationRecentRecord[] = [];
@@ -314,7 +315,7 @@ export struct NotificationHistoryPage {
       .width('100%')
       .height('100%')
       .alignItems(HorizontalAlign.Center)
-      .constraintSize({ maxWidth: SettingsUiConfig.contentMaxWidth })
+      .constraintSize({ maxWidth: this.contentMaxWidth })
     }
     .width('100%')
     .height('100%')
@@ -331,6 +332,7 @@ export struct NotificationHistoryPage {
       }
     ))
     .bindToScrollable([this.scroller])
+    .mode(NavigationMode.Stack)
     .titleMode(HdsNavigationTitleMode.MINI)
     .gesture(PanGesture({ direction: PanDirection.Horizontal, distance: 24 }).onActionEnd((event: GestureEvent) => {
       if (event.offsetX > 60 || event.offsetX < -60) {

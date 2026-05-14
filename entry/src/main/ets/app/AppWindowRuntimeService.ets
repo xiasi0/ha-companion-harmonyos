@@ -16,6 +16,9 @@ export interface AppWindowRuntimeState {
 }
 
 export class AppWindowRuntimeService {
+  private static lastAppliedTheme: string = '';
+  private static applyingTheme: boolean = false;
+
   static resolvePreferredThemeDark(context: common.Context, appTheme: string): boolean {
     if (appTheme === 'dark') {
       return true;
@@ -60,10 +63,16 @@ export class AppWindowRuntimeService {
   }
 
   static applyThemePreferences(context: common.Context, state: AppWindowRuntimeState): void {
-    try {
-      AppWindowRuntimeService.setApplicationColorMode(context, state.appTheme);
-    } catch (_) {
-      // Keep the UI usable if color mode cannot be changed.
+    if (!AppWindowRuntimeService.applyingTheme && AppWindowRuntimeService.lastAppliedTheme !== state.appTheme) {
+      try {
+        AppWindowRuntimeService.applyingTheme = true;
+        AppWindowRuntimeService.lastAppliedTheme = state.appTheme;
+        AppWindowRuntimeService.setApplicationColorMode(context, state.appTheme);
+      } catch (_) {
+        // Keep the UI usable if color mode cannot be changed.
+      } finally {
+        AppWindowRuntimeService.applyingTheme = false;
+      }
     }
     AppWindowRuntimeService.refreshResolvedTheme(context, state);
   }

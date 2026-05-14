@@ -532,7 +532,9 @@ export struct AppRuntimeHost {
     this.settingsOptionValue = '';
     this.showDeleteServerDialog = false;
     this.deletingServer = false;
-    this.step = 10;
+    this.companionSettingsScrollOffset = 0;
+    this.serverSettingsScrollOffset = 0;
+    this.step = AppRoute.COMPANION_SETTINGS;
   }
 
   returnToHaSettingsPage(): void { this.dashboardBackToHomePending = false; this.step = 4; }
@@ -833,8 +835,6 @@ export struct AppRuntimeHost {
   currentDeviceProfile(): DeviceProfileInfo { return AppDeviceRuntimeService.profile(this); }
 
   settingsContentMaxWidth(): number { return AppDeviceRuntimeService.settingsContentMaxWidth(this); }
-
-  settingsTwoPaneEnabled(): boolean { return AppDeviceRuntimeService.settingsTwoPaneEnabled(this); }
 
   private isWearableProfile(): boolean { return AppDeviceRuntimeService.isWearableProfile(this); }
 

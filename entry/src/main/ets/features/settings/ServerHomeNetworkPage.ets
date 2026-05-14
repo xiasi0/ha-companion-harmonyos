@@ -6,7 +6,10 @@ import { SettingsCategory } from './components/SettingsCategory';
 import { SettingsInlineSwitchRow } from './components/SettingsInlineSwitchRow';
 import { SettingsTextInput } from './components/SettingsTextInput';
 import { SettingsUiConfig } from './components/SettingsUiConfig';
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import {
+  HdsNavigation,
+  HdsNavigationTitleMode
+} from '@kit.UIDesignKit';
 
 @Component
 export struct ServerHomeNetworkPage {
@@ -150,58 +153,64 @@ export struct ServerHomeNetworkPage {
     .padding(SettingsUiConfig.groupPadding)
   }
 
-  build() {
-    HdsNavigation() {
-      List({ scroller: this.scroller, space: SettingsUiConfig.listSpace }) {
-        ListItem() {
-          this.renderDescription()
-        }
-        .width('100%')
+  @Builder
+  private renderPageContent(): void {
+    List({ scroller: this.scroller, space: SettingsUiConfig.listSpace }) {
+      ListItem() {
+        this.renderDescription()
+      }
+      .width('100%')
 
-        ListItem() {
-          SettingsCategory({ title: 'Wi-Fi' })
-        }
-        .width('100%')
+      ListItem() {
+        SettingsCategory({ title: 'Wi-Fi' })
+      }
+      .width('100%')
 
-        ListItem() {
-          this.renderWifiGroup()
-        }
-        .width('100%')
+      ListItem() {
+        this.renderWifiGroup()
+      }
+      .width('100%')
 
-        if (this.wifiSsids.length > 0) {
-          ListItem() {
-            this.renderWarning()
-          }
-          .width('100%')
-        }
-
+      if (this.wifiSsids.length > 0) {
         ListItem() {
-          SettingsCategory({ title: Localization.t('home_network_connection_policy') })
-        }
-        .width('100%')
-
-        ListItem() {
-          this.renderConnectionPolicyGroup()
+          this.renderWarning()
         }
         .width('100%')
       }
-      .padding(SettingsUiConfig.listPadding())
-      .layoutWeight(1)
+
+      ListItem() {
+        SettingsCategory({ title: Localization.t('home_network_connection_policy') })
+      }
       .width('100%')
-      .constraintSize({ maxWidth: this.contentMaxWidth })
-      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-      .contentEndOffset(SettingsUiConfig.listContentEndOffset)
-      .clip(false)
-      .cachedCount(3, true)
-      .scrollBar(SettingsUiConfig.scrollBarState())
-      .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
-      .alignListItem(ListItemAlign.Center)
+
+      ListItem() {
+        this.renderConnectionPolicyGroup()
+      }
+      .width('100%')
+    }
+    .padding(SettingsUiConfig.listPadding())
+    .layoutWeight(1)
+    .width('100%')
+    .constraintSize({ maxWidth: this.contentMaxWidth })
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+    .contentEndOffset(SettingsUiConfig.listContentEndOffset)
+    .clip(false)
+    .cachedCount(3, true)
+    .scrollBar(SettingsUiConfig.scrollBarState())
+    .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+    .alignListItem(ListItemAlign.Center)
+  }
+
+  build() {
+    HdsNavigation() {
+      this.renderPageContent()
     }
     .width('100%')
     .height('100%')
     .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
     .titleBar(SettingsUiConfig.titleBar(Localization.t('server_home_network'), this.onBack, this.appResolvedDark))
     .bindToScrollable([this.scroller])
+    .mode(NavigationMode.Stack)
     .titleMode(HdsNavigationTitleMode.MINI)
     .gesture(
       PanGesture({ direction: PanDirection.Horizontal, distance: 24 })

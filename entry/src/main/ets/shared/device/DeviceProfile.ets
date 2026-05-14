@@ -8,21 +8,25 @@ export enum DeviceFormFactor {
   UNKNOWN
 }
 
+export enum DisplaySizeClass {
+  COMPACT,
+  MEDIUM,
+  EXPANDED
+}
+
 export interface DeviceProfileInfo {
   widthVp: number;
   heightVp: number;
   formFactor: DeviceFormFactor;
+  sizeClass: DisplaySizeClass;
   contentMaxWidth: number;
   settingsMaxWidth: number;
-  settingsTwoPane: boolean;
 }
 
 export class DeviceProfile {
   static fromSize(widthVp: number, heightVp: number): DeviceProfileInfo {
     let formFactor = DeviceFormFactor.PHONE;
-    if (DeviceProfile.isCarLike(widthVp, heightVp)) {
-      formFactor = DeviceFormFactor.CAR;
-    } else if (DeviceProfile.isWearableLike(widthVp, heightVp)) {
+    if (DeviceProfile.isWearableLike(widthVp, heightVp)) {
       formFactor = DeviceFormFactor.WEARABLE;
     } else if (widthVp >= Breakpoints.TABLET_MIN_WIDTH) {
       formFactor = DeviceFormFactor.TABLET;
@@ -32,9 +36,9 @@ export class DeviceProfile {
       widthVp,
       heightVp,
       formFactor,
+      sizeClass: DeviceProfile.sizeClass(widthVp),
       contentMaxWidth: Breakpoints.onboardingContentMaxWidth(widthVp),
-      settingsMaxWidth: Breakpoints.settingsContentMaxWidth(widthVp),
-      settingsTwoPane: Breakpoints.settingsTwoPane(widthVp)
+      settingsMaxWidth: Breakpoints.settingsContentMaxWidth(widthVp)
     };
   }
 
@@ -45,10 +49,14 @@ export class DeviceProfile {
       heightVp <= Breakpoints.WEARABLE_MAX_WIDTH;
   }
 
-  private static isCarLike(widthVp: number, heightVp: number): boolean {
-    return widthVp >= Breakpoints.CAR_MIN_WIDTH &&
-      heightVp > 0 &&
-      heightVp <= Breakpoints.CAR_MAX_HEIGHT;
+  private static sizeClass(widthVp: number): DisplaySizeClass {
+    if (Breakpoints.isExpanded(widthVp)) {
+      return DisplaySizeClass.EXPANDED;
+    }
+    if (Breakpoints.isMedium(widthVp)) {
+      return DisplaySizeClass.MEDIUM;
+    }
+    return DisplaySizeClass.COMPACT;
   }
 
   static formFactorName(formFactor: DeviceFormFactor): string {
@@ -65,5 +73,15 @@ export class DeviceProfile {
       return 'unknown';
     }
     return 'phone';
+  }
+
+  static sizeClassName(sizeClass: DisplaySizeClass): string {
+    if (sizeClass === DisplaySizeClass.EXPANDED) {
+      return 'expanded';
+    }
+    if (sizeClass === DisplaySizeClass.MEDIUM) {
+      return 'medium';
+    }
+    return 'compact';
   }
 }

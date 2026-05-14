@@ -1,5 +1,4 @@
 import { Breakpoints } from '../shared/device/Breakpoints';
-import { CapabilityPolicy } from '../shared/device/CapabilityPolicy';
 import { DeviceFormFactor, DeviceProfile, DeviceProfileInfo } from '../shared/device/DeviceProfile';
 
 export interface AppDeviceRuntimeState {
@@ -31,10 +30,6 @@ export class AppDeviceRuntimeService {
 
   static settingsContentMaxWidth(state: AppDeviceRuntimeState): number {
     return AppDeviceRuntimeService.profile(state).settingsMaxWidth;
-  }
-
-  static settingsTwoPaneEnabled(state: AppDeviceRuntimeState): boolean {
-    return CapabilityPolicy.supportsSettingsTwoPane(AppDeviceRuntimeService.profile(state));
   }
 
   static isWearableProfile(state: AppDeviceRuntimeState): boolean {

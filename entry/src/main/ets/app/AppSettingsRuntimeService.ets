@@ -49,7 +49,6 @@ export interface AppSettingsRuntimeTarget extends SettingsSectionRuntimeState, G
   message: string;
   currentDeviceProfile(): DeviceProfileInfo;
   settingsContentMaxWidth(): number;
-  settingsTwoPaneEnabled(): boolean;
   returnToHaSettingsPage(): void;
   handleBackNavigation(): boolean;
   selectCompanionChoice(value: string): void;
@@ -66,6 +65,15 @@ export class AppSettingsRuntimeService {
   private static selectedSettingsKey(route: number, detailKey: string): string {
     if (route === AppRoute.SERVER_SETTINGS) {
       return 'open_server';
+    }
+    if (route === AppRoute.SENSOR_SETTINGS) {
+      return 'open_sensor_settings';
+    }
+    if (route === AppRoute.SENSOR_UPDATE_FREQUENCY) {
+      return 'open_sensor_update_frequency';
+    }
+    if (route === AppRoute.NOTIFICATION_SETTINGS) {
+      return 'open_notification_settings';
     }
     if (route !== AppRoute.SETTINGS_DETAIL) {
       return '';
@@ -98,7 +106,6 @@ export class AppSettingsRuntimeService {
         ? target.selectedServerSettingsName
         : SettingsSummaryService.serverDisplayName('', target.configSummary),
       contentMaxWidth: target.settingsContentMaxWidth(),
-      enableTwoPane: target.settingsTwoPaneEnabled(),
       selectedKey: AppSettingsRuntimeService.selectedSettingsKey(target.step, target.settingsDetailKey),
       companionScrollOffset: target.companionSettingsScrollOffset,
       serverScrollOffset: target.serverSettingsScrollOffset,

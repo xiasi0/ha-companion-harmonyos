@@ -4,11 +4,12 @@
     "type": "entry",
     "description": "$string:module_desc",
     "mainElement": "EntryAbility",
-    // Phone is the only production target for now. Keep wearable-specific
-    // runtime policy in code, but do not declare wearable support until the
-    // dedicated watch experience is ready.
+    // Phone and tablet share the same adaptive runtime shell. Keep
+    // wearable-specific runtime policy in code, but do not declare wearable
+    // support until the dedicated watch experience is ready.
     "deviceTypes": [
-      "phone"
+      "phone",
+      "tablet"
     ],
     "deliveryWithInstall": true,
     "installationFree": false,

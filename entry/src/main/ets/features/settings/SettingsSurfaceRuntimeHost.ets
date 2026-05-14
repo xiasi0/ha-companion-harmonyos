@@ -13,7 +13,6 @@ import { SettingsDialogUiConfig } from './components/SettingsDialogUiConfig';
 export struct CompanionSettingsSurfaceHost {
   @Prop sections: SettingsSection[] = [];
   @Prop contentMaxWidth: number = 0;
-  @Prop enableTwoPane: boolean = false;
   @Prop selectedKey: string = '';
   @Prop scrollOffset: number = 0;
   @Prop switchRevision: number = 0;
@@ -40,7 +39,6 @@ export struct CompanionSettingsSurfaceHost {
     CompanionSettingsHost({
       sections: this.sections,
       contentMaxWidth: this.contentMaxWidth,
-      enableTwoPane: this.enableTwoPane,
       selectedKey: this.selectedKey,
       scrollOffset: this.scrollOffset,
       switchRevision: this.switchRevision,
@@ -81,7 +79,6 @@ export struct ServerSettingsSurfaceHost {
   @Prop title: string = '';
   @Prop sections: SettingsSection[] = [];
   @Prop contentMaxWidth: number = 0;
-  @Prop enableTwoPane: boolean = false;
   @Prop selectedKey: string = '';
   @Prop scrollOffset: number = 0;
   @Prop switchRevision: number = 0;
@@ -156,7 +153,6 @@ export struct ServerSettingsSurfaceHost {
       title: this.title,
       sections: this.sections,
       contentMaxWidth: this.contentMaxWidth,
-      enableTwoPane: this.enableTwoPane,
       selectedKey: this.selectedKey,
       scrollOffset: this.scrollOffset,
       switchRevision: this.switchRevision,

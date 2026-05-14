@@ -21,3 +21,29 @@
 -enable-toplevel-obfuscation
 -enable-filename-obfuscation
 -enable-export-obfuscation
+
+# ArkWeb JavaScriptProxy method names are called by Home Assistant frontend
+# through externalApp.* and must remain stable in release builds.
+-keep-property-name getExternalAuth
+-keep-property-name revokeExternalAuth
+-keep-property-name externalBus
+
+# FormKit consumes these binding-data keys by name. In particular formImages
+# maps memory:// image names to file descriptors for service card cover art.
+-keep-property-name formId
+-keep-property-name bound
+-keep-property-name title
+-keep-property-name subtitle
+-keep-property-name state
+-keep-property-name updateFrequency
+-keep-property-name formImages
+-keep-property-name mediaTitle
+-keep-property-name mediaArtist
+-keep-property-name appName
+-keep-property-name coverUrl
+-keep-property-name coverImageName
+-keep-property-name surfaceColor
+-keep-property-name primaryTextColor
+-keep-property-name secondaryTextColor
+-keep-property-name disabledTextColor
+-keep-property-name trackColor

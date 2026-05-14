@@ -32,7 +32,6 @@ const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
   serverSections: [],
   serverTitle: '',
   contentMaxWidth: 720,
-  enableTwoPane: false,
   selectedKey: '',
   companionScrollOffset: 0,
   serverScrollOffset: 0,
@@ -240,7 +239,6 @@ struct CompanionServerSettingsRoute {
         title: this.snapshot.serverTitle,
         sections: this.snapshot.serverSections,
         contentMaxWidth: this.snapshot.contentMaxWidth,
-        enableTwoPane: false,
         selectedKey: this.snapshot.selectedKey,
         scrollOffset: this.snapshot.serverScrollOffset,
         switchRevision: this.snapshot.switchRevision,
@@ -363,6 +361,7 @@ struct CompanionNativeSettingsRoute {
 @Component
 struct CompanionNotificationHistoryRoute {
   @Consume('settingsRuntimeActions') actions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
+  @Consume('settingsOverlaySnapshot') overlaySnapshot: AppRuntimeOverlaySnapshot;
   @Consume('settingsPathStack') pathStack: NavPathStack;
 
   private backToNotifications(): void {
@@ -373,6 +372,7 @@ struct CompanionNotificationHistoryRoute {
   build() {
     NavDestination() {
       NotificationHistoryPage({
+        contentMaxWidth: this.overlaySnapshot.contentMaxWidth,
         onBack: (): void => this.backToNotifications(),
         onClearAll: (): void => {
           const context = this.getUIContext().getHostContext() as common.Context;

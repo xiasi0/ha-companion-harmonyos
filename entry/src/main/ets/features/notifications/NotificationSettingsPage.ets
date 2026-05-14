@@ -6,10 +6,14 @@ import { SettingsItem, actionSettingsItem } from '../../models/SettingsItem';
 import { HaTheme } from '../../shared/theme/HaTheme';
 import { Localization } from '../../shared/i18n/Localization';
 import common from '@ohos.app.ability.common';
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import {
+  HdsNavigation,
+  HdsNavigationTitleMode
+} from '@kit.UIDesignKit';
 
 @Component
 export struct NotificationSettingsPage {
+  @Prop contentMaxWidth: number = SettingsUiConfig.contentMaxWidth;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   @State permissionEnabled: boolean = false;
   @State busy: boolean = false;
@@ -119,21 +123,27 @@ export struct NotificationSettingsPage {
     .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
   }
 
-  build() {
-    HdsNavigation() {
+  @Builder
+  private renderPageContent(): void {
       Column() {
         this.renderSettingsList()
       }
       .width('100%')
       .height('100%')
       .alignItems(HorizontalAlign.Center)
-      .constraintSize({ maxWidth: SettingsUiConfig.contentMaxWidth })
+      .constraintSize({ maxWidth: this.contentMaxWidth })
+  }
+
+  build() {
+    HdsNavigation() {
+      this.renderPageContent()
     }
     .width('100%')
     .height('100%')
     .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
     .titleBar(SettingsUiConfig.titleBar(Localization.t('notifications_title'), this.onBack, this.appResolvedDark))
     .bindToScrollable([this.scroller])
+    .mode(NavigationMode.Stack)
     .titleMode(HdsNavigationTitleMode.MINI)
     .gesture(PanGesture({ direction: PanDirection.Horizontal, distance: 24 }).onActionEnd((event: GestureEvent) => {
       if (event.offsetX > 60 || event.offsetX < -60) {

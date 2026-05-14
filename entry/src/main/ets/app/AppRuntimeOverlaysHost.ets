@@ -1,4 +1,4 @@
-import { DeviceFormFactor, DeviceProfileInfo } from '../shared/device/DeviceProfile';
+import { DeviceFormFactor, DeviceProfileInfo, DisplaySizeClass } from '../shared/device/DeviceProfile';
 import { AssistRuntimeHost } from '../features/assist/AssistRuntimeHost';
 import { NativeSettingsOverlayHost } from '../features/settings/NativeSettingsOverlayHost';
 import { SensorSettingsOverlayHost } from '../features/sensors/SensorSettingsOverlayHost';
@@ -10,9 +10,9 @@ class DefaultDeviceProfileInfo implements DeviceProfileInfo {
   widthVp: number = 0;
   heightVp: number = 0;
   formFactor: DeviceFormFactor = DeviceFormFactor.PHONE;
+  sizeClass: DisplaySizeClass = DisplaySizeClass.COMPACT;
   contentMaxWidth: number = 0;
   settingsMaxWidth: number = 0;
-  settingsTwoPane: boolean = false;
 }
 
 const DEFAULT_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {

@@ -6,7 +6,7 @@
 
 HA Companion For HarmonyOS is a Home Assistant Companion implementation for HarmonyOS NEXT. The project aims to provide Home Assistant authentication, dashboard access, mobile_app registration, device capability sync, native settings, and HarmonyOS service cards in a native HarmonyOS app.
 
-The current version is `0.0.0-dev` and the declared target device type is `phone`. The project is still under active development: several core paths are runnable, while some platform capabilities still need more real-device validation and production hardening.
+The current version is `0.0.0-dev` and the declared target device types are `phone` and `tablet`. The project is still under active development: several core paths are runnable, while some platform capabilities still need more real-device validation and production hardening.
 
 ## Project Context And Goals
 
@@ -308,8 +308,9 @@ Runtime code reads the bundled HarmonyOS version through `AppVersionService`. Se
 ## Status And Limitations
 
 - The project is not production-stable yet.
-- `phone` is the only declared device type for now.
+- Declared device types are `phone` and `tablet`; both use the same adaptive runtime shell and stack-based native settings UI.
 - Wearable code is currently policy and placeholder code only; wearable support is not declared in `module.json5`.
+- Car-related support is not declared as a standalone device type. Future car integration should be based on connection state and supported HarmonyOS/Car Kit capabilities rather than a dedicated cockpit app target.
 - Push Kit is not integrated for now; remote push features should be revisited only after the required entity qualification, AppGallery distribution path, and platform service configuration are clear.
 - The project does not plan to publish to Huawei AppGallery under an individual developer account; it is currently better treated as an open-source implementation, development build, and real-device validation project.
 - NFC, speech, background tasks, notifications, location, and service cards need more real-device coverage.

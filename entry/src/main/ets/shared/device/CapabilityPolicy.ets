@@ -35,13 +35,12 @@ export class CapabilityPolicy {
     };
   }
 
-  static supportsSettingsTwoPane(profile: DeviceProfileInfo): boolean {
-    return profile.formFactor === DeviceFormFactor.TABLET && profile.settingsTwoPane;
-  }
-
   static companionSettings(profile: DeviceProfileInfo): CapabilityDecision {
-    if (profile.formFactor === DeviceFormFactor.WEARABLE || profile.formFactor === DeviceFormFactor.CAR) {
+    if (profile.formFactor === DeviceFormFactor.WEARABLE) {
       return CapabilityPolicy.placeholder(Localization.t('capability_companion_layout'));
+    }
+    if (profile.formFactor === DeviceFormFactor.CAR) {
+      return CapabilityPolicy.placeholder(Localization.t('capability_car_placeholder'));
     }
     return CapabilityPolicy.available();
   }

@@ -7,7 +7,10 @@ import { SettingsTextInput } from './components/SettingsTextInput';
 import { SettingsUiConfig } from './components/SettingsUiConfig';
 import { HaTheme } from '../../shared/theme/HaTheme';
 import { Localization } from '../../shared/i18n/Localization';
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import {
+  HdsNavigation,
+  HdsNavigationTitleMode
+} from '@kit.UIDesignKit';
 
 @Component
 export struct SettingsHomePage {
@@ -15,8 +18,6 @@ export struct SettingsHomePage {
   sections: SettingsSection[] = [];
   @Prop
   contentMaxWidth: number = SettingsUiConfig.contentMaxWidth;
-  @Prop
-  enableTwoPane: boolean = false;
   @Prop
   selectedKey: string = '';
   @Prop
@@ -175,56 +176,19 @@ export struct SettingsHomePage {
     .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
   }
 
-  @Builder
-  private renderDetailPlaceholder(): void {
-    Column({ space: 10 }) {
-      Text(Localization.t('settings_select_item'))
-        .fontSize(20)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(HaTheme.textPrimary(this.appResolvedDark))
-
-      Text(Localization.t('settings_tablet_detail_hint'))
-        .fontSize(14)
-        .fontColor(HaTheme.textSecondary(this.appResolvedDark))
-        .lineHeight(20)
-    }
-    .width('100%')
-    .height('100%')
-    .padding({ left: 32, right: 32, top: 40 })
-    .backgroundColor(HaTheme.background(this.appResolvedDark))
-  }
-
   build() {
     HdsNavigation() {
       Column() {
-        if (this.enableTwoPane) {
-          Row() {
-            Column() {
-              this.renderSettingsList()
-            }
-            .width(380)
-            .height('100%')
-            .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
-
-            this.renderDetailPlaceholder()
-          }
-          .width('100%')
-          .constraintSize({ maxWidth: this.contentMaxWidth })
-          .height('100%')
-          .backgroundColor(HaTheme.background(this.appResolvedDark))
-        } else {
-          Column() {
-            this.renderSettingsList()
-          }
-          .width('100%')
-          .constraintSize({ maxWidth: this.contentMaxWidth })
-          .height('100%')
+        Column() {
+          this.renderSettingsList()
         }
+        .width('100%')
+        .constraintSize({ maxWidth: this.contentMaxWidth })
+        .height('100%')
       }
       .width('100%')
       .height('100%')
       .alignItems(HorizontalAlign.Center)
-
     }
     .width('100%')
     .height('100%')
@@ -234,6 +198,7 @@ export struct SettingsHomePage {
       : SettingsUiConfig.titleBar(this.title, this.onBack, this.appResolvedDark))
     .hideBackButton(false)
     .bindToScrollable([this.settingsScroller])
+    .mode(NavigationMode.Stack)
     .titleMode(HdsNavigationTitleMode.MINI)
     .gesture(
       PanGesture({ direction: PanDirection.Horizontal, distance: 24 })

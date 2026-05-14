@@ -1,14 +1,14 @@
 import { AppRoute } from '../../app/AppRoute';
-import { DeviceFormFactor, DeviceProfileInfo } from '../../shared/device/DeviceProfile';
+import { DeviceFormFactor, DeviceProfileInfo, DisplaySizeClass } from '../../shared/device/DeviceProfile';
 import { NotificationSettingsPage } from '../notifications/NotificationSettingsPage';
 
 class DefaultDeviceProfileInfo implements DeviceProfileInfo {
   widthVp: number = 0;
   heightVp: number = 0;
   formFactor: DeviceFormFactor = DeviceFormFactor.PHONE;
+  sizeClass: DisplaySizeClass = DisplaySizeClass.COMPACT;
   contentMaxWidth: number = 0;
   settingsMaxWidth: number = 0;
-  settingsTwoPane: boolean = false;
 }
 
 @Component
@@ -23,6 +23,7 @@ export struct NativeSettingsOverlayHost {
   build() {
     if (this.route === AppRoute.NOTIFICATION_SETTINGS) {
       NotificationSettingsPage({
+        contentMaxWidth: this.profile.settingsMaxWidth,
         onBack: this.onBack,
         onOpenHistory: this.onOpenNotificationHistory,
         onSwipeBack: this.onSwipeBack

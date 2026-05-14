@@ -140,6 +140,59 @@ export struct DashboardPage {
     return targetUrl.length > 0 ? targetUrl : 'about:blank';
   }
 
+  private viewportFitCoverScript(): string {
+    return `(function(){` +
+      `var content='width=device-width,initial-scale=1,viewport-fit=cover';` +
+      `var metas=document.getElementsByTagName('meta');` +
+      `var viewport=null;` +
+      `for(var i=0;i<metas.length;i++){if((metas[i].getAttribute('name')||'').toLowerCase()==='viewport'){viewport=metas[i];break;}}` +
+      `if(!viewport){viewport=document.createElement('meta');viewport.setAttribute('name','viewport');document.head.appendChild(viewport);}` +
+      `var current=viewport.getAttribute('content')||'';` +
+      `if(current.indexOf('viewport-fit=')>=0){current=current.replace(/viewport-fit\\s*=\\s*[^,]+/,'viewport-fit=cover');}` +
+      `else{current=(current.trim().length>0?current+',':'')+'viewport-fit=cover';}` +
+      `viewport.setAttribute('content',current||content);` +
+      `})();`;
+  }
+
+  private haSafeAreaPatchScript(): string {
+    return `(function(){` +
+      `if(window.__haCompanionSafeAreaPatchInstalled){return;}` +
+      `window.__haCompanionSafeAreaPatchInstalled=true;` +
+      `var css=':host{--app-safe-area-inset-left:0px!important;--app-safe-area-inset-right:0px!important;}';` +
+      `function styleRoot(root,id){` +
+      `if(!root){return;}` +
+      `var style=root.getElementById(id);` +
+      `if(!style){style=document.createElement('style');style.id=id;root.appendChild(style);}` +
+      `style.id=id;` +
+      `style.textContent=css;` +
+      `}` +
+      `function patch(){` +
+      `document.documentElement.style.setProperty('--app-safe-area-inset-left','0px');` +
+      `document.documentElement.style.setProperty('--app-safe-area-inset-right','0px');` +
+      `if(document.body){` +
+      `document.body.style.setProperty('--app-safe-area-inset-left','0px');` +
+      `document.body.style.setProperty('--app-safe-area-inset-right','0px');` +
+      `}` +
+      `var ha=document.querySelector('home-assistant');` +
+      `if(!ha||!ha.shadowRoot){return;}` +
+      `styleRoot(ha.shadowRoot,'ha-companion-safe-area-root');` +
+      `var main=ha.shadowRoot.querySelector('home-assistant-main');` +
+      `if(main&&main.shadowRoot){styleRoot(main.shadowRoot,'ha-companion-safe-area-main');}` +
+      `}` +
+      `patch();` +
+      `var attempts=0;` +
+      `var timer=setInterval(function(){attempts++;patch();if(attempts>=40){clearInterval(timer);}},250);` +
+      `new MutationObserver(patch).observe(document.documentElement,{childList:true,subtree:true});` +
+      `})();`;
+  }
+
+  private runHaSafeAreaPatch(): void {
+    try {
+      this.controller.runJavaScript(this.haSafeAreaPatchScript()).catch((): void => {});
+    } catch (_) {
+    }
+  }
+
   private isAudioCaptureRequest(resources: Array<string>): boolean {
     if (resources.length === 0) {
       return false;
@@ -189,6 +242,7 @@ export struct DashboardPage {
           .pinchSmooth(this.pinchToZoomEnabled)
           .mediaPlayGestureAccess(!this.autoPlayVideoEnabled)
           .forceDarkAccess(this.isDarkTheme)
+          .runJavaScriptOnHeadEnd([{ script: this.viewportFitCoverScript() + this.haSafeAreaPatchScript(), scriptRules: ['*'] }])
           .overScrollMode(OverScrollMode.ALWAYS)
           .onPermissionRequest((event) => {
             if (event) {
@@ -223,6 +277,7 @@ export struct DashboardPage {
                 // Keep the page usable if the controller rejects the zoom request.
               }
             }
+            this.runHaSafeAreaPatch();
             this.onPageReady();
           })
           .onLoadIntercept((event) => {
@@ -272,6 +327,7 @@ export struct DashboardPage {
           })
           .width('100%')
           .height('100%')
+          .expandSafeArea([SafeAreaType.SYSTEM, SafeAreaType.CUTOUT], [SafeAreaEdge.TOP, SafeAreaEdge.START, SafeAreaEdge.END])
           .layoutWeight(1)
       } else {
         Column()
@@ -283,6 +339,7 @@ export struct DashboardPage {
     }
     .width('100%')
     .height('100%')
+    .expandSafeArea([SafeAreaType.SYSTEM, SafeAreaType.CUTOUT], [SafeAreaEdge.TOP, SafeAreaEdge.START, SafeAreaEdge.END])
     .backgroundColor(HaTheme.background(this.isDarkTheme))
   }
 }

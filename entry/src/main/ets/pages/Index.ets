@@ -21,6 +21,6 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .ignoreLayoutSafeArea(AppRootLayoutSafeArea.nonSafeAreaTypes(), AppRootLayoutSafeArea.ignoredTopEdges())
+    .ignoreLayoutSafeArea(AppRootLayoutSafeArea.nonSafeAreaTypes(), AppRootLayoutSafeArea.ignoredImmersiveEdges())
   }
 }

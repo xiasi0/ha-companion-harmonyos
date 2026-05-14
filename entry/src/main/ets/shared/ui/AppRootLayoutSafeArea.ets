@@ -3,8 +3,8 @@ export class AppRootLayoutSafeArea {
     return [LayoutSafeAreaType.SYSTEM];
   }
 
-  static ignoredTopEdges(): Array<LayoutSafeAreaEdge> {
-    // Keep the entry root immersive at the status bar; bottom remains system-managed.
-    return [LayoutSafeAreaEdge.TOP];
+  static ignoredImmersiveEdges(): Array<LayoutSafeAreaEdge> {
+    // Keep the entry root immersive at the status bar and landscape side cutouts; bottom remains system-managed.
+    return [LayoutSafeAreaEdge.TOP, LayoutSafeAreaEdge.START, LayoutSafeAreaEdge.END];
   }
 }

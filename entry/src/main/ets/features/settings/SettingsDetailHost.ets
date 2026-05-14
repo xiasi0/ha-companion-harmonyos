@@ -162,6 +162,7 @@ export struct SettingsDetailHost {
       })
     } else if (this.detailKey === 'open_source_licenses') {
       OpenSourceLicensesPage({
+        contentMaxWidth: this.contentMaxWidth,
         onBack: this.onBackToCompanion,
         onSwipeBack: this.onSwipeBack
       })
@@ -172,6 +173,7 @@ export struct SettingsDetailHost {
         status: this.status,
         body: this.body,
         action: this.action,
+        contentMaxWidth: this.contentMaxWidth,
         onBack: this.onBackToCompanion,
         onAction: this.onOpenDashboard,
         onSwipeBack: this.onSwipeBack

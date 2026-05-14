@@ -1,12 +1,9 @@
 import { AppRoute } from '../../app/AppRoute';
 import { AppRuntimeOverlayActions, AppRuntimeOverlaySnapshot } from '../../app/AppRuntimeOverlayModels';
 import { SettingsItem } from '../../models/SettingsItem';
-import { DeviceFormFactor, DeviceProfileInfo } from '../../shared/device/DeviceProfile';
-import { Localization } from '../../shared/i18n/Localization';
+import { DeviceFormFactor, DeviceProfileInfo, DisplaySizeClass } from '../../shared/device/DeviceProfile';
 import {
-  CompanionSettingsSurfaceHost,
-  ServerSettingsSurfaceHost,
-  SettingsDetailSurfaceHost
+  CompanionSettingsSurfaceHost
 } from './SettingsSurfaceRuntimeHost';
 import { SettingsRuntimeActions, SettingsRuntimeSnapshot } from './SettingsRuntimeCoordinatorModels';
 import {
@@ -34,7 +31,6 @@ const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
   serverSections: [],
   serverTitle: '',
   contentMaxWidth: 720,
-  enableTwoPane: false,
   selectedKey: '',
   companionScrollOffset: 0,
   serverScrollOffset: 0,
@@ -103,9 +99,9 @@ class DefaultDeviceProfileInfo implements DeviceProfileInfo {
   widthVp: number = 0;
   heightVp: number = 0;
   formFactor: DeviceFormFactor = DeviceFormFactor.PHONE;
+  sizeClass: DisplaySizeClass = DisplaySizeClass.COMPACT;
   contentMaxWidth: number = 0;
   settingsMaxWidth: number = 0;
-  settingsTwoPane: boolean = false;
 }
 
 const DEFAULT_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
@@ -135,7 +131,6 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
 };
 
 const PATH_STACK_RESTORE_DELAY_MS: number = 50;
-
 @Component
 export struct SettingsRuntimeCoordinatorHost {
   @Prop snapshot: SettingsRuntimeSnapshot = DEFAULT_SETTINGS_RUNTIME_SNAPSHOT;
@@ -247,53 +242,8 @@ export struct SettingsRuntimeCoordinatorHost {
     this.pathStack.pushPath({ name: SETTINGS_NAV_DETAIL, param: param }, true);
   }
 
-  private splitNavWidth(): number {
-    const width = Math.floor(this.snapshot.contentMaxWidth * 0.4);
-    if (width < 320) {
-      return 320;
-    }
-    if (width > 420) {
-      return 420;
-    }
-    return width;
-  }
-
-  private splitContentWidth(): number {
-    const width = this.snapshot.contentMaxWidth - this.splitNavWidth();
-    return width > 360 ? width : 360;
-  }
-
   private isServerDetail(): boolean {
     return this.snapshot.detailKey.startsWith('server_');
-  }
-
-  @Builder
-  private renderCompanionListPane(): void {
-    CompanionSettingsSurfaceHost({
-      sections: this.snapshot.companionSections,
-      contentMaxWidth: this.splitNavWidth(),
-      enableTwoPane: false,
-      selectedKey: this.snapshot.selectedKey,
-      scrollOffset: this.snapshot.companionScrollOffset,
-      switchRevision: this.snapshot.switchRevision,
-      showChoiceDialog: this.snapshot.showChoiceDialog && this.snapshot.choiceDialogKey !== 'server_connection_security',
-      choiceDialogKey: this.snapshot.choiceDialogKey,
-      screenOrientation: this.snapshot.screenOrientation,
-      pageZoomLevel: this.snapshot.pageZoomLevel,
-      appLanguage: this.snapshot.appLanguage,
-      appTheme: this.snapshot.appTheme,
-      secureConnectionChoice: this.snapshot.secureConnectionChoice,
-      websocketMode: this.snapshot.websocketMode,
-      serviceCardUpdateFrequency: this.snapshot.serviceCardUpdateFrequency,
-      dark: this.snapshot.dark,
-      onBack: this.actions.onBackToHaSettings,
-      onOpen: (item: SettingsItem): void => this.openSettingsItem(item),
-      onAction: (actionId: string): void => this.openSettingsAction(actionId),
-      onScrollOffsetChange: this.actions.onCompanionScrollOffsetChange,
-      onSwipeBack: this.actions.onSwipeBack,
-      onSelectChoice: this.actions.onSelectCompanionChoice,
-      onCloseChoice: this.actions.onCloseCompanionChoice
-    })
   }
 
   @Builder
@@ -301,7 +251,6 @@ export struct SettingsRuntimeCoordinatorHost {
     CompanionSettingsSurfaceHost({
       sections: this.snapshot.companionSections,
       contentMaxWidth: this.snapshot.contentMaxWidth,
-      enableTwoPane: this.snapshot.enableTwoPane,
       selectedKey: this.snapshot.selectedKey,
       scrollOffset: this.snapshot.companionScrollOffset,
       switchRevision: this.snapshot.switchRevision,
@@ -323,124 +272,6 @@ export struct SettingsRuntimeCoordinatorHost {
       onSelectChoice: this.actions.onSelectCompanionChoice,
       onCloseChoice: this.actions.onCloseCompanionChoice
     })
-  }
-
-  @Builder
-  private renderServerListPane(): void {
-    ServerSettingsSurfaceHost({
-      title: this.snapshot.serverTitle,
-      sections: this.snapshot.serverSections,
-      contentMaxWidth: this.splitNavWidth(),
-      enableTwoPane: false,
-      selectedKey: this.snapshot.selectedKey,
-      scrollOffset: this.snapshot.serverScrollOffset,
-      switchRevision: this.snapshot.switchRevision,
-      showChoiceDialog: this.snapshot.showChoiceDialog && this.snapshot.choiceDialogKey === 'server_connection_security',
-      choiceDialogKey: this.snapshot.choiceDialogKey,
-      secureConnectionChoice: this.snapshot.secureConnectionChoice,
-      dark: this.snapshot.dark,
-      onBack: (): void => this.routeTo(AppRoute.COMPANION_SETTINGS),
-      onOpen: (item: SettingsItem): void => this.openSettingsItem(item),
-      onAction: (actionId: string): void => this.openSettingsAction(actionId),
-      onScrollOffsetChange: this.actions.onServerScrollOffsetChange,
-      onSwipeBack: this.actions.onSwipeBack,
-      onSelectChoice: this.actions.onSelectCompanionChoice,
-      onCloseChoice: this.actions.onCloseCompanionChoice
-    })
-  }
-
-  @Builder
-  private renderServerPage(contentMaxWidth: number): void {
-    ServerSettingsSurfaceHost({
-      title: this.snapshot.serverTitle,
-      sections: this.snapshot.serverSections,
-      contentMaxWidth: contentMaxWidth,
-      enableTwoPane: false,
-      selectedKey: this.snapshot.selectedKey,
-      scrollOffset: this.snapshot.serverScrollOffset,
-      switchRevision: this.snapshot.switchRevision,
-      showChoiceDialog: this.snapshot.showChoiceDialog && this.snapshot.choiceDialogKey === 'server_connection_security',
-      choiceDialogKey: this.snapshot.choiceDialogKey,
-      secureConnectionChoice: this.snapshot.secureConnectionChoice,
-      dark: this.snapshot.dark,
-      onBack: (): void => this.routeTo(AppRoute.COMPANION_SETTINGS),
-      onOpen: (item: SettingsItem): void => this.openSettingsItem(item),
-      onAction: (actionId: string): void => this.openSettingsAction(actionId),
-      onScrollOffsetChange: this.actions.onServerScrollOffsetChange,
-      onSwipeBack: this.actions.onSwipeBack,
-      onSelectChoice: this.actions.onSelectCompanionChoice,
-      onCloseChoice: this.actions.onCloseCompanionChoice
-    })
-  }
-
-  @Builder
-  private renderDetailPane(contentMaxWidth: number): void {
-    SettingsDetailSurfaceHost({
-      detailKey: this.snapshot.detailKey,
-      title: this.snapshot.detailTitle,
-      summary: this.snapshot.detailSummary,
-      body: this.snapshot.detailBody,
-      status: this.snapshot.detailStatus,
-      action: this.snapshot.detailAction,
-      textValue: this.snapshot.detailTextValue,
-      optionValue: this.snapshot.detailOptionValue,
-      contentMaxWidth: contentMaxWidth,
-      wifiSsids: this.snapshot.wifiSsids,
-      ssidInput: this.snapshot.ssidInput,
-      prioritizeInternal: this.snapshot.prioritizeInternal,
-      gestureGroups: this.snapshot.gestureGroups,
-      screenOrientation: this.snapshot.screenOrientation,
-      pageZoomLevel: this.snapshot.pageZoomLevel,
-      appLanguage: this.snapshot.appLanguage,
-      appTheme: this.snapshot.appTheme,
-      serviceCardUpdateFrequency: this.snapshot.serviceCardUpdateFrequency,
-      gestureActionValue: this.actions.gestureActionValue,
-      onRoute: (route: number): void => this.routeTo(route),
-      onSetDetailHeader: (key: string, title: string): void => this.setDetailHeader(key, title),
-      onOpenDashboard: this.actions.onOpenDashboard,
-      onSsidInputChange: this.actions.onSsidInputChange,
-      onAddSsid: this.actions.onAddSsid,
-      onRemoveSsid: this.actions.onRemoveSsid,
-      onPrioritizeChange: this.actions.onPrioritizeChange,
-      onSelectGestureAction: this.actions.onSelectGestureAction,
-      onSelectChoice: this.actions.onSelectDetailChoice,
-      onTextChange: this.actions.onDetailTextChange,
-      onOptionChange: (value: string): void => {
-        this.actions.onDetailOptionChange(value);
-        if (this.snapshot.detailKey === 'server_websocket') {
-          this.routeTo(AppRoute.SERVER_SETTINGS);
-        }
-      },
-      onSaveServerDetail: this.actions.onSaveServerDetail,
-      onHelp: this.actions.onHelp,
-      onSwipeBack: this.actions.onSwipeBack
-    })
-  }
-
-  @Builder
-  private renderSplitRuntime(): void {
-    Stack() {
-      Row() {
-        if (this.snapshot.route === AppRoute.SETTINGS_DETAIL && this.isServerDetail()) {
-          this.renderServerListPane()
-        } else {
-          this.renderCompanionListPane()
-        }
-
-        if (this.snapshot.route === AppRoute.SERVER_SETTINGS) {
-          this.renderServerPage(this.splitContentWidth())
-        } else {
-          this.renderDetailPane(this.splitContentWidth())
-        }
-      }
-      .width('100%')
-      .height('100%')
-      .constraintSize({ maxWidth: this.snapshot.contentMaxWidth })
-
-      this.renderSettingsDialogs()
-    }
-    .width('100%')
-    .height('100%')
   }
 
   @Builder
@@ -495,11 +326,6 @@ export struct SettingsRuntimeCoordinatorHost {
   }
 
   build() {
-    if (this.snapshot.enableTwoPane &&
-      (this.snapshot.route === AppRoute.SETTINGS_DETAIL || this.snapshot.route === AppRoute.SERVER_SETTINGS)) {
-      this.renderSplitRuntime()
-    } else {
-      this.renderStackRuntime()
-    }
+    this.renderStackRuntime()
   }
 }

@@ -8,7 +8,6 @@ import { SettingsDialogUiConfig } from './components/SettingsDialogUiConfig';
 export struct CompanionSettingsHost {
   @Prop sections: SettingsSection[] = [];
   @Prop contentMaxWidth: number = 0;
-  @Prop enableTwoPane: boolean = false;
   @Prop selectedKey: string = '';
   @Prop scrollOffset: number = 0;
   @Prop switchRevision: number = 0;
@@ -66,7 +65,6 @@ export struct CompanionSettingsHost {
     SettingsHomePage({
       sections: this.sections,
       contentMaxWidth: this.contentMaxWidth,
-      enableTwoPane: this.enableTwoPane,
       selectedKey: this.selectedKey,
       scrollOffset: this.scrollOffset,
       switchRevision: this.switchRevision,

@@ -7,7 +7,6 @@ export interface SettingsRuntimeSnapshot {
   serverSections: SettingsSection[];
   serverTitle: string;
   contentMaxWidth: number;
-  enableTwoPane: boolean;
   selectedKey: string;
   companionScrollOffset: number;
   serverScrollOffset: number;

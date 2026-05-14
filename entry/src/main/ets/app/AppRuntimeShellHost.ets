@@ -1,5 +1,5 @@
 import web_webview from '@ohos.web.webview';
-import { DeviceFormFactor, DeviceProfileInfo } from '../shared/device/DeviceProfile';
+import { DeviceFormFactor, DeviceProfileInfo, DisplaySizeClass } from '../shared/device/DeviceProfile';
 import { ExternalAppProxy } from '../features/dashboard/ExternalAppProxy';
 import { WearRuntimeHost } from '../features/wear/WearRuntimeHost';
 import { AppLockRuntimeHost } from '../features/security/AppLockRuntimeHost';
@@ -19,9 +19,9 @@ class EmptyDeviceProfileInfo implements DeviceProfileInfo {
   widthVp: number = 0;
   heightVp: number = 0;
   formFactor: DeviceFormFactor = DeviceFormFactor.PHONE;
+  sizeClass: DisplaySizeClass = DisplaySizeClass.COMPACT;
   contentMaxWidth: number = 0;
   settingsMaxWidth: number = 0;
-  settingsTwoPane: boolean = false;
 }
 
 const EMPTY_ONBOARDING_SNAPSHOT: OnboardingRuntimeSnapshot = {
@@ -65,7 +65,6 @@ const EMPTY_SETTINGS_SNAPSHOT: SettingsRuntimeSnapshot = {
   serverSections: [],
   serverTitle: '',
   contentMaxWidth: 720,
-  enableTwoPane: false,
   selectedKey: '',
   companionScrollOffset: 0,
   serverScrollOffset: 0,

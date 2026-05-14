@@ -5,7 +5,10 @@ import { SettingsBoundary } from './components/SettingsBoundary';
 import { SettingsCategory } from './components/SettingsCategory';
 import { SettingsContentRow } from './components/SettingsContentRow';
 import { SettingsUiConfig } from './components/SettingsUiConfig';
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import {
+  HdsNavigation,
+  HdsNavigationTitleMode
+} from '@kit.UIDesignKit';
 
 @Component
 export struct GestureSettingsPage {
@@ -48,56 +51,62 @@ export struct GestureSettingsPage {
     .padding(SettingsUiConfig.groupPadding)
   }
 
+  @Builder
+  private renderPageContent(): void {
+    List({ scroller: this.scroller, space: SettingsUiConfig.listSpace }) {
+      if (this.description.length > 0) {
+        ListItem() {
+          Column() {
+            Text(this.description)
+              .fontSize(16)
+              .fontColor(HaTheme.textPrimary(this.appResolvedDark))
+              .lineHeight(24)
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+          }
+          .width('100%')
+          .borderRadius(SettingsUiConfig.groupRadius)
+          .backgroundColor(HaTheme.surface(this.appResolvedDark))
+          .shadow(SettingsUiConfig.groupShadow())
+        }
+        .width('100%')
+      }
+
+      ForEach(this.groups, (group: GestureSettingGroup) => {
+        ListItem() {
+          SettingsCategory({ title: group.title })
+        }
+        .width('100%')
+
+        ListItem() {
+          this.renderGestureGroup(group)
+        }
+        .width('100%')
+      }, (group: GestureSettingGroup) => group.title)
+    }
+    .padding(SettingsUiConfig.listPadding())
+    .layoutWeight(1)
+    .width('100%')
+    .constraintSize({ maxWidth: this.contentMaxWidth })
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+    .contentEndOffset(SettingsUiConfig.listContentEndOffset)
+    .clip(false)
+    .cachedCount(3, true)
+    .scrollBar(SettingsUiConfig.scrollBarState())
+    .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+    .alignListItem(ListItemAlign.Center)
+  }
+
   build() {
     HdsNavigation() {
-      List({ scroller: this.scroller, space: SettingsUiConfig.listSpace }) {
-        if (this.description.length > 0) {
-          ListItem() {
-            Column() {
-              Text(this.description)
-                .fontSize(16)
-                .fontColor(HaTheme.textPrimary(this.appResolvedDark))
-                .lineHeight(24)
-                .width('100%')
-                .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-            }
-            .width('100%')
-            .borderRadius(SettingsUiConfig.groupRadius)
-            .backgroundColor(HaTheme.surface(this.appResolvedDark))
-            .shadow(SettingsUiConfig.groupShadow())
-          }
-          .width('100%')
-        }
-
-        ForEach(this.groups, (group: GestureSettingGroup) => {
-          ListItem() {
-            SettingsCategory({ title: group.title })
-          }
-          .width('100%')
-
-          ListItem() {
-            this.renderGestureGroup(group)
-          }
-          .width('100%')
-        }, (group: GestureSettingGroup) => group.title)
-      }
-      .padding(SettingsUiConfig.listPadding())
-      .layoutWeight(1)
-      .width('100%')
-      .constraintSize({ maxWidth: this.contentMaxWidth })
-      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-      .contentEndOffset(SettingsUiConfig.listContentEndOffset)
-      .clip(false)
-      .cachedCount(3, true)
-      .scrollBar(SettingsUiConfig.scrollBarState())
-      .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
-      .alignListItem(ListItemAlign.Center)
+      this.renderPageContent()
     }
     .width('100%')
     .height('100%')
     .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
     .titleBar(SettingsUiConfig.titleBar(Localization.t('settings_gestures'), this.onBack, this.appResolvedDark))
     .bindToScrollable([this.scroller])
+    .mode(NavigationMode.Stack)
     .titleMode(HdsNavigationTitleMode.MINI)
     .gesture(
       PanGesture({ direction: PanDirection.Horizontal, distance: 24 })

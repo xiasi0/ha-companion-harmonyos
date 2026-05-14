@@ -5,7 +5,10 @@ import { SettingsBoundary } from './components/SettingsBoundary';
 import { SettingsRadioRow } from './components/SettingsRadioRow';
 import { SettingsTextInput } from './components/SettingsTextInput';
 import { SettingsUiConfig } from './components/SettingsUiConfig';
-import { HdsNavigation, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import {
+  HdsNavigation,
+  HdsNavigationTitleMode
+} from '@kit.UIDesignKit';
 
 @Component
 export struct ServerSettingDetailPage {
@@ -93,65 +96,49 @@ export struct ServerSettingDetailPage {
   }
 
   @Builder
-  private renderWebsocketDetail(): void {
-    HdsNavigation() {
-      List({ scroller: this.scroller, space: SettingsUiConfig.listSpace }) {
-        ListItem() {
-          Column() {
-            Text(this.websocketDescription())
-              .fontSize(16)
-              .fontColor(HaTheme.textPrimary(this.appResolvedDark))
-              .lineHeight(26)
-              .width('100%')
-              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-          }
-          .width('100%')
-          .borderRadius(SettingsUiConfig.groupRadius)
-          .backgroundColor(HaTheme.surface(this.appResolvedDark))
-          .shadow(SettingsUiConfig.groupShadow())
+  private renderWebsocketContent(): void {
+    List({ scroller: this.scroller, space: SettingsUiConfig.listSpace }) {
+      ListItem() {
+        Column() {
+          Text(this.websocketDescription())
+            .fontSize(16)
+            .fontColor(HaTheme.textPrimary(this.appResolvedDark))
+            .lineHeight(26)
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 16, bottom: 16 })
         }
         .width('100%')
-
-        ListItem() {
-          Column() {
-            this.renderWebsocketOption('system')
-            SettingsBoundary()
-            this.renderWebsocketOption('always')
-          }
-          .width('100%')
-          .borderRadius(SettingsUiConfig.groupRadius)
-          .backgroundColor(HaTheme.surface(this.appResolvedDark))
-          .shadow(SettingsUiConfig.groupShadow())
-          .padding(SettingsUiConfig.groupPadding)
-        }
-        .width('100%')
+        .borderRadius(SettingsUiConfig.groupRadius)
+        .backgroundColor(HaTheme.surface(this.appResolvedDark))
+        .shadow(SettingsUiConfig.groupShadow())
       }
-      .padding(SettingsUiConfig.listPadding())
-      .layoutWeight(1)
       .width('100%')
-      .constraintSize({ maxWidth: this.contentMaxWidth })
-      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-      .contentEndOffset(SettingsUiConfig.listContentEndOffset)
-      .clip(false)
-      .cachedCount(3, true)
-      .scrollBar(SettingsUiConfig.scrollBarState())
-      .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
-      .alignListItem(ListItemAlign.Center)
+
+      ListItem() {
+        Column() {
+          this.renderWebsocketOption('system')
+          SettingsBoundary()
+          this.renderWebsocketOption('always')
+        }
+        .width('100%')
+        .borderRadius(SettingsUiConfig.groupRadius)
+        .backgroundColor(HaTheme.surface(this.appResolvedDark))
+        .shadow(SettingsUiConfig.groupShadow())
+        .padding(SettingsUiConfig.groupPadding)
+      }
+      .width('100%')
     }
+    .padding(SettingsUiConfig.listPadding())
+    .layoutWeight(1)
     .width('100%')
-    .height('100%')
+    .constraintSize({ maxWidth: this.contentMaxWidth })
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+    .contentEndOffset(SettingsUiConfig.listContentEndOffset)
+    .clip(false)
+    .cachedCount(3, true)
+    .scrollBar(SettingsUiConfig.scrollBarState())
     .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
-    .titleBar(SettingsUiConfig.titleBar(this.title, this.onBack, this.appResolvedDark, this.onHelp))
-    .bindToScrollable([this.scroller])
-    .titleMode(HdsNavigationTitleMode.MINI)
-    .gesture(
-      PanGesture({ direction: PanDirection.Horizontal, distance: 24 })
-        .onActionEnd((event: GestureEvent) => {
-          if (event.offsetX > 60 || event.offsetX < -60) {
-            this.onSwipeBack();
-          }
-        })
-    )
+    .alignListItem(ListItemAlign.Center)
   }
 
   @Builder
@@ -174,62 +161,73 @@ export struct ServerSettingDetailPage {
     .width('100%')
   }
 
-  build() {
-    if (this.detailKey === 'server_websocket') {
-      this.renderWebsocketDetail()
-    } else {
-      HdsNavigation() {
-        Scroll(this.scroller) {
-          Column({ space: 20 }) {
-            if (this.summary.length > 0 && this.detailKey !== 'server_external_url') {
-              Text(this.summary)
-                .fontSize(14)
-                .fontColor(HaTheme.textSecondary(this.appResolvedDark))
-                .lineHeight(20)
-                .width('100%')
-            }
-
-            if (this.body.length > 0 && this.detailKey !== 'server_external_url') {
-              Text(this.body)
-                .fontSize(16)
-                .fontColor(HaTheme.textPrimary(this.appResolvedDark))
-                .lineHeight(24)
-                .width('100%')
-            }
-
-            if (this.isTextDetail()) {
-              this.renderTextEditor()
-            }
-          }
-          .width('100%')
-          .constraintSize({ maxWidth: this.contentMaxWidth })
-          .padding({ left: 24, right: 24, top: 24, bottom: 32 })
-          .borderRadius(SettingsUiConfig.groupRadius)
-          .backgroundColor(HaTheme.surface(this.appResolvedDark))
-          .shadow(SettingsUiConfig.groupShadow())
+  @Builder
+  private renderGeneralContent(): void {
+    Scroll(this.scroller) {
+      Column({ space: 20 }) {
+        if (this.summary.length > 0 && this.detailKey !== 'server_external_url') {
+          Text(this.summary)
+            .fontSize(14)
+            .fontColor(HaTheme.textSecondary(this.appResolvedDark))
+            .lineHeight(20)
+            .width('100%')
         }
-        .layoutWeight(1)
-        .width('100%')
-        .padding(SettingsUiConfig.listPadding())
-        .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-        .scrollBar(SettingsUiConfig.scrollBarState())
-        .clip(false)
-        .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+
+        if (this.body.length > 0 && this.detailKey !== 'server_external_url') {
+          Text(this.body)
+            .fontSize(16)
+            .fontColor(HaTheme.textPrimary(this.appResolvedDark))
+            .lineHeight(24)
+            .width('100%')
+        }
+
+        if (this.isTextDetail()) {
+          this.renderTextEditor()
+        }
       }
       .width('100%')
-      .height('100%')
-      .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
-      .titleBar(SettingsUiConfig.titleBar(this.title, this.onBack, this.appResolvedDark))
-      .bindToScrollable([this.scroller])
-      .titleMode(HdsNavigationTitleMode.MINI)
-      .gesture(
-        PanGesture({ direction: PanDirection.Horizontal, distance: 24 })
-          .onActionEnd((event: GestureEvent) => {
-            if (event.offsetX > 60 || event.offsetX < -60) {
-              this.onSwipeBack();
-            }
-          })
-      )
+      .constraintSize({ maxWidth: this.contentMaxWidth })
+      .padding({ left: 24, right: 24, top: 24, bottom: 32 })
+      .borderRadius(SettingsUiConfig.groupRadius)
+      .backgroundColor(HaTheme.surface(this.appResolvedDark))
+      .shadow(SettingsUiConfig.groupShadow())
     }
+    .layoutWeight(1)
+    .width('100%')
+    .padding(SettingsUiConfig.listPadding())
+    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+    .scrollBar(SettingsUiConfig.scrollBarState())
+    .clip(false)
+    .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+  }
+
+  @Builder
+  private renderPageContent(): void {
+    if (this.detailKey === 'server_websocket') {
+      this.renderWebsocketContent()
+    } else {
+      this.renderGeneralContent()
+    }
+  }
+
+  build() {
+    HdsNavigation() {
+      this.renderPageContent()
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+    .titleBar(SettingsUiConfig.titleBar(this.title, this.onBack, this.appResolvedDark, this.onHelp))
+    .bindToScrollable([this.scroller])
+    .mode(NavigationMode.Stack)
+    .titleMode(HdsNavigationTitleMode.MINI)
+    .gesture(
+      PanGesture({ direction: PanDirection.Horizontal, distance: 24 })
+        .onActionEnd((event: GestureEvent) => {
+          if (event.offsetX > 60 || event.offsetX < -60) {
+            this.onSwipeBack();
+          }
+        })
+    )
   }
 }
