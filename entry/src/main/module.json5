@@ -84,9 +84,9 @@
         "name": "EntryAbility",
         "srcEntry": "./ets/entryability/EntryAbility.ets",
         "description": "$string:EntryAbility_desc",
-        "icon": "$media:ha_brand",
+        "icon": "$media:layered_image",
         "label": "$string:EntryAbility_label",
-        "startWindowIcon": "$media:ha_brand",
+        "startWindowIcon": "$media:ha_start_window_icon",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
         "launchType": "singleton",
@@ -109,9 +109,9 @@
         "name": "EntryCardEditAbility",
         "srcEntry": "./ets/entrycardeditability/EntryCardEditAbility.ets",
         "description": "$string:EntryAbility_desc",
-        "icon": "$media:ha_brand",
+        "icon": "$media:layered_image",
         "label": "$string:light_card_display_name",
-        "startWindowIcon": "$media:ha_brand",
+        "startWindowIcon": "$media:ha_start_window_icon",
         "startWindowBackground": "$color:start_window_background",
         "exported": true
       }
