@@ -25,6 +25,7 @@ export struct OnboardingFlowHost {
 
   onConnectWelcome: () => void = () => {};
   onLearnMore: () => void = () => {};
+  onPrivacyPolicy: () => void = () => {};
   onBack: () => void = () => {};
   onHelp: () => void = () => {};
   onManualInput: () => void = () => {};
@@ -50,7 +51,8 @@ export struct OnboardingFlowHost {
       WelcomePage({
         contentMaxWidth: this.contentMaxWidth,
         onConnect: this.onConnectWelcome,
-        onLearnMore: this.onLearnMore
+        onLearnMore: this.onLearnMore,
+        onPrivacyPolicy: this.onPrivacyPolicy
       })
     } else if (this.step === 1) {
       DiscoveryPage({

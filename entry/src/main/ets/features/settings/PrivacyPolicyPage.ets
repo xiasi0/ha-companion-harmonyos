@@ -1,68 +1,48 @@
 import { HaTheme } from '../../shared/theme/HaTheme';
 import { Localization } from '../../shared/i18n/Localization';
 import { SettingsBoundary } from './components/SettingsBoundary';
-import { SettingsStatusChip } from './components/SettingsStatusChip';
 import { SettingsUiConfig } from './components/SettingsUiConfig';
 import {
   HdsNavigation,
   HdsNavigationTitleMode
 } from '@kit.UIDesignKit';
 
-interface OpenSourceLicenseItem {
-  name: string;
-  version: string;
-  license: string;
-  description: string;
+interface PrivacyPolicyItem {
+  title: string;
+  url: string;
 }
 
 @Component
-export struct OpenSourceLicensesPage {
+export struct PrivacyPolicyPage {
   @Prop contentMaxWidth: number = SettingsUiConfig.contentMaxWidth;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   private scroller: Scroller = new Scroller();
   onBack: () => void = () => {};
   onSwipeBack: () => void = () => {};
 
-  private items(): OpenSourceLicenseItem[] {
+  private items(): PrivacyPolicyItem[] {
     return [
       {
-        name: 'Home Assistant icon assets',
-        version: 'current',
-        license: 'Apache-2.0',
-        description: Localization.t('license_ha_icon_assets')
+        title: Localization.t('privacy_home_assistant_statement'),
+        url: 'https://www.home-assistant.io/privacy/'
       },
       {
-        name: 'HarmonyOS SDK',
-        version: '6.x',
-        license: 'SDK',
-        description: Localization.t('license_harmony_sdk')
+        title: Localization.t('privacy_huawei_statement'),
+        url: 'https://consumer.huawei.com/cn/privacy/privacy-statement-huawei/'
       }
     ];
   }
 
   @Builder
-  private renderChip(text: string, primary: boolean): void {
-    SettingsStatusChip({ text: text, tone: primary ? 'accent' : 'neutral' })
-  }
-
-  @Builder
-  private renderItem(item: OpenSourceLicenseItem): void {
+  private renderItem(item: PrivacyPolicyItem): void {
     Column({ space: 8 }) {
-      Text(item.name)
+      Text(item.title)
         .fontSize(16)
         .fontWeight(FontWeight.Medium)
         .fontColor(HaTheme.textPrimary(this.appResolvedDark))
         .width('100%')
 
-      Row({ space: 8 }) {
-        if (item.version.length > 0) {
-          this.renderChip(item.version, false)
-        }
-        this.renderChip(item.license, true)
-      }
-      .width('100%')
-
-      Text(item.description)
+      Text(item.url)
         .fontSize(14)
         .fontColor(HaTheme.textSecondary(this.appResolvedDark))
         .lineHeight(20)
@@ -78,12 +58,12 @@ export struct OpenSourceLicensesPage {
     List({ scroller: this.scroller, space: SettingsUiConfig.listSpace }) {
       ListItem() {
         Column() {
-          ForEach(this.items(), (item: OpenSourceLicenseItem, index?: number) => {
+          ForEach(this.items(), (item: PrivacyPolicyItem, index?: number) => {
             this.renderItem(item)
             if ((index ?? 0) < this.items().length - 1) {
               SettingsBoundary()
             }
-          }, (item: OpenSourceLicenseItem) => item.name)
+          }, (item: PrivacyPolicyItem) => item.title)
         }
         .width('100%')
         .borderRadius(SettingsUiConfig.groupRadius)
@@ -113,7 +93,7 @@ export struct OpenSourceLicensesPage {
     .width('100%')
     .height('100%')
     .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
-    .titleBar(SettingsUiConfig.titleBar(Localization.t('settings_open_source_licenses'), this.onBack, this.appResolvedDark))
+    .titleBar(SettingsUiConfig.titleBar(Localization.t('settings_privacy_policy'), this.onBack, this.appResolvedDark))
     .bindToScrollable([this.scroller])
     .mode(NavigationMode.Stack)
     .titleMode(HdsNavigationTitleMode.MINI)

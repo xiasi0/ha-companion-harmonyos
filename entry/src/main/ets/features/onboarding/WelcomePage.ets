@@ -8,8 +8,39 @@ import { Localization } from '../../shared/i18n/Localization';
 export struct WelcomePage {
   @Prop
   contentMaxWidth: number = OnboardingUiConfig.contentMaxWidth;
+  @State
+  privacyAccepted: boolean = false;
   onConnect: () => void = () => {};
   onLearnMore: () => void = () => {};
+  onPrivacyPolicy: () => void = () => {};
+
+  @Builder
+  private renderPrivacyConsent(): void {
+    Row({ space: 8 }) {
+      Checkbox()
+        .select(this.privacyAccepted)
+        .onChange((value: boolean): void => {
+          this.privacyAccepted = value;
+        })
+
+      Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Center }) {
+        Text(Localization.t('onboarding_privacy_accept_prefix'))
+          .fontSize(14)
+          .fontColor(HaColors.TEXT_SECONDARY)
+          .lineHeight(20)
+
+        Text(Localization.t('onboarding_privacy_policy'))
+          .fontSize(14)
+          .fontColor(HaColors.BRAND)
+          .lineHeight(20)
+          .onClick((): void => this.onPrivacyPolicy())
+      }
+      .layoutWeight(1)
+    }
+    .width('100%')
+    .constraintSize({ maxWidth: this.contentMaxWidth })
+    .alignItems(VerticalAlign.Center)
+  }
 
   build() {
     Scroll() {
@@ -40,13 +71,16 @@ export struct WelcomePage {
         .width('100%')
 
         Blank()
-          .layoutWeight(0.72)
+          .layoutWeight(0.48)
 
         PrimaryButton({
           text: Localization.t('onboarding_connect'),
           maxWidth: this.contentMaxWidth,
+          enabledValue: this.privacyAccepted,
           action: this.onConnect
         })
+
+        this.renderPrivacyConsent()
 
         PrimaryButton({
           text: Localization.t('onboarding_learn_more'),

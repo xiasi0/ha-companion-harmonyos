@@ -5,6 +5,7 @@ import { GestureSettingsPage } from './GestureSettingsPage';
 import { ServerHomeNetworkPage } from './ServerHomeNetworkPage';
 import { ServerSettingDetailPage } from './ServerSettingDetailPage';
 import { OpenSourceLicensesPage } from './OpenSourceLicensesPage';
+import { PrivacyPolicyPage } from './PrivacyPolicyPage';
 import { Localization } from '../../shared/i18n/Localization';
 
 @Component
@@ -162,6 +163,12 @@ export struct SettingsDetailHost {
       })
     } else if (this.detailKey === 'open_source_licenses') {
       OpenSourceLicensesPage({
+        contentMaxWidth: this.contentMaxWidth,
+        onBack: this.onBackToCompanion,
+        onSwipeBack: this.onSwipeBack
+      })
+    } else if (this.detailKey === 'privacy_policy') {
+      PrivacyPolicyPage({
         contentMaxWidth: this.contentMaxWidth,
         onBack: this.onBackToCompanion,
         onSwipeBack: this.onSwipeBack

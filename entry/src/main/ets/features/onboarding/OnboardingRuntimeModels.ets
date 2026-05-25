@@ -14,6 +14,9 @@ export interface OnboardingRuntimeSnapshot {
   secureConnectionChoice: string;
   homeNetworkName: string;
   secureConnectionFromSettings: boolean;
+  connectionErrorUrl: string;
+  connectionErrorCode: number;
+  connectionErrorDetail: string;
 }
 
 export interface OnboardingRuntimeActions {
@@ -34,4 +37,5 @@ export interface OnboardingRuntimeActions {
   onOpenDashboard: () => void;
   onHomeNetworkNameChange: (value: string) => void;
   onClearSecureConnectionFromSettings: () => void;
+  onRetryConnectionError: () => void;
 }

@@ -9,6 +9,7 @@ export interface AppNavigationRuntimeState {
   addingServerFromSettings: boolean;
   onboardingBackTarget: number;
   showLoginWeb: boolean;
+  loading: boolean;
   step: number;
   secureConnectionFromSettings: boolean;
   settingsDetailKey: string;
@@ -17,6 +18,8 @@ export interface AppNavigationRuntimeState {
   showServerEditDialog: boolean;
   nativeFeatureBackTarget: number;
   dashboardCurrentUrl: string;
+  connectionErrorBackTarget: number;
+  connectionProbeToken: number;
 }
 
 export interface AppNavigationRuntimeCallbacks {
@@ -54,12 +57,23 @@ export class AppNavigationRuntimeService {
         return true;
       }
       callbacks.stopDiscoveryAnimation();
+      state.connectionProbeToken += 1;
+      state.loading = false;
       state.step = state.onboardingBackTarget;
       state.showLoginWeb = false;
       return true;
     }
     if (state.step === AppRoute.MANUAL_SERVER || state.step === AppRoute.LOGIN) {
+      state.connectionProbeToken += 1;
+      state.loading = false;
       state.step = AppRoute.DISCOVERY;
+      state.showLoginWeb = false;
+      return true;
+    }
+    if (state.step === AppRoute.CONNECTION_ERROR) {
+      state.connectionProbeToken += 1;
+      state.loading = false;
+      state.step = state.connectionErrorBackTarget > 0 ? state.connectionErrorBackTarget : AppRoute.MANUAL_SERVER;
       state.showLoginWeb = false;
       return true;
     }

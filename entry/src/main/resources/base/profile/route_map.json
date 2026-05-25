@@ -41,6 +41,11 @@
       "buildFunction": "CompanionOnboardingManualServerBuilder"
     },
     {
+      "name": "CompanionOnboardingConnectionError",
+      "pageSourceFile": "src/main/ets/features/onboarding/OnboardingNavigationRoutes.ets",
+      "buildFunction": "CompanionOnboardingConnectionErrorBuilder"
+    },
+    {
       "name": "CompanionOnboardingNameDevice",
       "pageSourceFile": "src/main/ets/features/onboarding/OnboardingNavigationRoutes.ets",
       "buildFunction": "CompanionOnboardingNameDeviceBuilder"

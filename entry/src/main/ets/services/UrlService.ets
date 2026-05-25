@@ -129,7 +129,7 @@ export class UrlService {
   }
 
   static buildDashboardUrl(baseUrl: string): string {
-    return UrlService.appendQueryParam(`${baseUrl}/lovelace/default_view`, 'external_auth', '1');
+    return UrlService.appendQueryParam(baseUrl, 'external_auth', '1');
   }
 
   static urlPathOnly(url: string): string {

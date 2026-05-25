@@ -205,12 +205,31 @@ export class HomeNetworkService {
 
   private static buildDashboardUrl(baseUrl: string, currentUrl: string): string {
     const tail = HomeNetworkService.currentPathQueryFragment(currentUrl);
-    const normalizedTail = tail.length > 0 ? tail : '/lovelace/default_view';
+    const normalizedTail = HomeNetworkService.isDashboardHomeTail(tail) ? '' : tail;
     let nextUrl = `${baseUrl}${normalizedTail}`;
     if (nextUrl.indexOf('external_auth=') < 0) {
       nextUrl += nextUrl.indexOf('?') >= 0 ? '&external_auth=1' : '?external_auth=1';
     }
     return nextUrl;
+  }
+
+  private static isDashboardHomeTail(tail: string): boolean {
+    if (tail.length === 0) {
+      return true;
+    }
+    let path = tail;
+    const hashIndex = path.indexOf('#');
+    if (hashIndex >= 0) {
+      path = path.slice(0, hashIndex);
+    }
+    const queryIndex = path.indexOf('?');
+    if (queryIndex >= 0) {
+      path = path.slice(0, queryIndex);
+    }
+    while (path.length > 1 && path.endsWith('/')) {
+      path = path.slice(0, path.length - 1);
+    }
+    return path === '/' || path === '/lovelace' || path === '/lovelace/default_view';
   }
 
   private static currentPathQueryFragment(url: string): string {

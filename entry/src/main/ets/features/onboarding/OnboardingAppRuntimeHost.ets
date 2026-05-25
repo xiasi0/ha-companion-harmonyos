@@ -1,8 +1,9 @@
 import { AppRoute } from '../../app/AppRoute';
 import { AppWebRuntimeActions, AppWebRuntimeSnapshot } from '../../app/AppWebRuntimeModels';
+import common from '@ohos.app.ability.common';
 import web_webview from '@ohos.web.webview';
 import { ExternalAppProxy } from '../dashboard/ExternalAppProxy';
-import { Localization } from '../../shared/i18n/Localization';
+import { AppPromptService } from '../../shared/services/AppPromptService';
 import { WelcomePage } from './WelcomePage';
 import {
   isOnboardingNavigationStep,
@@ -23,7 +24,10 @@ const DEFAULT_ONBOARDING_SNAPSHOT: OnboardingRuntimeSnapshot = {
   haBaseUrl: '',
   secureConnectionChoice: '',
   homeNetworkName: '',
-  secureConnectionFromSettings: false
+  secureConnectionFromSettings: false,
+  connectionErrorUrl: '',
+  connectionErrorCode: 0,
+  connectionErrorDetail: ''
 };
 
 const DEFAULT_ONBOARDING_ACTIONS: OnboardingRuntimeActions = {
@@ -43,7 +47,8 @@ const DEFAULT_ONBOARDING_ACTIONS: OnboardingRuntimeActions = {
   onSecureChoiceChange: () => {},
   onOpenDashboard: () => {},
   onHomeNetworkNameChange: () => {},
-  onClearSecureConnectionFromSettings: () => {}
+  onClearSecureConnectionFromSettings: () => {},
+  onRetryConnectionError: () => {}
 };
 
 const DEFAULT_WEB_RUNTIME_SNAPSHOT: AppWebRuntimeSnapshot = {
@@ -83,6 +88,7 @@ const DEFAULT_WEB_RUNTIME_ACTIONS: AppWebRuntimeActions = {
 };
 
 const PATH_STACK_SYNC_DELAY_MS: number = 50;
+const PRIVACY_POLICY_URL: string = 'https://www.home-assistant.io/privacy/';
 
 @Component
 export struct OnboardingAppRuntimeHost {
@@ -161,12 +167,23 @@ export struct OnboardingAppRuntimeHost {
     }, PATH_STACK_SYNC_DELAY_MS);
   }
 
+  private openPrivacyPolicy(): void {
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    context.startAbility({
+      action: 'ohos.want.action.viewData',
+      uri: PRIVACY_POLICY_URL
+    }).catch((): void => {
+      AppPromptService.showInfo(this.getUIContext(), PRIVACY_POLICY_URL);
+    });
+  }
+
   build() {
     Navigation(this.pathStack) {
       WelcomePage({
         contentMaxWidth: this.snapshot.contentMaxWidth,
         onConnect: this.actions.onStartDiscoveryFlow,
-        onLearnMore: (): void => this.actions.onSetMessage(Localization.t('docs_home_assistant'))
+        onLearnMore: (): void => AppPromptService.showLearnMoreUnavailable(this.getUIContext()),
+        onPrivacyPolicy: (): void => this.openPrivacyPolicy()
       })
     }
     .mode(NavigationMode.Stack)

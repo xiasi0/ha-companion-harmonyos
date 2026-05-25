@@ -3,6 +3,7 @@ import { AppRoute } from '../../app/AppRoute';
 import { HaServerItem } from '../../models/HaServerItem';
 import { StorageService, StoredServerInfo } from '../../services/StorageService';
 import { UrlService } from '../../services/UrlService';
+import { DiscoveryService, HaServerProbeResult } from '../../services/DiscoveryService';
 import { Localization } from '../../shared/i18n/Localization';
 import { DiscoveryRuntimeService } from './DiscoveryRuntimeService';
 
@@ -22,6 +23,11 @@ export interface DiscoveryFlowRuntimeState {
   authUrl: string;
   oauthState: string;
   handledAuthCode: string;
+  connectionErrorUrl: string;
+  connectionErrorCode: number;
+  connectionErrorDetail: string;
+  connectionErrorBackTarget: number;
+  connectionProbeToken: number;
   dashboardBridgeReady: boolean;
   dashboardAuthProvided: boolean;
   discoveryAnimationRunning: boolean;
@@ -72,6 +78,10 @@ export class DiscoveryFlowRuntimeService {
   }
 
   static selectServer(state: DiscoveryFlowRuntimeState, callbacks: DiscoveryFlowRuntimeCallbacks, url: string): void {
+    DiscoveryFlowRuntimeService.connectServerAddress(state, callbacks, url, AppRoute.DISCOVERY);
+  }
+
+  private static activateServer(state: DiscoveryFlowRuntimeState, callbacks: DiscoveryFlowRuntimeCallbacks, url: string): void {
     callbacks.setDiscoverySheetVisible(false);
     DiscoveryFlowRuntimeService.stopAnimation(state);
     callbacks.applyServerInfo(
@@ -87,7 +97,79 @@ export class DiscoveryFlowRuntimeService {
       state.message = Localization.t('manual_server_enter_address');
       return;
     }
-    DiscoveryFlowRuntimeService.selectServer(state, callbacks, normalized);
+    DiscoveryFlowRuntimeService.connectServerAddress(state, callbacks, normalized, AppRoute.MANUAL_SERVER);
+  }
+
+  static retryConnectionError(state: DiscoveryFlowRuntimeState, callbacks: DiscoveryFlowRuntimeCallbacks): void {
+    const target = UrlService.normalizeBaseUrl(state.connectionErrorUrl);
+    if (!target) {
+      state.step = state.connectionErrorBackTarget > 0 ? state.connectionErrorBackTarget : AppRoute.MANUAL_SERVER;
+      return;
+    }
+    DiscoveryFlowRuntimeService.connectServerAddress(state, callbacks, target, state.connectionErrorBackTarget);
+  }
+
+  private static connectServerAddress(
+    state: DiscoveryFlowRuntimeState,
+    callbacks: DiscoveryFlowRuntimeCallbacks,
+    url: string,
+    backTarget: AppRoute
+  ): void {
+    const normalized = UrlService.normalizeBaseUrl(url);
+    if (!normalized) {
+      state.message = Localization.t('manual_server_enter_address');
+      return;
+    }
+    state.loading = true;
+    state.message = '';
+    state.connectionErrorUrl = normalized;
+    state.connectionErrorCode = 0;
+    state.connectionErrorDetail = '';
+    state.connectionErrorBackTarget = backTarget;
+    const token = state.connectionProbeToken + 1;
+    state.connectionProbeToken = token;
+    DiscoveryService.probeHaServerResult(normalized)
+      .then((result: HaServerProbeResult): void => {
+        if (state.connectionProbeToken !== token) {
+          return;
+        }
+        state.loading = false;
+        if (result.reachable) {
+          state.connectionErrorUrl = '';
+          state.connectionErrorCode = 0;
+          state.connectionErrorDetail = '';
+          DiscoveryFlowRuntimeService.activateServer(state, callbacks, result.baseUrl);
+          return;
+        }
+        DiscoveryFlowRuntimeService.showConnectionError(state, result.baseUrl, result, backTarget);
+      })
+      .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+        if (state.connectionProbeToken !== token) {
+          return;
+        }
+        state.loading = false;
+        DiscoveryFlowRuntimeService.showConnectionError(state, normalized, {
+          reachable: false,
+          baseUrl: normalized,
+          responseCode: -2,
+          detail: error instanceof Error ? error.message : Localization.t('connection_error_unknown_detail')
+        }, backTarget);
+      });
+  }
+
+  private static showConnectionError(
+    state: DiscoveryFlowRuntimeState,
+    url: string,
+    result: HaServerProbeResult,
+    backTarget: AppRoute
+  ): void {
+    state.connectionErrorUrl = url;
+    state.connectionErrorCode = result.responseCode;
+    state.connectionErrorDetail = result.detail;
+    state.connectionErrorBackTarget = backTarget;
+    state.showLoginWeb = false;
+    state.authUrl = '';
+    state.step = AppRoute.CONNECTION_ERROR;
   }
 
   static startFlow(
@@ -99,6 +181,12 @@ export class DiscoveryFlowRuntimeService {
     state.onboardingBackTarget = backTarget;
     state.discoveredServers = [];
     state.discoverySheetPresented = false;
+    state.connectionErrorUrl = '';
+    state.connectionErrorCode = 0;
+    state.connectionErrorDetail = '';
+    state.connectionErrorBackTarget = AppRoute.MANUAL_SERVER;
+    state.connectionProbeToken += 1;
+    state.loading = false;
     callbacks.setDiscoverySheetVisible(false);
     DiscoveryFlowRuntimeService.discover(state, callbacks).catch((): void => {
       state.message = '';
@@ -134,6 +222,7 @@ export class DiscoveryFlowRuntimeService {
     state.addServerSnapshot = callbacks.currentServerInfo();
     state.addingServerFromSettings = true;
     state.onboardingBackTarget = AppRoute.COMPANION_SETTINGS;
+    state.manualAddress = '';
     state.message = '';
     state.authUrl = '';
     state.showLoginWeb = false;
@@ -151,6 +240,12 @@ export class DiscoveryFlowRuntimeService {
     state.authUrl = '';
     state.oauthState = '';
     state.handledAuthCode = '';
+    state.manualAddress = '';
+    state.connectionErrorUrl = '';
+    state.connectionErrorCode = 0;
+    state.connectionErrorDetail = '';
+    state.connectionErrorBackTarget = AppRoute.MANUAL_SERVER;
+    state.connectionProbeToken += 1;
     state.showLoginWeb = false;
     state.loading = false;
     state.message = '';
