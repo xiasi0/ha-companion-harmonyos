@@ -32,6 +32,7 @@ export interface AppRuntimeCallbackTarget {
   updateSettingsServerName(name: string, info: StoredServerInfo): void;
   syncSettingsServerNameToHomeAssistant(name: string, info: StoredServerInfo): void;
   refreshAccessToken(baseUrl: string): Promise<boolean>;
+  loadExternalAuthAccessToken(baseUrl: string, forceRefresh: boolean): Promise<string>;
   syncPublicSensors(reason: string): void;
   refreshHomeNetworkStatus(allowDashboardUrlReload?: boolean): void;
   ensureMobileAppRegistration(reason: string): void;
@@ -155,6 +156,8 @@ export class AppRuntimeCallbackFactory {
       isWebMounted: (): boolean => target.isWebControllerMounted(),
       runScript: (script: string): void => target.tryRunWebScript(script),
       refreshAccessToken: (baseUrl: string): Promise<boolean> => target.refreshAccessToken(baseUrl),
+      loadAccessToken: (baseUrl: string, forceRefresh: boolean): Promise<string> =>
+        target.loadExternalAuthAccessToken(baseUrl, forceRefresh),
       currentServerInfo: (): StoredServerInfo => target.currentStoredServerInfo(),
       applyServerInfo: (info: StoredServerInfo): void => target.applyStoredServerInfo(info),
       openCompanionSettings: (): void => target.openCompanionSettings(),

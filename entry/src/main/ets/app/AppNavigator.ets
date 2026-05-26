@@ -16,6 +16,7 @@ export class AppNavigator {
     return route === AppRoute.WELCOME ||
       route === AppRoute.DISCOVERY ||
       route === AppRoute.MANUAL_SERVER ||
+      route === AppRoute.CONNECTION_ERROR ||
       route === AppRoute.LOGIN ||
       route === AppRoute.NAME_DEVICE ||
       route === AppRoute.LOCAL_FIRST ||

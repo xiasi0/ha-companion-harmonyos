@@ -19,6 +19,9 @@ export interface AppOnboardingRuntimeTarget {
   homeWifiSsids: string[];
   prioritizeInternal: boolean;
   secureConnectionFromSettings: boolean;
+  connectionErrorUrl: string;
+  connectionErrorCode: number;
+  connectionErrorDetail: string;
   message: string;
   context(): common.Context;
   onboardingContentMaxWidth(): number;
@@ -32,6 +35,7 @@ export interface AppOnboardingRuntimeTarget {
   completeDeviceRegistration(): void;
   requestLocationPermissionAndEnable(reason: string, onFinished?: () => void): void;
   openDashboard(): void;
+  retryOnboardingConnectionError(): void;
 }
 
 export class AppOnboardingRuntimeService {
@@ -48,7 +52,10 @@ export class AppOnboardingRuntimeService {
       haBaseUrl: target.haBaseUrl,
       secureConnectionChoice: target.secureConnectionChoice,
       homeNetworkName: target.homeNetworkName,
-      secureConnectionFromSettings: target.secureConnectionFromSettings
+      secureConnectionFromSettings: target.secureConnectionFromSettings,
+      connectionErrorUrl: target.connectionErrorUrl,
+      connectionErrorCode: target.connectionErrorCode,
+      connectionErrorDetail: target.connectionErrorDetail
     };
   }
 
@@ -94,7 +101,8 @@ export class AppOnboardingRuntimeService {
       },
       onClearSecureConnectionFromSettings: (): void => {
         target.secureConnectionFromSettings = false;
-      }
+      },
+      onRetryConnectionError: (): void => target.retryOnboardingConnectionError()
     };
   }
 }

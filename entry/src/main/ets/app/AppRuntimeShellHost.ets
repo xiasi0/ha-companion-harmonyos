@@ -36,7 +36,10 @@ const EMPTY_ONBOARDING_SNAPSHOT: OnboardingRuntimeSnapshot = {
   haBaseUrl: '',
   secureConnectionChoice: '',
   homeNetworkName: '',
-  secureConnectionFromSettings: false
+  secureConnectionFromSettings: false,
+  connectionErrorUrl: '',
+  connectionErrorCode: 0,
+  connectionErrorDetail: ''
 };
 
 const EMPTY_ONBOARDING_ACTIONS: OnboardingRuntimeActions = {
@@ -56,7 +59,8 @@ const EMPTY_ONBOARDING_ACTIONS: OnboardingRuntimeActions = {
   onSecureChoiceChange: () => {},
   onOpenDashboard: () => {},
   onHomeNetworkNameChange: () => {},
-  onClearSecureConnectionFromSettings: () => {}
+  onClearSecureConnectionFromSettings: () => {},
+  onRetryConnectionError: () => {}
 };
 
 const EMPTY_SETTINGS_SNAPSHOT: SettingsRuntimeSnapshot = {

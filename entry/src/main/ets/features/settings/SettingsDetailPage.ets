@@ -34,48 +34,54 @@ export struct SettingsDetailPage {
 
   @Builder
   private renderPageContent(): void {
-    Scroll(this.scroller) {
-      Column({ space: 18 }) {
-        if (this.summary.length > 0) {
-          Text(this.summary)
-            .fontSize(14)
-            .fontColor(HaTheme.textSecondary(this.appResolvedDark))
-            .lineHeight(22)
+    List({ scroller: this.scroller, space: SettingsUiConfig.listSpace }) {
+      ListItem() {
+        Column({ space: 18 }) {
+          if (this.summary.length > 0) {
+            Text(this.summary)
+              .fontSize(14)
+              .fontColor(HaTheme.textSecondary(this.appResolvedDark))
+              .lineHeight(22)
+              .width('100%')
+          }
+
+          if (this.status.length > 0) {
+            SettingsStatusChip({ text: this.status, tone: this.statusPositive() ? 'positive' : 'neutral' })
+          }
+
+          Text(this.body)
+            .fontSize(16)
+            .fontColor(HaTheme.textPrimary(this.appResolvedDark))
+            .lineHeight(24)
             .width('100%')
-        }
 
-        if (this.status.length > 0) {
-          SettingsStatusChip({ text: this.status, tone: this.statusPositive() ? 'positive' : 'neutral' })
+          if (this.action.length > 0) {
+            PrimaryButton({
+              text: this.action,
+              maxWidth: this.contentMaxWidth,
+              action: this.onAction
+            })
+          }
         }
-
-        Text(this.body)
-          .fontSize(16)
-          .fontColor(HaTheme.textPrimary(this.appResolvedDark))
-          .lineHeight(24)
-          .width('100%')
-
-        if (this.action.length > 0) {
-          PrimaryButton({
-            text: this.action,
-            maxWidth: this.contentMaxWidth,
-            action: this.onAction
-          })
-        }
+        .width('100%')
+        .padding({ left: 24, right: 24, top: 24, bottom: 32 })
+        .backgroundColor(HaTheme.surface(this.appResolvedDark))
+        .borderRadius(SettingsUiConfig.groupRadius)
+        .shadow(SettingsUiConfig.groupShadow())
       }
       .width('100%')
-      .padding({ left: 24, right: 24, top: 24, bottom: 32 })
-      .backgroundColor(HaTheme.surface(this.appResolvedDark))
-      .borderRadius(SettingsUiConfig.groupRadius)
-      .shadow(SettingsUiConfig.groupShadow())
     }
     .layoutWeight(1)
     .width('100%')
     .constraintSize({ maxWidth: this.contentMaxWidth })
     .padding(SettingsUiConfig.listPadding())
     .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+    .contentEndOffset(SettingsUiConfig.listContentEndOffset)
     .scrollBar(SettingsUiConfig.scrollBarState())
+    .cachedCount(3, true)
     .clip(false)
     .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+    .alignListItem(ListItemAlign.Center)
   }
 
   build() {

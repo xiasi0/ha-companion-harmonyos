@@ -19,6 +19,7 @@ export struct OnboardingRuntimeHost {
 
   onConnectWelcome: () => void = () => {};
   onLearnMore: () => void = () => {};
+  onPrivacyPolicy: () => void = () => {};
   onBack: () => void = () => {};
   onHelp: () => void = () => {};
   onManualInput: () => void = () => {};
@@ -55,6 +56,7 @@ export struct OnboardingRuntimeHost {
       homeNetworkName: this.homeNetworkName,
       onConnectWelcome: this.onConnectWelcome,
       onLearnMore: this.onLearnMore,
+      onPrivacyPolicy: this.onPrivacyPolicy,
       onBack: this.onBack,
       onHelp: this.onHelp,
       onManualInput: this.onManualInput,

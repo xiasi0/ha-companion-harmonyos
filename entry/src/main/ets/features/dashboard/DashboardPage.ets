@@ -47,12 +47,14 @@ export struct DashboardPage {
   };
   private controllerAttached: boolean = false;
   private resumeReloadGuardExpiresAt: number = 0;
+  private clearedAuthStorageOrigin: string = '';
 
   aboutToAppear(): void {
     try {
       this.controller.setCustomUserAgent(NetworkService.ANDROID_COMPATIBLE_USER_AGENT);
     } catch (_) {
     }
+    this.clearStoredAuthForDashboardOrigin();
   }
 
   private onDashboardUrlChanged(): void {
@@ -103,6 +105,18 @@ export struct DashboardPage {
     }
     const pathStart = url.indexOf('/', schemeEnd + 3);
     return (pathStart < 0 ? url : url.substring(0, pathStart)).toLowerCase();
+  }
+
+  private clearStoredAuthForDashboardOrigin(): void {
+    const origin = this.originOf(this.dashboardUrl);
+    if (origin.length === 0 || origin === this.clearedAuthStorageOrigin) {
+      return;
+    }
+    try {
+      web_webview.WebStorage.deleteOrigin(origin);
+      this.clearedAuthStorageOrigin = origin;
+    } catch (_) {
+    }
   }
 
   private shouldSuppressResumeReload(url: string, isMainFrame: boolean, method: string, userGesture: boolean): boolean {

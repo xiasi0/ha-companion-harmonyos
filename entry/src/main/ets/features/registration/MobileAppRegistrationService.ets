@@ -11,7 +11,7 @@ import { AppVersionService } from '../../services/AppVersionService';
 import { Localization } from '../../shared/i18n/Localization';
 
 export class MobileAppRegistrationService {
-  static readonly APP_ID: string = 'io.homeassistant.companion.harmony';
+  static readonly APP_ID: string = 'io.homeassistant.companion';
 
   static defaultDeviceName(): string {
     const marketName: string = deviceInfo.marketName ? deviceInfo.marketName.trim() : '';

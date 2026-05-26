@@ -6,6 +6,13 @@ import { Localization } from '../shared/i18n/Localization';
 import { NetworkHttpMethod, NetworkMdnsLocalServiceInfo, NetworkService } from './NetworkService';
 import { UrlService } from './UrlService';
 
+export interface HaServerProbeResult {
+  reachable: boolean;
+  baseUrl: string;
+  responseCode: number;
+  detail: string;
+}
+
 export class DiscoveryService {
   static buildDiscoveryCandidates(baseUrl: string, manualAddress: string): string[] {
     const candidates: string[] = [];
@@ -60,6 +67,10 @@ export class DiscoveryService {
   }
 
   static async probeHaServer(baseUrl: string): Promise<boolean> {
+    return (await DiscoveryService.probeHaServerResult(baseUrl)).reachable;
+  }
+
+  static async probeHaServerResult(baseUrl: string): Promise<HaServerProbeResult> {
     const attempts: string[] = [baseUrl];
     if (baseUrl.startsWith('http://')) {
       attempts.push(`https://${baseUrl.slice(7)}`);
@@ -67,10 +78,17 @@ export class DiscoveryService {
       attempts.push(`http://${baseUrl.slice(8)}`);
     }
 
-    try {
-      let i = 0;
-      while (i < attempts.length) {
-        const target = attempts[i];
+    let lastFailure: HaServerProbeResult = {
+      reachable: false,
+      baseUrl,
+      responseCode: 0,
+      detail: Localization.t('connection_error_unknown_detail')
+    };
+
+    let i = 0;
+    while (i < attempts.length) {
+      const target = attempts[i];
+      try {
         const discoveryResp = await NetworkService.requestText(`${target}/api/discovery_info`, {
           method: NetworkHttpMethod.GET,
           connectTimeout: 2500,
@@ -79,9 +97,15 @@ export class DiscoveryService {
         if (discoveryResp.responseCode >= 200 && discoveryResp.responseCode < 300) {
           const discoveryBody = discoveryResp.body.toLowerCase();
           if (discoveryBody.indexOf('home assistant') >= 0 || discoveryBody.indexOf('homeassistant') >= 0) {
-            return true;
+            return {
+              reachable: true,
+              baseUrl: target,
+              responseCode: discoveryResp.responseCode,
+              detail: 'Home Assistant discovery endpoint is reachable'
+            };
           }
         }
+        lastFailure = DiscoveryService.failureFromResponse(target, discoveryResp.responseCode, `${target}/api/discovery_info`);
 
         const manifestResp = await NetworkService.requestText(`${target}/manifest.json`, {
           method: NetworkHttpMethod.GET,
@@ -92,15 +116,27 @@ export class DiscoveryService {
           const body = manifestResp.body;
           const lowered = body.toLowerCase();
           if (lowered.indexOf('home assistant') >= 0 || lowered.indexOf('homeassistant') >= 0) {
-            return true;
+            return {
+              reachable: true,
+              baseUrl: target,
+              responseCode: manifestResp.responseCode,
+              detail: 'Home Assistant manifest is reachable'
+            };
           }
         }
-        i += 1;
+        lastFailure = DiscoveryService.failureFromResponse(target, manifestResp.responseCode, `${target}/manifest.json`);
+      } catch (error) {
+        const detail = NetworkService.errorText(error, Localization.t('connection_error_unknown_detail'));
+        lastFailure = {
+          reachable: false,
+          baseUrl: target,
+          responseCode: DiscoveryService.errorCodeFromDetail(detail),
+          detail
+        };
       }
-      return false;
-    } catch (_) {
-      return false;
+      i += 1;
     }
+    return lastFailure;
   }
 
   static createServerItem(
@@ -149,6 +185,23 @@ export class DiscoveryService {
     if (!exists) {
       candidates.push(normalized);
     }
+  }
+
+  private static failureFromResponse(baseUrl: string, responseCode: number, url: string): HaServerProbeResult {
+    return {
+      reachable: false,
+      baseUrl,
+      responseCode,
+      detail: `Unexpected response from ${url}`
+    };
+  }
+
+  private static errorCodeFromDetail(detail: string): number {
+    const lowered = detail.toLowerCase();
+    if (lowered.indexOf('timeout') >= 0 || lowered.indexOf('timed out') >= 0) {
+      return -7;
+    }
+    return -2;
   }
 
 }

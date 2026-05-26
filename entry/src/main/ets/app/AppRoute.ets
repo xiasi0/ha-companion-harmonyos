@@ -3,6 +3,7 @@ export enum AppRoute {
   DISCOVERY = 1,
   MANUAL_SERVER = 2,
   LOGIN = 3,
+  CONNECTION_ERROR = 13,
   DASHBOARD = 4,
   NAME_DEVICE = 5,
   LOCAL_FIRST = 6,

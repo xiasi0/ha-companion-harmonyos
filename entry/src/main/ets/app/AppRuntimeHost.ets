@@ -33,6 +33,7 @@ import { Localization } from '../shared/i18n/Localization';
 import { StorageService, StoredServerInfo } from '../services/StorageService';
 import { DiscoveryCacheService } from '../services/DiscoveryCacheService';
 import { ManagedServer, ServerManager } from '../services/ServerManager';
+import { ServerAuthRepository, ServerAuthSession } from '../services/ServerAuthRepository';
 import { AppSettingsStore } from '../services/AppSettingsStore';
 import { ExternalBusService } from '../services/ExternalBusService';
 import { HaConnectionPolicyService } from '../services/HaConnectionPolicyService';
@@ -177,6 +178,11 @@ export struct AppRuntimeHost {
   @State authUrl: string = '';
   @State oauthState: string = '';
   @State handledAuthCode: string = '';
+  @State connectionErrorUrl: string = '';
+  @State connectionErrorCode: number = 0;
+  @State connectionErrorDetail: string = '';
+  @State connectionErrorBackTarget: number = AppRoute.MANUAL_SERVER;
+  connectionProbeToken: number = 0;
   @State dashboardUrl: string = '';
   @State dashboardLoadedUrl: string = '';
   @State dashboardCurrentUrl: string = '';
@@ -502,6 +508,10 @@ export struct AppRuntimeHost {
 
   connectManualAddress(): void { DiscoveryFlowRuntimeService.connectManualAddress(this, AppRuntimeCallbackFactory.discovery(this)); }
 
+  retryOnboardingConnectionError(): void {
+    DiscoveryFlowRuntimeService.retryConnectionError(this, AppRuntimeCallbackFactory.discovery(this));
+  }
+
   rememberDashboardUrl(url: string): void {
     if (!url || !UrlService.isHttpLikeUrl(url)) {
       return;
@@ -632,6 +642,26 @@ export struct AppRuntimeHost {
   private handleExternalRevokeAuth(payload: Object | string): void { ExternalAuthRuntimeService.handleExternalRevokeAuth(payload, this, AppRuntimeCallbackFactory.externalAuth(this)); }
 
   async refreshAccessToken(baseUrl: string): Promise<boolean> { return AuthFlowRuntimeService.refreshAccessToken(this, AppRuntimeCallbackFactory.authFlow(this), baseUrl); }
+
+  async loadExternalAuthAccessToken(baseUrl: string, forceRefresh: boolean): Promise<string> {
+    const context = this.context();
+    const activeId = ServerManager.getActiveServerIdSync(context);
+    if (activeId.length === 0) {
+      return this.haAccessToken.trim();
+    }
+    const normalizedBaseUrl = UrlService.normalizeBaseUrl(baseUrl);
+    const session: ServerAuthSession = forceRefresh
+      ? await ServerAuthRepository.refreshWithBaseUrl(context, activeId, normalizedBaseUrl)
+      : await ServerAuthRepository.loadFreshWithBaseUrl(context, activeId, normalizedBaseUrl);
+    const latestInfo = await ServerManager.getServerInfo(context, activeId);
+    if (StorageService.hasLogin(latestInfo)) {
+      AppSessionRuntimeService.applyServerInfoToState(this, latestInfo);
+    }
+    if (forceRefresh) {
+      return session.accessToken.trim();
+    }
+    return session.accessToken.trim().length > 0 ? session.accessToken.trim() : latestInfo.accessToken.trim();
+  }
 
   private hasRegisteredCurrentDevice(): boolean { return RegistrationRuntimeService.hasRegisteredCurrentDevice(this); }
 

@@ -67,4 +67,10 @@ export class OnboardingUiConfig {
   static readonly discoveredSheetPaddingTop: number = 12;
   static readonly discoveredSheetPaddingBottom: number = 52;
   static readonly welcomeTextSpace: number = 16;
+  static readonly connectionErrorIconSize: number = 160;
+  static readonly connectionErrorCardRadius: number = 14;
+  static readonly connectionErrorCardPadding: number = 16;
+  static readonly connectionErrorCardSpace: number = 14;
+  static readonly connectionErrorDetailsBorderRadius: number = 8;
+  static readonly connectionErrorDetailsPadding: number = 14;
 }

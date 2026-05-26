@@ -19,6 +19,7 @@ export interface ExternalAuthRuntimeCallbacks {
   isWebMounted: () => boolean;
   runScript: (script: string) => void;
   refreshAccessToken: (baseUrl: string) => Promise<boolean>;
+  loadAccessToken: (baseUrl: string, forceRefresh: boolean) => Promise<string>;
   currentServerInfo: () => StoredServerInfo;
   applyServerInfo: (info: StoredServerInfo) => void;
   openCompanionSettings: () => void;
@@ -87,13 +88,13 @@ export class ExternalAuthRuntimeService {
   ): void {
     const callback = ExternalBusService.callbackName(payload);
     const force = ExternalBusService.forceRefresh(payload);
-    const baseUrl = UrlService.normalizeBaseUrl(state.haBaseUrl);
+    const baseUrl = UrlService.normalizeBaseUrl(state.dashboardUrl) || UrlService.normalizeBaseUrl(state.haBaseUrl);
     if (!baseUrl) {
       ExternalAuthRuntimeService.invokeExternalAuthCallback(callback, false, callbacks);
       return;
     }
-    const finish = (): void => {
-      const token = state.haAccessToken.trim();
+    const finish = (accessToken: string): void => {
+      const token = accessToken.trim();
       if (token) {
         state.dashboardAuthProvided = true;
         state.message = Localization.t('external_auth_providing_token');
@@ -107,13 +108,9 @@ export class ExternalAuthRuntimeService {
         ExternalAuthRuntimeService.invokeExternalAuthCallback(callback, false, callbacks);
       }
     };
-    if (force) {
-      callbacks.refreshAccessToken(baseUrl)
-        .then((): void => finish())
-        .catch((): void => finish());
-      return;
-    }
-    finish();
+    callbacks.loadAccessToken(baseUrl, force)
+      .then((token: string): void => finish(token))
+      .catch((): void => finish(state.haAccessToken));
   }
 
   static handleExternalRevokeAuth(

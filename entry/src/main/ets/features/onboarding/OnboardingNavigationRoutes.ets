@@ -8,11 +8,13 @@ import { LocalFirstPage } from './LocalFirstPage';
 import { LocationSharingPage } from './LocationSharingPage';
 import { ManualServerPage } from './ManualServerPage';
 import { NameDevicePage } from './NameDevicePage';
+import { OnboardingConnectionErrorPage } from './OnboardingConnectionErrorPage';
 import { OnboardingRuntimeActions, OnboardingRuntimeSnapshot } from './OnboardingRuntimeModels';
 import { SecureConnectionPage } from './SecureConnectionPage';
 
 export const ONBOARDING_NAV_DISCOVERY: string = 'CompanionOnboardingDiscovery';
 export const ONBOARDING_NAV_MANUAL_SERVER: string = 'CompanionOnboardingManualServer';
+export const ONBOARDING_NAV_CONNECTION_ERROR: string = 'CompanionOnboardingConnectionError';
 export const ONBOARDING_NAV_NAME_DEVICE: string = 'CompanionOnboardingNameDevice';
 export const ONBOARDING_NAV_LOCAL_FIRST: string = 'CompanionOnboardingLocalFirst';
 export const ONBOARDING_NAV_LOCATION_SHARING: string = 'CompanionOnboardingLocationSharing';
@@ -31,7 +33,10 @@ const DEFAULT_ONBOARDING_SNAPSHOT: OnboardingRuntimeSnapshot = {
   haBaseUrl: '',
   secureConnectionChoice: '',
   homeNetworkName: '',
-  secureConnectionFromSettings: false
+  secureConnectionFromSettings: false,
+  connectionErrorUrl: '',
+  connectionErrorCode: 0,
+  connectionErrorDetail: ''
 };
 
 const DEFAULT_ONBOARDING_ACTIONS: OnboardingRuntimeActions = {
@@ -51,7 +56,8 @@ const DEFAULT_ONBOARDING_ACTIONS: OnboardingRuntimeActions = {
   onSecureChoiceChange: () => {},
   onOpenDashboard: () => {},
   onHomeNetworkNameChange: () => {},
-  onClearSecureConnectionFromSettings: () => {}
+  onClearSecureConnectionFromSettings: () => {},
+  onRetryConnectionError: () => {}
 };
 
 export function onboardingRouteName(step: number): string {
@@ -60,6 +66,9 @@ export function onboardingRouteName(step: number): string {
   }
   if (step === AppRoute.MANUAL_SERVER) {
     return ONBOARDING_NAV_MANUAL_SERVER;
+  }
+  if (step === AppRoute.CONNECTION_ERROR) {
+    return ONBOARDING_NAV_CONNECTION_ERROR;
   }
   if (step === AppRoute.NAME_DEVICE) {
     return ONBOARDING_NAV_NAME_DEVICE;
@@ -88,6 +97,9 @@ export function onboardingStepDepth(step: number): number {
   }
   if (step === AppRoute.MANUAL_SERVER) {
     return 2;
+  }
+  if (step === AppRoute.CONNECTION_ERROR) {
+    return 3;
   }
   if (step === AppRoute.NAME_DEVICE) {
     return 3;
@@ -119,6 +131,11 @@ export function CompanionOnboardingDiscoveryBuilder(): void {
 @Builder
 export function CompanionOnboardingManualServerBuilder(): void {
   CompanionOnboardingManualServerRoute()
+}
+
+@Builder
+export function CompanionOnboardingConnectionErrorBuilder(): void {
+  CompanionOnboardingConnectionErrorRoute()
 }
 
 @Builder
@@ -202,6 +219,31 @@ struct CompanionOnboardingManualServerRoute {
         onAddressChange: this.actions.onManualAddressChange,
         onConnect: this.actions.onManualConnect,
         onSwipeBack: this.actions.onHandleBackNavigation
+      })
+    }
+    .hideTitleBar(true)
+    .onBackPressed((): boolean => {
+      this.actions.onHandleBackNavigation();
+      return true;
+    })
+  }
+}
+
+@Component
+struct CompanionOnboardingConnectionErrorRoute {
+  @Consume('onboardingRuntimeSnapshot') snapshot: OnboardingRuntimeSnapshot = DEFAULT_ONBOARDING_SNAPSHOT;
+  @Consume('onboardingRuntimeActions') actions: OnboardingRuntimeActions = DEFAULT_ONBOARDING_ACTIONS;
+
+  build() {
+    NavDestination() {
+      OnboardingConnectionErrorPage({
+        contentMaxWidth: this.snapshot.contentMaxWidth,
+        url: this.snapshot.connectionErrorUrl,
+        errorCode: this.snapshot.connectionErrorCode,
+        errorDetail: this.snapshot.connectionErrorDetail,
+        onBack: this.actions.onHandleBackNavigation,
+        onHelp: (): void => this.actions.onSetMessage(Localization.t('connection_error_help')),
+        onRetry: this.actions.onRetryConnectionError
       })
     }
     .hideTitleBar(true)
