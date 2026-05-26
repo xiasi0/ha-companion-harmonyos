@@ -11,6 +11,7 @@ export interface DashboardRuntimeState {
   authUrl: string;
   dashboardUrl: string;
   dashboardCurrentUrl: string;
+  dashboardClearHistoryPending: boolean;
   dashboardAuthProvided: boolean;
   pageZoomLevel: string;
   alwaysShowFirstViewOnAppStartEnabled: boolean;
@@ -33,6 +34,7 @@ export class DashboardRuntimeService {
     const baseUrl = UrlService.normalizeBaseUrl(state.haBaseUrl);
     state.dashboardUrl = UrlService.buildDashboardUrl(baseUrl);
     state.dashboardCurrentUrl = state.dashboardUrl;
+    state.dashboardClearHistoryPending = true;
     state.addingServerFromSettings = false;
     state.onboardingBackTarget = AppRoute.WELCOME;
     state.step = AppRoute.DASHBOARD;
@@ -143,6 +145,7 @@ export class DashboardRuntimeService {
     const url = UrlService.buildDashboardUrl(UrlService.normalizeBaseUrl(state.haBaseUrl));
     state.dashboardUrl = url;
     state.dashboardCurrentUrl = url;
+    state.dashboardClearHistoryPending = true;
     DashboardRuntimeService.loadUrl(controller, url);
   }
 }

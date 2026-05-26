@@ -156,8 +156,4 @@ export class UrlService {
     return value.length > 0 ? value : '/';
   }
 
-  static isDashboardHomeUrl(url: string): boolean {
-    const path = UrlService.urlPathOnly(url);
-    return path === '/' || path === '/lovelace' || path === '/lovelace/default_view';
-  }
 }

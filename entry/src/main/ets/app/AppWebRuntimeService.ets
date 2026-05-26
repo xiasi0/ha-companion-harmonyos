@@ -30,6 +30,7 @@ export interface AppWebRuntimeActionTarget {
   handleBackNavigation(): boolean;
   applyDashboardPreferences(): void;
   installFrontendUrlObserver(): void;
+  clearPendingDashboardHistory(): void;
   rememberDashboardUrl(url: string): void;
   rememberDashboardLoadedUrl(url: string): void;
   retryDashboardSecurity(): void;
@@ -77,6 +78,7 @@ export class AppWebRuntimeService {
       onDashboardPageReady: (): void => {
         target.applyDashboardPreferences();
         target.installFrontendUrlObserver();
+        target.clearPendingDashboardHistory();
       },
       onRememberDashboardUrl: (url: string): void => target.rememberDashboardUrl(url),
       onDashboardLoadedUrlChange: (url: string): void => target.rememberDashboardLoadedUrl(url),
