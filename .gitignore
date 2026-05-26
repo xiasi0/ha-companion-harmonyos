@@ -8,9 +8,9 @@
 /logs
 /.tools
 /.local
-/scripts
 /docs/superpowers
 /verify-profile.json
+/signingConfigs.json5
 .cxx
 /.clangd
 /.clang-format
@@ -23,3 +23,9 @@
 *.p12
 *.cer
 *.p7b
+*.pem
+*.key
+*.pfx
+*.jks
+*.keystore
+*.csr
