@@ -1,4 +1,5 @@
 import { Localization } from '../../shared/i18n/Localization';
+import { CardEntityDetailLaunchService } from '../../features/cards/CardEntityDetailLaunchService';
 import { CardRefreshTicker } from '../components/CardRefreshTicker';
 import { ServiceCardUiConfig } from '../components/ServiceCardUiConfig';
 
@@ -9,6 +10,9 @@ let harmonyMediaServiceCardStorage = new LocalStorage();
 struct HarmonyMediaServiceCard {
   @LocalStorageProp('formId') formId: string = '';
   @LocalStorageProp('bound') bound: boolean = false;
+  @LocalStorageProp('targetId') targetId: string = '';
+  @LocalStorageProp('serverInstanceId') serverInstanceId: string = '';
+  @LocalStorageProp('openEntityDetailEnabled') openEntityDetailEnabled: boolean = false;
   @LocalStorageProp('title') title: string = Localization.t('card_media_control_title');
   @LocalStorageProp('subtitle') subtitle: string = Localization.t('card_bind_media_player');
   @LocalStorageProp('state') state: string = 'unknown';
@@ -144,6 +148,7 @@ struct HarmonyMediaServiceCard {
     }
     .width('100%')
     .height('100%')
+    .onClick(() => this.openEntityDetail())
   }
 
   @Builder
@@ -165,6 +170,32 @@ struct HarmonyMediaServiceCard {
 
   @Builder
   private contentArea(): void {
+    Column() {
+      this.detailContentArea()
+
+      Row() {
+        this.controlButton('previous', $r('sys.symbol.backward_end_fill'))
+        this.controlGap()
+        this.playPauseButton()
+        this.controlGap()
+        this.controlButton('next', $r('sys.symbol.forward_end_fill'))
+        Blank()
+          .layoutWeight(1)
+          .height(ServiceCardUiConfig.controlButtonSize)
+          .onClick(() => this.openEntityDetail())
+      }
+      .width('100%')
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Start)
+    }
+    .width('58%')
+    .height('100%')
+    .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+    .alignItems(HorizontalAlign.Start)
+  }
+
+  @Builder
+  private detailContentArea(): void {
     Column() {
       Column({ space: 5 }) {
         Row({ space: 4 }) {
@@ -219,20 +250,19 @@ struct HarmonyMediaServiceCard {
 
       Blank()
         .layoutWeight(1)
-
-      Row({ space: 12 }) {
-        this.controlButton('previous', $r('sys.symbol.backward_end_fill'))
-        this.playPauseButton()
-        this.controlButton('next', $r('sys.symbol.forward_end_fill'))
-      }
-      .width('100%')
-      .alignItems(VerticalAlign.Center)
-      .justifyContent(FlexAlign.Start)
     }
-    .width('58%')
-    .height('100%')
-    .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+    .width('100%')
+    .layoutWeight(1)
     .alignItems(HorizontalAlign.Start)
+    .onClick(() => this.openEntityDetail())
+  }
+
+  @Builder
+  private controlGap(): void {
+    Blank()
+      .width(12)
+      .height(ServiceCardUiConfig.controlButtonSize)
+      .onClick(() => this.openEntityDetail())
   }
 
   @Builder
@@ -291,6 +321,22 @@ struct HarmonyMediaServiceCard {
         cardType: 'media'
       }
       });
+  }
+
+  private openEntityDetail(): void {
+    if (!this.bound || !this.openEntityDetailEnabled || this.targetId.trim().length === 0) {
+      return;
+    }
+    postCardAction(this, {
+      action: 'router',
+      abilityName: 'EntryAbility',
+      params: {
+        action: CardEntityDetailLaunchService.ACTION,
+        entityId: this.targetId,
+        serverInstanceId: this.serverInstanceId,
+        formId: this.formId
+      }
+    });
   }
 
   private coverSource(): string | Resource {

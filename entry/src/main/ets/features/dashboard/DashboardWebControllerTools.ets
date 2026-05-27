@@ -11,12 +11,17 @@ export class DashboardWebControllerTools {
       if (onResolve) {
         promise.then((raw: Object | string | number | ArrayBuffer): void => {
           onResolve(raw);
-        }).catch((): void => {});
+        }).catch((): void => {
+          onResolve('false');
+        });
       } else {
         promise.catch((): void => {});
       }
     } catch (_) {
       // Ignore while the WebView is not attached yet.
+      if (onResolve) {
+        onResolve('false');
+      }
     }
   }
 

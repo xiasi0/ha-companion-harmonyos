@@ -11,6 +11,7 @@ import { AppSettingsStore } from '../services/AppSettingsStore';
 import { DiscoveryCacheService } from '../services/DiscoveryCacheService';
 import { HARMONY_GEOFENCE_ACTION } from '../services/HarmonyLocationService';
 import { ServerManager } from '../services/ServerManager';
+import { CardEntityDetailLaunchService } from '../features/cards/CardEntityDetailLaunchService';
 
 const DOMAIN = 0x0000;
 const TAG = 'HACompanion';
@@ -21,6 +22,7 @@ export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     AppStorageDefaults.register();
     this.handleLocationWant(want);
+    this.handleEntityDetailWant(want);
     LongRunningTaskService.setRecoveryHandler((context): void => {
       if ((AppStorage.get<string>('websocketMode') ?? 'system') !== 'always') {
         return;
@@ -38,6 +40,7 @@ export default class EntryAbility extends UIAbility {
 
   onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
     this.handleLocationWant(want);
+    this.handleEntityDetailWant(want);
   }
 
   onDestroy(): void {
@@ -160,6 +163,15 @@ export default class EntryAbility extends UIAbility {
       .catch((err: Error): void => {
         hilog.warn(DOMAIN, TAG, 'Failed to handle geofence want. Cause: %{public}s', err.message);
       });
+  }
+
+  private handleEntityDetailWant(want: Want): void {
+    const request = CardEntityDetailLaunchService.requestFromWant(want);
+    if (!request) {
+      return;
+    }
+    CardEntityDetailLaunchService.publishPending(request);
+    AppStorage.setOrCreate<number>('appForegroundTick', Date.now());
   }
 
   private saveCurrentAppStorageIfRestored(): void {
