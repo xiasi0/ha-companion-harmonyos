@@ -12,6 +12,7 @@ export interface AppLifecycleRuntimeState {
   appUnlocking: boolean;
   dashboardUrl: string;
   dashboardCurrentUrl: string;
+  dashboardClearHistoryPending: boolean;
   authUrl: string;
   showLoginWeb: boolean;
   dashboardBridgeReady: boolean;
@@ -153,6 +154,7 @@ export class AppLifecycleRuntimeService {
   private static applyRestoreDecision(state: AppLifecycleRuntimeState, restoreDecision: StartupRestoreDecision): void {
     state.dashboardUrl = restoreDecision.dashboardUrl;
     state.dashboardCurrentUrl = restoreDecision.dashboardUrl;
+    state.dashboardClearHistoryPending = true;
     state.authUrl = restoreDecision.authUrl;
     state.showLoginWeb = restoreDecision.showLoginWeb;
     state.dashboardBridgeReady = restoreDecision.dashboardBridgeReady;

@@ -60,7 +60,6 @@ export interface AppRuntimeCallbackTarget {
   setDiscoverySheetVisible(visible: boolean): void;
   cancelAddServerFromSettings(): void;
   returnToHaSettingsPage(): void;
-  currentDashboardUrl(): string;
   canDashboardGoBack(): boolean;
   dashboardGoBack(): void;
   tryRunWebScript(script: string): void;
@@ -244,10 +243,8 @@ export class AppRuntimeCallbackFactory {
       cancelAddServerFromSettings: (): void => target.cancelAddServerFromSettings(),
       stopDiscoveryAnimation: (): void => target.stopDiscoveryAnimation(),
       returnToHaSettingsPage: (): void => target.returnToHaSettingsPage(),
-      currentDashboardUrl: (): string => target.currentDashboardUrl(),
       canDashboardGoBack: (): boolean => target.canDashboardGoBack(),
-      dashboardGoBack: (): void => target.dashboardGoBack(),
-      runDashboardScript: (script: string): void => target.tryRunWebScript(script)
+      dashboardGoBack: (): void => target.dashboardGoBack()
     };
   }
 }
