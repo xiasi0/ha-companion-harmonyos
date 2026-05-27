@@ -65,5 +65,8 @@ export class AppStorageDefaults {
     AppStorage.setOrCreate<string>('gestureSwipeDownThreeAction', AppStorage.get<string>('gestureSwipeDownThreeAction') ?? 'none');
     AppStorage.setOrCreate<string>('assistAgentId', AppStorage.get<string>('assistAgentId') ?? '');
     AppStorage.setOrCreate<string>('cardEditCardType', AppStorage.get<string>('cardEditCardType') ?? '');
+    AppStorage.setOrCreate<string>('cardPendingEntityDetailEntityId', AppStorage.get<string>('cardPendingEntityDetailEntityId') ?? '');
+    AppStorage.setOrCreate<string>('cardPendingEntityDetailServerInstanceId', AppStorage.get<string>('cardPendingEntityDetailServerInstanceId') ?? '');
+    AppStorage.setOrCreate<number>('cardPendingEntityDetailTick', AppStorage.get<number>('cardPendingEntityDetailTick') ?? 0);
   }
 }

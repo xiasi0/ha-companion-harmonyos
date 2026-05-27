@@ -158,6 +158,6 @@ export class UrlService {
 
   static isDashboardHomeUrl(url: string): boolean {
     const path = UrlService.urlPathOnly(url);
-    return path === '/' || path === '/lovelace' || path === '/lovelace/default_view';
+    return path === '/' || path === '/lovelace' || path === '/lovelace/home' || path === '/lovelace/default_view';
   }
 }

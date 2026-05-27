@@ -1,4 +1,5 @@
 import { Localization } from '../../shared/i18n/Localization';
+import { CardEntityDetailLaunchService } from '../../features/cards/CardEntityDetailLaunchService';
 import { CardRefreshTicker } from '../components/CardRefreshTicker';
 import { ServiceCardUiConfig } from '../components/ServiceCardUiConfig';
 
@@ -9,6 +10,9 @@ let harmonySceneServiceCardStorage = new LocalStorage();
 struct HarmonySceneServiceCard {
   @LocalStorageProp('formId') formId: string = '';
   @LocalStorageProp('bound') bound: boolean = false;
+  @LocalStorageProp('targetId') targetId: string = '';
+  @LocalStorageProp('serverInstanceId') serverInstanceId: string = '';
+  @LocalStorageProp('openEntityDetailEnabled') openEntityDetailEnabled: boolean = false;
   @LocalStorageProp('title') title: string = Localization.t('card_scene_control_title');
   @LocalStorageProp('subtitle') subtitle: string = Localization.t('card_bind_scene');
   @LocalStorageProp('state') state: string = 'unknown';
@@ -61,6 +65,7 @@ struct HarmonySceneServiceCard {
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
+      .onClick(() => this.openEntityDetail())
 
       this.activateButton()
     }
@@ -161,5 +166,21 @@ struct HarmonySceneServiceCard {
 
   private displaySubtitle(): string {
     return this.subtitle.trim();
+  }
+
+  private openEntityDetail(): void {
+    if (!this.bound || !this.openEntityDetailEnabled || this.targetId.trim().length === 0) {
+      return;
+    }
+    postCardAction(this, {
+      action: 'router',
+      abilityName: 'EntryAbility',
+      params: {
+        action: CardEntityDetailLaunchService.ACTION,
+        entityId: this.targetId,
+        serverInstanceId: this.serverInstanceId,
+        formId: this.formId
+      }
+    });
   }
 }

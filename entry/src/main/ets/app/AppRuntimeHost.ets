@@ -2,6 +2,7 @@
 // It coordinates navigation, server selection, overlays, WebView state, and feature services.
 import common from '@ohos.app.ability.common';
 import web_webview from '@ohos.web.webview';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { HaServerItem } from '../models/HaServerItem';
 import { UrlGuardResult } from '../models/UrlGuardResult';
 import { UrlService } from '../services/UrlService';
@@ -26,6 +27,7 @@ import { SensorRuntimeFlags } from '../features/sensors/SensorRuntimePresenter';
 import { SensorRuntimeService, SensorRuntimeSnapshot } from '../features/sensors/SensorRuntimeService';
 import { SensorRuntimeBridgeService } from '../features/sensors/SensorRuntimeBridgeService';
 import { CardFormService } from '../features/cards/CardFormService';
+import { CardEntityDetailLaunchService } from '../features/cards/CardEntityDetailLaunchService';
 import { MobileAppRegistrationService } from '../features/registration/MobileAppRegistrationService';
 import { RegistrationRuntimeService } from '../features/registration/RegistrationRuntimeService';
 import { DeviceProfileInfo } from '../shared/device/DeviceProfile';
@@ -33,6 +35,7 @@ import { Localization } from '../shared/i18n/Localization';
 import { StorageService, StoredServerInfo } from '../services/StorageService';
 import { DiscoveryCacheService } from '../services/DiscoveryCacheService';
 import { ManagedServer, ServerManager } from '../services/ServerManager';
+import { ServerInstanceStore, ServerRuntimeState } from '../services/ServerInstanceStore';
 import { ServerAuthRepository, ServerAuthSession } from '../services/ServerAuthRepository';
 import { AppSettingsStore } from '../services/AppSettingsStore';
 import { ExternalBusService } from '../services/ExternalBusService';
@@ -63,6 +66,9 @@ import { AppWindowRuntimeService } from './AppWindowRuntimeService';
 import { ServerOption } from '../features/settings/SettingsSectionRuntimeService';
 
 AppStorageDefaults.register();
+
+const DOMAIN = 0x0000;
+const TAG = 'HACompanion';
 
 function initialRuntimeRoute(): AppRoute {
   const baseUrl = AppStorage.get<string>('haBaseUrl') ?? '';
@@ -132,6 +138,9 @@ export struct AppRuntimeHost {
   @StorageLink('appForegroundTick') @Watch('onAppForegroundTick') appForegroundTick: number = 0;
   @StorageLink('appBackgroundTick') @Watch('onAppBackgroundTick') appBackgroundTick: number = 0;
   @StorageLink('appConfigTick') @Watch('onAppConfigurationTick') appConfigTick: number = 0;
+  @StorageLink('cardPendingEntityDetailEntityId') cardPendingEntityDetailEntityId: string = '';
+  @StorageLink('cardPendingEntityDetailServerInstanceId') cardPendingEntityDetailServerInstanceId: string = '';
+  @StorageLink('cardPendingEntityDetailTick') @Watch('onCardPendingEntityDetailTick') cardPendingEntityDetailTick: number = 0;
 
   @State @Watch('onStepChanged') step: number = initialRuntimeRoute();
   @State loading: boolean = false;
@@ -206,6 +215,10 @@ export struct AppRuntimeHost {
   @State companionChoiceDialogKey: string = '';
   @State assistStartListeningSignal: number = 0;
   @State assistStartListeningRequested: boolean = false;
+  private pendingEntityDetailEntityId: string = '';
+  private pendingEntityDetailRequestTick: number = 0;
+  private pendingEntityDetailScriptInFlight: boolean = false;
+  private entityDetailOpenedFromCard: boolean = false;
   discoveryAnimationToken: number = 0;
   discoveryAnimationRunning: boolean = false;
   discoverySheetPresented: boolean = false;
@@ -215,6 +228,7 @@ export struct AppRuntimeHost {
   private systemEventService: SystemEventService = new SystemEventService();
   private sensorRuntimeService: SensorRuntimeService = new SensorRuntimeService();
   private mobileAppRegistrationInFlight: boolean = false;
+  private pendingEntityDetailProcessingTick: number = 0;
 
   private webCtrl: web_webview.WebviewController = new web_webview.WebviewController();
   private externalAppProxy: ExternalAppProxy = new ExternalAppProxy(
@@ -471,6 +485,7 @@ export struct AppRuntimeHost {
       .catch((): void => {})
       .finally((): void => {
         AppLifecycleRuntimeService.aboutToAppear(this, AppRuntimeCallbackFactory.lifecycle(this));
+        this.openPendingEntityDetailFromCard();
       });
   }
 
@@ -632,6 +647,18 @@ export struct AppRuntimeHost {
     if (ExternalBusService.type(payload) === 'harmony_url_changed') {
       const url = ExternalBusService.stringPayload(payload, 'url', '');
       this.rememberDashboardUrl(url);
+      this.runPendingEntityDetailScript();
+      return;
+    }
+    if (ExternalBusService.type(payload) === 'harmony_card_entity_detail_ready') {
+      const entityId = ExternalBusService.stringPayload(payload, 'entityId', '');
+      if (entityId.length === 0 || entityId === this.pendingEntityDetailEntityId.trim()) {
+        this.runPendingEntityDetailScript();
+      }
+      return;
+    }
+    if (ExternalBusService.type(payload) === 'harmony_card_entity_detail_closed') {
+      this.entityDetailOpenedFromCard = false;
       return;
     }
     ExternalAuthRuntimeService.handleExternalBus(payload, this, AppRuntimeCallbackFactory.externalAuth(this));
@@ -728,7 +755,14 @@ export struct AppRuntimeHost {
     this.dashboardAuthProvided = false;
   }
 
-  handleBackNavigation(): boolean { return AppNavigationRuntimeService.handleBackNavigation(this, AppRuntimeCallbackFactory.navigation(this)); }
+  handleBackNavigation(): boolean {
+    if (this.shouldCloseCardEntityDetailBeforeDashboardBack()) {
+      this.entityDetailOpenedFromCard = false;
+      this.tryRunWebScript(CardEntityDetailLaunchService.closeMoreInfoScript());
+      return true;
+    }
+    return AppNavigationRuntimeService.handleBackNavigation(this, AppRuntimeCallbackFactory.navigation(this));
+  }
 
   onBackPress(): boolean { return this.handleBackNavigation(); }
 
@@ -778,6 +812,7 @@ export struct AppRuntimeHost {
 
   applyDashboardPreferences(): void {
     DashboardRuntimeService.applyDashboardPreferences(this.webCtrl, this);
+    this.runPendingEntityDetailScript();
   }
 
   refreshDashboardTheme(): void {
@@ -883,6 +918,263 @@ export struct AppRuntimeHost {
   private onAppBackgroundTick(): void { AppLifecycleRuntimeService.onBackground(this, AppRuntimeCallbackFactory.lifecycle(this)); }
 
   private onAppConfigurationTick(): void { AppLifecycleRuntimeService.onConfiguration(this, AppRuntimeCallbackFactory.lifecycle(this)); }
+
+  private onCardPendingEntityDetailTick(): void { this.openPendingEntityDetailFromCard(); }
+
+  private openPendingEntityDetailFromCard(): void {
+    const entityId = this.cardPendingEntityDetailEntityId.trim();
+    const tick = this.cardPendingEntityDetailTick;
+    if (tick <= 0 || this.pendingEntityDetailProcessingTick > 0 ||
+      !CardEntityDetailLaunchService.isValidEntityId(entityId)) {
+      return;
+    }
+    const serverInstanceId = this.cardPendingEntityDetailServerInstanceId.trim();
+    this.pendingEntityDetailProcessingTick = tick;
+    this.openEntityDetailFromCard(entityId, serverInstanceId, tick)
+      .then((): void => {
+        const isCurrent = this.isCurrentPendingEntityDetailRequest(entityId, serverInstanceId, tick);
+        this.pendingEntityDetailProcessingTick = 0;
+        if (!isCurrent) {
+          this.openPendingEntityDetailFromCard();
+          return;
+        }
+        this.cardPendingEntityDetailEntityId = '';
+        this.cardPendingEntityDetailServerInstanceId = '';
+        this.cardPendingEntityDetailTick = 0;
+      })
+      .catch((err: Error): void => {
+        const isCurrent = this.isCurrentPendingEntityDetailRequest(entityId, serverInstanceId, tick);
+        this.pendingEntityDetailProcessingTick = 0;
+        if (!isCurrent) {
+          this.openPendingEntityDetailFromCard();
+          return;
+        }
+        this.cardPendingEntityDetailEntityId = '';
+        this.cardPendingEntityDetailServerInstanceId = '';
+        this.cardPendingEntityDetailTick = 0;
+        this.message = this.stringifyError(err);
+      });
+  }
+
+  private isCurrentPendingEntityDetailRequest(entityId: string, serverInstanceId: string, tick: number): boolean {
+    return this.cardPendingEntityDetailTick === tick &&
+      this.cardPendingEntityDetailEntityId.trim() === entityId &&
+      this.cardPendingEntityDetailServerInstanceId.trim() === serverInstanceId.trim();
+  }
+
+  private isCurrentEntityDetailScriptRequest(entityId: string, tick: number): boolean {
+    return this.pendingEntityDetailRequestTick === tick &&
+      this.pendingEntityDetailEntityId.trim() === entityId;
+  }
+
+  private async openEntityDetailFromCard(entityId: string, serverInstanceId: string, tick: number): Promise<void> {
+    const context = this.context();
+    const activeServerId = ServerManager.getActiveServerIdSync(context);
+    let cardServerId = serverInstanceId.trim();
+    let baseUrl = this.haBaseUrl;
+    if (cardServerId.length > 0 && cardServerId !== activeServerId) {
+      const info = await this.activateServerForEntityDetail(cardServerId, entityId, serverInstanceId, tick);
+      if (!this.isCurrentPendingEntityDetailRequest(entityId, serverInstanceId, tick)) {
+        return;
+      }
+      baseUrl = info.baseUrl;
+    }
+    if (cardServerId.length === 0) {
+      cardServerId = activeServerId;
+    }
+    const resolvedBaseUrl = await this.resolveAllowedServerBaseUrl(cardServerId, baseUrl);
+    if (!this.isCurrentPendingEntityDetailRequest(entityId, serverInstanceId, tick)) {
+      return;
+    }
+    this.openEntityDetailDashboard(entityId, resolvedBaseUrl, tick);
+  }
+
+  private async activateServerForEntityDetail(
+    serverInstanceId: string,
+    entityId: string,
+    requestServerInstanceId: string,
+    tick: number
+  ): Promise<StoredServerInfo> {
+    const context = this.context();
+    await AppSettingsStore.saveCurrentAppStorage(context);
+    this.ensureCurrentPendingEntityDetailRequest(entityId, requestServerInstanceId, tick);
+    const record = await ServerInstanceStore.load(context, serverInstanceId);
+    this.ensureCurrentPendingEntityDetailRequest(entityId, requestServerInstanceId, tick);
+    if (!record || !StorageService.hasLogin(record.info)) {
+      throw new Error('missing server login');
+    }
+    const previousRuntime = await ServerInstanceStore.loadRuntime(context);
+    this.ensureCurrentPendingEntityDetailRequest(entityId, requestServerInstanceId, tick);
+    await this.commitActiveServerForEntityDetail(context, previousRuntime, record.id, record.info);
+    if (!this.isCurrentPendingEntityDetailRequest(entityId, requestServerInstanceId, tick)) {
+      await this.restoreServerRuntimeForEntityDetail(context, previousRuntime);
+      throw new Error('stale entity detail request');
+    }
+    await this.restoreInstanceAppSettingsState();
+    if (!this.isCurrentPendingEntityDetailRequest(entityId, requestServerInstanceId, tick)) {
+      await this.restoreServerRuntimeForEntityDetail(context, previousRuntime);
+      throw new Error('stale entity detail request');
+    }
+    AppSessionRuntimeService.applyServerInfoToState(this, record.info);
+    this.syncCardServerConnection();
+    this.configSummary = Localization.t('common_not_set');
+    this.applyThemePreferences();
+    this.applyWindowPreferences();
+    this.resetSensorRuntime();
+    this.syncPublicSensors('server_switched');
+    this.selectedServerSettingsId = serverInstanceId;
+    this.selectedServerSettingsInfo = record.info;
+    this.selectedServerSettingsName = SettingsSummaryService.serverDisplayName('', record.info.baseUrl);
+    this.selectedServerSettingsActive = true;
+    this.refreshServerOptions();
+    this.fetchHaConfig().catch((): void => {});
+    return record.info;
+  }
+
+  private ensureCurrentPendingEntityDetailRequest(entityId: string, serverInstanceId: string, tick: number): void {
+    if (!this.isCurrentPendingEntityDetailRequest(entityId, serverInstanceId, tick)) {
+      throw new Error('stale entity detail request');
+    }
+  }
+
+  private async commitActiveServerForEntityDetail(
+    context: common.Context,
+    previousRuntime: ServerRuntimeState,
+    serverInstanceId: string,
+    info: StoredServerInfo
+  ): Promise<void> {
+    const runtime: ServerRuntimeState = {
+      activeServerId: serverInstanceId,
+      serverOrder: previousRuntime.serverOrder.slice()
+    };
+    if (!runtime.serverOrder.includes(serverInstanceId)) {
+      runtime.serverOrder.push(serverInstanceId);
+    }
+    await ServerInstanceStore.saveRuntime(context, runtime);
+    ServerManager.applyActiveToAppStorage(info);
+  }
+
+  private async restoreServerRuntimeForEntityDetail(
+    context: common.Context,
+    runtime: ServerRuntimeState
+  ): Promise<void> {
+    await ServerInstanceStore.saveRuntime(context, runtime);
+    const info = runtime.activeServerId.length > 0 ?
+      ServerManager.getServerInfoSync(context, runtime.activeServerId) :
+      StorageService.emptyServerInfo();
+    ServerManager.applyActiveToAppStorage(info);
+    await this.restoreInstanceAppSettingsState();
+  }
+
+  private openEntityDetailDashboard(entityId: string, baseUrl: string, tick: number): void {
+    const normalizedBaseUrl = UrlService.normalizeBaseUrl(baseUrl);
+    if (normalizedBaseUrl.length === 0) {
+      return;
+    }
+    this.pendingEntityDetailEntityId = entityId;
+    this.pendingEntityDetailRequestTick = tick;
+    this.pendingEntityDetailScriptInFlight = false;
+    this.entityDetailOpenedFromCard = false;
+    if (this.canOpenEntityDetailInCurrentDashboard(normalizedBaseUrl)) {
+      this.step = AppRoute.DASHBOARD;
+      this.runPendingEntityDetailScript();
+      return;
+    }
+    const dashboardUrl = UrlService.buildDashboardUrl(normalizedBaseUrl);
+    if (this.shouldNavigateCurrentHaPageToDashboardForEntityDetail(normalizedBaseUrl)) {
+      this.openDashboard();
+      this.dashboardUrl = dashboardUrl;
+      this.dashboardCurrentUrl = dashboardUrl;
+      this.tryRunWebScript(CardEntityDetailLaunchService.navigateToDashboardScript(dashboardUrl), (raw): void => {
+        if (!this.isCurrentEntityDetailScriptRequest(entityId, tick)) {
+          return;
+        }
+        const result = String(raw);
+        if (result === 'true' || result === '"true"') {
+          this.runPendingEntityDetailScript();
+          return;
+        }
+        this.dashboardLoadedUrl = '';
+        this.dashboardBridgeReady = false;
+        this.dashboardAuthProvided = false;
+        this.forceLoadDashboard(dashboardUrl);
+      });
+      return;
+    }
+    this.openDashboard();
+    this.dashboardUrl = dashboardUrl;
+    this.dashboardLoadedUrl = '';
+    this.dashboardCurrentUrl = dashboardUrl;
+    this.dashboardBridgeReady = false;
+    this.dashboardAuthProvided = false;
+    this.forceLoadDashboard(dashboardUrl);
+  }
+
+  private canOpenEntityDetailInCurrentDashboard(baseUrl: string): boolean {
+    if (!this.isWebControllerMounted() || this.dashboardInsecureBlocked) {
+      return false;
+    }
+    const currentUrl = this.currentDashboardUrl();
+    if (!UrlService.isHttpLikeUrl(currentUrl)) {
+      return false;
+    }
+    if (!this.isLovelaceDashboardPage(currentUrl)) {
+      return false;
+    }
+    return UrlService.endpointKey(currentUrl) === UrlService.endpointKey(baseUrl);
+  }
+
+  private shouldNavigateCurrentHaPageToDashboardForEntityDetail(baseUrl: string): boolean {
+    if (!this.isWebControllerMounted() || this.dashboardInsecureBlocked) {
+      return false;
+    }
+    const currentUrl = this.currentDashboardUrl();
+    if (!UrlService.isHttpLikeUrl(currentUrl) || this.isLovelaceDashboardPage(currentUrl)) {
+      return false;
+    }
+    return UrlService.endpointKey(currentUrl) === UrlService.endpointKey(baseUrl);
+  }
+
+  private isLovelaceDashboardPage(url: string): boolean {
+    const path = UrlService.urlPathOnly(url);
+    return path === '/' || path === '/lovelace' || path.startsWith('/lovelace/');
+  }
+
+  private runPendingEntityDetailScript(): void {
+    const entityId = this.pendingEntityDetailEntityId.trim();
+    const requestTick = this.pendingEntityDetailRequestTick;
+    if (!CardEntityDetailLaunchService.isValidEntityId(entityId)) {
+      return;
+    }
+    if (this.pendingEntityDetailScriptInFlight) {
+      return;
+    }
+    this.pendingEntityDetailScriptInFlight = true;
+    this.tryRunWebScript(CardEntityDetailLaunchService.moreInfoScript(entityId), (raw): void => {
+      this.pendingEntityDetailScriptInFlight = false;
+      if (!this.isCurrentEntityDetailScriptRequest(entityId, requestTick)) {
+        this.runPendingEntityDetailScript();
+        return;
+      }
+      const result = String(raw);
+      if (result === 'opened' || result === '"opened"' || result === 'true' || result === '"true"') {
+        this.pendingEntityDetailEntityId = '';
+        this.pendingEntityDetailRequestTick = 0;
+        this.entityDetailOpenedFromCard = true;
+        return;
+      }
+      if (result === 'missing_entity' || result === '"missing_entity"') {
+        this.pendingEntityDetailEntityId = '';
+        this.pendingEntityDetailRequestTick = 0;
+        this.entityDetailOpenedFromCard = false;
+        hilog.warn(DOMAIN, TAG, 'Pending entity detail target is missing. entity=%{public}s', entityId);
+      }
+    });
+  }
+
+  private shouldCloseCardEntityDetailBeforeDashboardBack(): boolean {
+    return this.entityDetailOpenedFromCard && this.step === AppRoute.DASHBOARD;
+  }
 
   currentStoredServerInfo(): StoredServerInfo { return AppSessionRuntimeService.currentStoredServerInfo(this); }
 

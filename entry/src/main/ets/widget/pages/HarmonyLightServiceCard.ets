@@ -1,4 +1,5 @@
 import { Localization } from '../../shared/i18n/Localization';
+import { CardEntityDetailLaunchService } from '../../features/cards/CardEntityDetailLaunchService';
 import { CardRefreshTicker } from '../components/CardRefreshTicker';
 import { ServiceCardUiConfig } from '../components/ServiceCardUiConfig';
 
@@ -9,6 +10,9 @@ let harmonyLightServiceCardStorage = new LocalStorage();
 struct HarmonyLightServiceCard {
   @LocalStorageProp('formId') formId: string = '';
   @LocalStorageProp('bound') bound: boolean = false;
+  @LocalStorageProp('targetId') targetId: string = '';
+  @LocalStorageProp('serverInstanceId') serverInstanceId: string = '';
+  @LocalStorageProp('openEntityDetailEnabled') openEntityDetailEnabled: boolean = false;
   @LocalStorageProp('title') title: string = Localization.t('card_light_control_title');
   @LocalStorageProp('subtitle') subtitle: string = Localization.t('card_bind_light_device');
   @LocalStorageProp('state') state: string = 'unknown';
@@ -20,16 +24,9 @@ struct HarmonyLightServiceCard {
 
       Column() {
         if (this.bound) {
-          this.boundHeader()
+          this.boundContent()
         } else {
           this.unboundContent()
-        }
-
-        Blank()
-          .layoutWeight(1)
-
-        if (this.bound) {
-          this.powerButton()
         }
       }
       .width('100%')
@@ -42,6 +39,27 @@ struct HarmonyLightServiceCard {
     }
     .width('100%')
     .height('100%')
+  }
+
+  @Builder
+  private boundContent(): void {
+    Column() {
+      Column() {
+        this.boundHeader()
+
+        Blank()
+          .layoutWeight(1)
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+      .onClick(() => this.openEntityDetail())
+
+      this.powerButton()
+    }
+    .width('100%')
+    .height('100%')
+    .alignItems(HorizontalAlign.Start)
   }
 
   @Builder
@@ -132,6 +150,8 @@ struct HarmonyLightServiceCard {
     Row() {
       Blank()
         .layoutWeight(1)
+        .height(ServiceCardUiConfig.iconButtonSize)
+        .onClick(() => this.openEntityDetail())
 
       Stack({ alignContent: Alignment.Center }) {
         SymbolGlyph($r('sys.symbol.power'))
@@ -162,6 +182,22 @@ struct HarmonyLightServiceCard {
 
   private displaySubtitle(): string {
     return this.subtitle.trim().length > 0 ? this.subtitle : Localization.t('state_unknown');
+  }
+
+  private openEntityDetail(): void {
+    if (!this.bound || !this.openEntityDetailEnabled || this.targetId.trim().length === 0) {
+      return;
+    }
+    postCardAction(this, {
+      action: 'router',
+      abilityName: 'EntryAbility',
+      params: {
+        action: CardEntityDetailLaunchService.ACTION,
+        entityId: this.targetId,
+        serverInstanceId: this.serverInstanceId,
+        formId: this.formId
+      }
+    });
   }
 
   private isOn(): boolean {

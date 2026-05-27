@@ -17,6 +17,9 @@ import { CardMediaCacheStore } from './CardMediaCacheStore';
 interface LightFormData {
   formId: string;
   bound: boolean;
+  targetId: string;
+  serverInstanceId: string;
+  openEntityDetailEnabled: boolean;
   title: string;
   subtitle: string;
   state: string;
@@ -26,6 +29,9 @@ interface LightFormData {
 interface SceneFormData {
   formId: string;
   bound: boolean;
+  targetId: string;
+  serverInstanceId: string;
+  openEntityDetailEnabled: boolean;
   title: string;
   subtitle: string;
   state: string;
@@ -35,6 +41,9 @@ interface SceneFormData {
 interface MediaFormData {
   formId: string;
   bound: boolean;
+  targetId: string;
+  serverInstanceId: string;
+  openEntityDetailEnabled: boolean;
   title: string;
   subtitle: string;
   state: string;
@@ -296,6 +305,9 @@ export class CardRuntimeCoordinator {
     return {
       formId,
       bound,
+      targetId: bound ? record.targetId : '',
+      serverInstanceId: bound ? record.serverInstanceId : '',
+      openEntityDetailEnabled: bound,
       title: bound ? record.targetName : Localization.t('card_light_control_title'),
       subtitle: bound ? CardRuntimeCoordinator.lightSubtitle(record) : Localization.t('card_bind_light_device'),
       state: bound ? record.state : 'unknown',
@@ -308,6 +320,9 @@ export class CardRuntimeCoordinator {
     return {
       formId,
       bound,
+      targetId: bound ? record.targetId : '',
+      serverInstanceId: bound ? record.serverInstanceId : '',
+      openEntityDetailEnabled: false,
       title: bound ? record.targetName : Localization.t('card_scene_control_title'),
       subtitle: bound ? CardRuntimeCoordinator.sceneFeedbackText(record.state) : Localization.t('card_bind_scene'),
       state: bound ? record.state : 'unknown',
@@ -321,6 +336,9 @@ export class CardRuntimeCoordinator {
     const data: MediaFormData = {
       formId,
       bound,
+      targetId: bound ? record.targetId : '',
+      serverInstanceId: bound ? record.serverInstanceId : '',
+      openEntityDetailEnabled: bound,
       title: bound ? record.targetName : Localization.t('card_media_control_title'),
       subtitle: bound ? CardRuntimeCoordinator.mediaSubtitle(record, display) : Localization.t('card_bind_media_player'),
       state: bound ? record.state : 'unknown',
