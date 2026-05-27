@@ -16,6 +16,7 @@ struct HarmonyMediaServiceCard {
   @LocalStorageProp('title') title: string = Localization.t('card_media_control_title');
   @LocalStorageProp('subtitle') subtitle: string = Localization.t('card_bind_media_player');
   @LocalStorageProp('state') state: string = 'unknown';
+  @LocalStorageProp('areaName') areaName: string = '';
   @LocalStorageProp('mediaTitle') mediaTitle: string = Localization.t('card_choose_player');
   @LocalStorageProp('mediaArtist') mediaArtist: string = '';
   @LocalStorageProp('appName') appName: string = '';
@@ -23,7 +24,6 @@ struct HarmonyMediaServiceCard {
   @LocalStorageProp('coverImageName') coverImageName: string = '';
   @LocalStorageProp('surfaceColor') surfaceColor: string = '#FFFFFF';
   @LocalStorageProp('primaryTextColor') primaryTextColor: string = ServiceCardUiConfig.textPrimary;
-  @LocalStorageProp('secondaryTextColor') secondaryTextColor: string = ServiceCardUiConfig.textSecondary;
   @LocalStorageProp('disabledTextColor') disabledTextColor: string = '#97A2AA';
   @LocalStorageProp('trackColor') trackColor: string = '#D7DEE4';
   @LocalStorageProp('updateFrequency') updateFrequency: string = 'default';
@@ -197,13 +197,33 @@ struct HarmonyMediaServiceCard {
   @Builder
   private detailContentArea(): void {
     Column() {
-      Column({ space: 3 }) {
+      Column({ space: 5 }) {
+        Row({ space: 4 }) {
+          if (this.roomNameText().length > 0) {
+            SymbolGlyph($r('sys.symbol.speaker_wave_3'))
+              .fontSize(23)
+              .fontColor([this.contentTranslucentColor()])
+
+            Text(this.roomNameText())
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.contentTranslucentColor())
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          } else {
+            Text('')
+              .fontSize(16)
+              .fontWeight(FontWeight.Bold)
+          }
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
         ForEach([this.mediaTitleText()], (item: string) => {
           Text(item)
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
-            .fontColor(this.primaryColor())
-            .opacity(0.88)
+            .fontColor(this.contentTranslucentColor())
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .transition(TransitionEffect.OPACITY.animation({
@@ -216,8 +236,7 @@ struct HarmonyMediaServiceCard {
           Text(item)
             .fontSize(12)
             .fontWeight(FontWeight.Medium)
-            .fontColor(this.secondaryColor())
-            .opacity(0.72)
+            .fontColor(this.contentTranslucentColor())
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
             .transition(TransitionEffect.OPACITY.animation({
@@ -251,8 +270,7 @@ struct HarmonyMediaServiceCard {
     Stack({ alignContent: Alignment.Center }) {
       SymbolGlyph(icon)
         .fontSize(action === 'play_pause' ? 26 : 23)
-        .fontColor([this.primaryColor()])
-        .opacity(action === 'play_pause' ? 0.92 : 0.72)
+        .fontColor([this.contentTranslucentColor()])
         .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), true)
     }
     .width(ServiceCardUiConfig.controlButtonSize)
@@ -275,8 +293,7 @@ struct HarmonyMediaServiceCard {
       ForEach([this.playPauseIconKey()], (item: string) => {
         SymbolGlyph(item === 'pause' ? $r('sys.symbol.pause') : $r('sys.symbol.play_fill'))
           .fontSize(26)
-          .fontColor([this.primaryColor()])
-          .opacity(0.92)
+          .fontColor([this.contentTranslucentColor()])
           .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), true)
       }, (item: string) => item)
     }
@@ -362,6 +379,10 @@ struct HarmonyMediaServiceCard {
     return this.title.trim().length > 0 ? this.title : Localization.t('state_unknown');
   }
 
+  private roomNameText(): string {
+    return this.areaName.trim();
+  }
+
   private subtitleText(): string {
     return this.subtitle.trim().length > 0 ? this.subtitle : Localization.t('state_unknown');
   }
@@ -374,8 +395,45 @@ struct HarmonyMediaServiceCard {
     return this.primaryTextColor.trim().length > 0 ? this.primaryTextColor : ServiceCardUiConfig.textPrimary;
   }
 
-  private secondaryColor(): string {
-    return this.secondaryTextColor.trim().length > 0 ? this.secondaryTextColor : ServiceCardUiConfig.textSecondary;
+  private contentTranslucentColor(): string {
+    return this.blendColor(this.primaryColor(), this.cardSurfaceColor(), 0.6);
+  }
+
+  private blendColor(foreground: string, background: string, foregroundRatio: number): string {
+    const fg = this.parseHexColor(foreground);
+    const bg = this.parseHexColor(background);
+    if (fg.length !== 3 || bg.length !== 3) {
+      return foreground.trim();
+    }
+    const ratio = Math.max(0, Math.min(1, foregroundRatio));
+    const red = Math.round(fg[0] * ratio + bg[0] * (1 - ratio));
+    const green = Math.round(fg[1] * ratio + bg[1] * (1 - ratio));
+    const blue = Math.round(fg[2] * ratio + bg[2] * (1 - ratio));
+    return `#${this.hexByte(red)}${this.hexByte(green)}${this.hexByte(blue)}`;
+  }
+
+  private parseHexColor(color: string): number[] {
+    const value = color.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+      return [
+        Number.parseInt(value.substring(1, 3), 16),
+        Number.parseInt(value.substring(3, 5), 16),
+        Number.parseInt(value.substring(5, 7), 16)
+      ];
+    }
+    if (/^#[0-9a-fA-F]{8}$/.test(value)) {
+      return [
+        Number.parseInt(value.substring(3, 5), 16),
+        Number.parseInt(value.substring(5, 7), 16),
+        Number.parseInt(value.substring(7, 9), 16)
+      ];
+    }
+    return [];
+  }
+
+  private hexByte(value: number): string {
+    const normalized = Math.max(0, Math.min(255, value));
+    return normalized.toString(16).padStart(2, '0').toUpperCase();
   }
 
   private disabledColor(): string {

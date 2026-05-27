@@ -47,6 +47,7 @@ interface MediaFormData {
   title: string;
   subtitle: string;
   state: string;
+  areaName: string;
   mediaTitle: string;
   mediaArtist: string;
   appName: string;
@@ -54,7 +55,6 @@ interface MediaFormData {
   coverImageName: string;
   surfaceColor: string;
   primaryTextColor: string;
-  secondaryTextColor: string;
   disabledTextColor: string;
   trackColor: string;
   updateFrequency: string;
@@ -294,7 +294,6 @@ export class CardRuntimeCoordinator {
       'coverUrl': asset.localUrl,
       'surfaceColor': asset.palette.surfaceColor,
       'primaryTextColor': asset.palette.primaryTextColor,
-      'secondaryTextColor': asset.palette.secondaryTextColor,
       'disabledTextColor': asset.palette.disabledTextColor,
       'trackColor': asset.palette.trackColor
     });
@@ -342,6 +341,7 @@ export class CardRuntimeCoordinator {
       title: bound ? record.targetName : Localization.t('card_media_control_title'),
       subtitle: bound ? CardRuntimeCoordinator.mediaSubtitle(record, display) : Localization.t('card_bind_media_player'),
       state: bound ? record.state : 'unknown',
+      areaName: bound ? record.areaName : '',
       mediaTitle: bound ? CardRuntimeCoordinator.displayField(display, 'mediaTitle', record.targetName) : Localization.t('card_choose_player'),
       mediaArtist: bound ? CardRuntimeCoordinator.displayField(display, 'mediaArtist', record.areaName) : '',
       appName: CardRuntimeCoordinator.displayField(display, 'appName', ''),
@@ -349,7 +349,6 @@ export class CardRuntimeCoordinator {
       coverImageName: '',
       surfaceColor: bound ? CardRuntimeCoordinator.displayField(display, 'surfaceColor', CoverImageService.FALLBACK_PALETTE.surfaceColor) : '#FFFFFF',
       primaryTextColor: CardRuntimeCoordinator.displayField(display, 'primaryTextColor', CoverImageService.FALLBACK_PALETTE.primaryTextColor),
-      secondaryTextColor: CardRuntimeCoordinator.displayField(display, 'secondaryTextColor', CoverImageService.FALLBACK_PALETTE.secondaryTextColor),
       disabledTextColor: CardRuntimeCoordinator.displayField(display, 'disabledTextColor', CoverImageService.FALLBACK_PALETTE.disabledTextColor),
       trackColor: CardRuntimeCoordinator.displayField(display, 'trackColor', CoverImageService.FALLBACK_PALETTE.trackColor),
       updateFrequency: await AppSettingsStore.loadServiceCardUpdateFrequency(context),

@@ -195,6 +195,7 @@ export struct AppRuntimeHost {
   @State dashboardUrl: string = '';
   @State dashboardLoadedUrl: string = '';
   @State dashboardCurrentUrl: string = '';
+  @State dashboardClearHistoryPending: boolean = false;
   @State nativeSettingsReturnUrl: string = '';
   @State dashboardBackToHomePending: boolean = false;
   @State dashboardBridgeReady: boolean = false;
@@ -409,6 +410,7 @@ export struct AppRuntimeHost {
       if (shouldReload || this.dashboardUrl.trim().length === 0) {
         this.dashboardUrl = resolution.url;
         this.dashboardCurrentUrl = resolution.url;
+        this.dashboardClearHistoryPending = true;
         if (shouldReload || this.dashboardLoadedUrl.length === 0) {
           this.dashboardLoadedUrl = '';
         }
@@ -539,6 +541,17 @@ export struct AppRuntimeHost {
       return;
     }
     this.dashboardLoadedUrl = url;
+  }
+
+  clearPendingDashboardHistory(): void {
+    if (!this.dashboardClearHistoryPending) {
+      return;
+    }
+    try {
+      this.webCtrl.clearHistory();
+    } catch (_) {
+    }
+    this.dashboardClearHistoryPending = false;
   }
 
   openAssistConversation(payload: Object | string): void {
@@ -851,11 +864,13 @@ export struct AppRuntimeHost {
     this.dashboardLoadedUrl = '';
     setTimeout((): void => {
       if (this.step === AppRoute.DASHBOARD && this.dashboardUrl === targetUrl) {
+        this.dashboardClearHistoryPending = true;
         this.tryLoadWebUrl(targetUrl);
       }
     }, 0);
     setTimeout((): void => {
       if (this.step === AppRoute.DASHBOARD && this.dashboardUrl === targetUrl) {
+        this.dashboardClearHistoryPending = true;
         this.tryLoadWebUrl(targetUrl);
       }
     }, 250);

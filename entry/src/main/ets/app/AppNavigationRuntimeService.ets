@@ -1,7 +1,6 @@
 import { AppRoute } from './AppRoute';
 import { AppNavigator } from './AppNavigator';
 import { Localization } from '../shared/i18n/Localization';
-import { UrlService } from '../services/UrlService';
 
 export interface AppNavigationRuntimeState {
   showCompanionChoiceDialog: boolean;
@@ -17,7 +16,6 @@ export interface AppNavigationRuntimeState {
   showDeleteServerDialog: boolean;
   showServerEditDialog: boolean;
   nativeFeatureBackTarget: number;
-  dashboardCurrentUrl: string;
   connectionErrorBackTarget: number;
   connectionProbeToken: number;
 }
@@ -28,10 +26,8 @@ export interface AppNavigationRuntimeCallbacks {
   cancelAddServerFromSettings: () => void;
   stopDiscoveryAnimation: () => void;
   returnToHaSettingsPage: () => void;
-  currentDashboardUrl: () => string;
   canDashboardGoBack: () => boolean;
   dashboardGoBack: () => void;
-  runDashboardScript: (script: string) => void;
 }
 
 export class AppNavigationRuntimeService {
@@ -147,16 +143,11 @@ export class AppNavigationRuntimeService {
     state: AppNavigationRuntimeState,
     callbacks: AppNavigationRuntimeCallbacks
   ): boolean {
-    const currentUrl = callbacks.currentDashboardUrl();
-    if (UrlService.isDashboardHomeUrl(currentUrl)) {
-      return false;
-    }
     if (callbacks.canDashboardGoBack()) {
       callbacks.dashboardGoBack();
       return true;
     }
-    callbacks.runDashboardScript('history.back();');
-    return true;
+    return false;
   }
 
   private static isNativeSettingsRoute(route: number): boolean {
