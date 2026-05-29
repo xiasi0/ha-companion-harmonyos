@@ -6,7 +6,7 @@
 
 HA Companion For HarmonyOS 是面向 HarmonyOS NEXT 的 Home Assistant Companion 应用实现。项目目标是在鸿蒙原生应用中提供 Home Assistant 登录、仪表盘访问、移动端注册、设备能力同步、原生设置和服务卡片能力。
 
-当前版本为 `0.0.0-dev`，声明支持的设备类型为 `phone` 和 `tablet`。项目仍处于开发阶段，部分能力已经形成可运行主路径，部分平台能力仍需要更多真机验证和产品化打磨。
+当前应用版本为 `1.0.0`（`versionCode`: `1000000`），声明支持的设备类型为 `phone` 和 `tablet`。项目仍处于开发阶段，部分能力已经形成可运行主路径，部分平台能力仍需要更多真机验证和产品化打磨。
 
 ## 背景与目标
 
@@ -49,7 +49,7 @@ Home Assistant 官方已经在 Android、iOS、Wear OS、watchOS 等平台提供
 - 支持 HarmonyOS 通知权限检查、本地通知测试和通知历史记录。
 - 支持系统认证能力接入，用于应用锁相关流程。
 - 支持 Assist 文本/语音入口的运行时结构，Assist pipeline 通过 Home Assistant WebSocket 调用。
-- 保留 NFC、语音、后台长任务、手表端策略等扩展能力入口，其中部分仍处于占位或实验阶段。
+- 支持后台长任务和长连接入口；保留 NFC、语音、手表端策略等扩展能力入口，其中部分仍处于占位或实验阶段。
 
 ### 服务卡片
 
@@ -107,8 +107,8 @@ Home Assistant 官方已经在 Android、iOS、Wear OS、watchOS 等平台提供
   - Assist / 语音相关能力预留
 - `@ohos.userIAM.userAuth`
   - 系统认证和应用锁
-- `@ohos.resourceschedule.backgroundTaskManager`
-  - 后台任务和长连接能力预留
+- `@kit.BackgroundTasksKit`
+  - 后台长任务和长连接能力
 - `@kit.PerformanceAnalysisKit`
   - `hilog` 日志
 
@@ -240,6 +240,26 @@ git update-index --no-skip-worktree build-profile.json5
 在项目根目录执行：
 
 ```powershell
+.\scripts\build.ps1 debug hap
+```
+
+如需构建 release HAP 或 APP 包：
+
+```powershell
+.\scripts\build.ps1 release hap
+.\scripts\build.ps1 release app
+```
+
+构建脚本会从 `.local/build-profile.debug.json5` 或 `.local/build-profile.release.json5` 切换当前 `build-profile.json5`。首次配置好对应签名后，可保存当前配置：
+
+```powershell
+.\scripts\build.ps1 save debug
+.\scripts\build.ps1 save release
+```
+
+也可以直接调用 Hvigor：
+
+```powershell
 $env:DEVECO_SDK_HOME='D:\DevEco Studio\sdk'
 & 'D:\DevEco Studio\tools\hvigor\bin\hvigorw.bat' --no-daemon --mode module -p module=entry assembleHap
 ```
@@ -267,6 +287,18 @@ entry-default-signed.hap
 安装：
 
 ```powershell
+.\scripts\install.ps1 <device-id>
+```
+
+如果只连接了一台设备，脚本可以自动选择设备并安装最新的 signed HAP：
+
+```powershell
+.\scripts\install.ps1
+```
+
+也可以直接调用 hdc：
+
+```powershell
 & 'D:\DevEco Studio\sdk\default\openharmony\toolchains\hdc.exe' -t <device-id> install -r entry\build\default\outputs\default\entry-default-signed.hap
 ```
 
@@ -277,6 +309,7 @@ entry-default-signed.hap
 ```text
 .hvigor/
 .idea/
+.local/
 entry/build/
 ```
 
@@ -297,8 +330,8 @@ git ls-files -v build-profile.json5
 应用安装包版本以 `AppScope/app.json5` 为准：
 
 ```json5
-"versionCode": 1,
-"versionName": "0.0.0-dev"
+"versionCode": 1000000,
+"versionName": "1.0.0"
 ```
 
 运行时通过 `AppVersionService` 读取 HarmonyOS bundle 信息。设置页、Home Assistant mobile_app 注册和 WebView bridge 都应使用该服务，不应在业务代码中硬编码版本号。

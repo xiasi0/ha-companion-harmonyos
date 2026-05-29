@@ -6,7 +6,7 @@
 
 HA Companion For HarmonyOS is a Home Assistant Companion implementation for HarmonyOS NEXT. The project aims to provide Home Assistant authentication, dashboard access, mobile_app registration, device capability sync, native settings, and HarmonyOS service cards in a native HarmonyOS app.
 
-The current version is `0.0.0-dev` and the declared target device types are `phone` and `tablet`. The project is still under active development: several core paths are runnable, while some platform capabilities still need more real-device validation and production hardening.
+The current app version is `1.0.0` (`versionCode`: `1000000`) and the declared target device types are `phone` and `tablet`. The project is still under active development: several core paths are runnable, while some platform capabilities still need more real-device validation and production hardening.
 
 ## Project Context And Goals
 
@@ -49,7 +49,7 @@ Because Home Assistant Core does not currently define a HarmonyOS OS platform la
 - Notification permission checks, local notification test, and notification history support.
 - System authentication integration for app-lock flows.
 - Assist runtime structure for text and voice entry points. Assist pipeline calls use the Home Assistant WebSocket API.
-- Reserved or experimental entries for NFC, speech, background tasks, and wearable policy.
+- Background long-running task and persistent connection entry points. Reserved or experimental entries remain for NFC, speech, and wearable policy.
 
 ### Service Cards
 
@@ -107,8 +107,8 @@ The project currently uses or reserves these native HarmonyOS capabilities:
   - Reserved Assist / speech-related capabilities
 - `@ohos.userIAM.userAuth`
   - System authentication and app lock
-- `@ohos.resourceschedule.backgroundTaskManager`
-  - Reserved background task and long-running connection capabilities
+- `@kit.BackgroundTasksKit`
+  - Background long-running task and persistent connection capabilities
 - `@kit.PerformanceAnalysisKit`
   - `hilog` logging
 
@@ -240,6 +240,26 @@ git update-index --no-skip-worktree build-profile.json5
 From the project root:
 
 ```powershell
+.\scripts\build.ps1 debug hap
+```
+
+To build a release HAP or APP package:
+
+```powershell
+.\scripts\build.ps1 release hap
+.\scripts\build.ps1 release app
+```
+
+The build script switches the active `build-profile.json5` from `.local/build-profile.debug.json5` or `.local/build-profile.release.json5`. After configuring signing once, save the active profile with:
+
+```powershell
+.\scripts\build.ps1 save debug
+.\scripts\build.ps1 save release
+```
+
+You can also call Hvigor directly:
+
+```powershell
 $env:DEVECO_SDK_HOME='D:\DevEco Studio\sdk'
 & 'D:\DevEco Studio\tools\hvigor\bin\hvigorw.bat' --no-daemon --mode module -p module=entry assembleHap
 ```
@@ -267,6 +287,18 @@ List connected devices:
 Install:
 
 ```powershell
+.\scripts\install.ps1 <device-id>
+```
+
+If only one device is connected, the script can select it automatically and install the latest signed HAP:
+
+```powershell
+.\scripts\install.ps1
+```
+
+You can also call hdc directly:
+
+```powershell
 & 'D:\DevEco Studio\sdk\default\openharmony\toolchains\hdc.exe' -t <device-id> install -r entry\build\default\outputs\default\entry-default-signed.hap
 ```
 
@@ -277,6 +309,7 @@ These directories are local build or IDE state and should not be committed:
 ```text
 .hvigor/
 .idea/
+.local/
 entry/build/
 ```
 
@@ -297,8 +330,8 @@ If `build-profile.json5` starts with `S`, local skip-worktree is enabled.
 The app package version is defined in `AppScope/app.json5`:
 
 ```json5
-"versionCode": 1,
-"versionName": "0.0.0-dev"
+"versionCode": 1000000,
+"versionName": "1.0.0"
 ```
 
 Runtime code reads the bundled HarmonyOS version through `AppVersionService`. Settings, Home Assistant mobile_app registration, and WebView bridge responses should use this service instead of hardcoded version strings.
