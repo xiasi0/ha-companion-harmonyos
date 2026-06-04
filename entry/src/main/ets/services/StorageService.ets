@@ -61,6 +61,11 @@ export class StorageService {
     return info.baseUrl.trim().length > 0 && info.accessToken.trim().length > 0;
   }
 
+  static hasCredentials(info: StoredServerInfo): boolean {
+    return info.baseUrl.trim().length > 0 &&
+      (info.accessToken.trim().length > 0 || info.refreshToken.trim().length > 0);
+  }
+
   static storageStatus(info: StoredServerInfo): string {
     if (StorageService.hasLogin(info)) {
       return Localization.t('storage_saved');

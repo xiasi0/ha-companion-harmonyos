@@ -132,6 +132,59 @@ export class UrlService {
     return UrlService.appendQueryParam(baseUrl, 'external_auth', '1');
   }
 
+  static resolveFrontendUrl(baseUrl: string, path: string): string {
+    const normalizedBase = UrlService.normalizeBaseUrl(baseUrl);
+    if (normalizedBase.length === 0) {
+      return '';
+    }
+    let input = path.trim();
+    let navigateScheme = false;
+    if (input.startsWith('homeassistant://navigate/')) {
+      navigateScheme = true;
+      input = input.slice('homeassistant://navigate/'.length);
+    }
+    if (input.length === 0) {
+      return normalizedBase;
+    }
+    if (navigateScheme && UrlService.isHttpLikeUrl(input)) {
+      const schemeIndex = input.indexOf('://');
+      const hostStart = schemeIndex + 3;
+      let tailStart = input.length;
+      const pathStart = input.indexOf('/', hostStart);
+      const queryStart = input.indexOf('?', hostStart);
+      const hashStart = input.indexOf('#', hostStart);
+      if (pathStart >= 0 && pathStart < tailStart) {
+        tailStart = pathStart;
+      }
+      if (queryStart >= 0 && queryStart < tailStart) {
+        tailStart = queryStart;
+      }
+      if (hashStart >= 0 && hashStart < tailStart) {
+        tailStart = hashStart;
+      }
+      input = tailStart < input.length ? input.slice(tailStart) : '';
+    }
+    if (UrlService.isHttpLikeUrl(input)) {
+      return input;
+    }
+    if (input.startsWith('?') || input.startsWith('#')) {
+      return `${normalizedBase}/${input}`;
+    }
+    return `${normalizedBase}/${input.startsWith('/') ? input.slice(1) : input}`;
+  }
+
+  static buildEntityDetailUrl(baseUrl: string, entityId: string, frontendPath: string = '/'): string {
+    const url = UrlService.resolveFrontendUrl(baseUrl, frontendPath);
+    if (url.length === 0) {
+      return '';
+    }
+    return UrlService.appendQueryParam(
+      UrlService.buildDashboardUrl(url),
+      'more-info-entity-id',
+      entityId
+    );
+  }
+
   static urlPathOnly(url: string): string {
     if (!url) {
       return '';
