@@ -218,7 +218,9 @@ export struct AppRuntimeHost {
   @State assistStartListeningRequested: boolean = false;
   private pendingEntityDetailEntityId: string = '';
   private pendingEntityDetailRequestTick: number = 0;
+  private pendingEntityDetailBaseUrl: string = '';
   private pendingEntityDetailScriptInFlight: boolean = false;
+  private pendingEntityDetailDashboardNavigation: boolean = false;
   private entityDetailOpenedFromCard: boolean = false;
   discoveryAnimationToken: number = 0;
   discoveryAnimationRunning: boolean = false;
@@ -657,20 +659,27 @@ export struct AppRuntimeHost {
   }
 
   private handleExternalBus(payload: Object | string): void {
-    if (ExternalBusService.type(payload) === 'harmony_url_changed') {
+    const type = ExternalBusService.type(payload);
+    if (type === 'harmony_url_changed') {
       const url = ExternalBusService.stringPayload(payload, 'url', '');
       this.rememberDashboardUrl(url);
+      if (this.pendingEntityDetailDashboardNavigation) {
+        if (!this.isPendingEntityDetailDashboardUrl(url)) {
+          return;
+        }
+        this.pendingEntityDetailDashboardNavigation = false;
+      }
       this.runPendingEntityDetailScript();
       return;
     }
-    if (ExternalBusService.type(payload) === 'harmony_card_entity_detail_ready') {
+    if (type === 'harmony_card_entity_detail_ready') {
       const entityId = ExternalBusService.stringPayload(payload, 'entityId', '');
       if (entityId.length === 0 || entityId === this.pendingEntityDetailEntityId.trim()) {
         this.runPendingEntityDetailScript();
       }
       return;
     }
-    if (ExternalBusService.type(payload) === 'harmony_card_entity_detail_closed') {
+    if (type === 'harmony_card_entity_detail_closed') {
       this.entityDetailOpenedFromCard = false;
       return;
     }
@@ -686,15 +695,19 @@ export struct AppRuntimeHost {
   async loadExternalAuthAccessToken(baseUrl: string, forceRefresh: boolean): Promise<string> {
     const context = this.context();
     const activeId = ServerManager.getActiveServerIdSync(context);
-    if (activeId.length === 0) {
+    const normalizedBaseUrl = UrlService.normalizeBaseUrl(baseUrl);
+    let targetId = normalizedBaseUrl.length > 0 ? ServerManager.findServerIdByBaseUrlSync(context, normalizedBaseUrl) : '';
+    if (targetId.length === 0) {
+      targetId = activeId;
+    }
+    if (targetId.length === 0) {
       return this.haAccessToken.trim();
     }
-    const normalizedBaseUrl = UrlService.normalizeBaseUrl(baseUrl);
     const session: ServerAuthSession = forceRefresh
-      ? await ServerAuthRepository.refreshWithBaseUrl(context, activeId, normalizedBaseUrl)
-      : await ServerAuthRepository.loadFreshWithBaseUrl(context, activeId, normalizedBaseUrl);
-    const latestInfo = await ServerManager.getServerInfo(context, activeId);
-    if (StorageService.hasLogin(latestInfo)) {
+      ? await ServerAuthRepository.refreshWithBaseUrl(context, targetId, normalizedBaseUrl)
+      : await ServerAuthRepository.loadFreshWithBaseUrl(context, targetId, normalizedBaseUrl);
+    const latestInfo = await ServerManager.getServerInfo(context, targetId);
+    if (targetId === activeId && StorageService.hasLogin(latestInfo)) {
       AppSessionRuntimeService.applyServerInfoToState(this, latestInfo);
     }
     if (forceRefresh) {
@@ -825,6 +838,10 @@ export struct AppRuntimeHost {
 
   applyDashboardPreferences(): void {
     DashboardRuntimeService.applyDashboardPreferences(this.webCtrl, this);
+    if (this.pendingEntityDetailDashboardNavigation &&
+      this.canOpenEntityDetailInCurrentDashboard(this.pendingEntityDetailBaseUrl)) {
+      this.pendingEntityDetailDashboardNavigation = false;
+    }
     this.runPendingEntityDetailScript();
   }
 
@@ -1015,7 +1032,7 @@ export struct AppRuntimeHost {
     this.ensureCurrentPendingEntityDetailRequest(entityId, requestServerInstanceId, tick);
     const record = await ServerInstanceStore.load(context, serverInstanceId);
     this.ensureCurrentPendingEntityDetailRequest(entityId, requestServerInstanceId, tick);
-    if (!record || !StorageService.hasLogin(record.info)) {
+    if (!record || !StorageService.hasCredentials(record.info)) {
       throw new Error('missing server login');
     }
     const previousRuntime = await ServerInstanceStore.loadRuntime(context);
@@ -1088,41 +1105,23 @@ export struct AppRuntimeHost {
     }
     this.pendingEntityDetailEntityId = entityId;
     this.pendingEntityDetailRequestTick = tick;
+    this.pendingEntityDetailBaseUrl = normalizedBaseUrl;
     this.pendingEntityDetailScriptInFlight = false;
+    this.pendingEntityDetailDashboardNavigation = false;
     this.entityDetailOpenedFromCard = false;
     if (this.canOpenEntityDetailInCurrentDashboard(normalizedBaseUrl)) {
       this.step = AppRoute.DASHBOARD;
       this.runPendingEntityDetailScript();
       return;
     }
-    const dashboardUrl = UrlService.buildDashboardUrl(normalizedBaseUrl);
-    if (this.shouldNavigateCurrentHaPageToDashboardForEntityDetail(normalizedBaseUrl)) {
-      this.openDashboard();
-      this.dashboardUrl = dashboardUrl;
-      this.dashboardCurrentUrl = dashboardUrl;
-      this.tryRunWebScript(CardEntityDetailLaunchService.navigateToDashboardScript(dashboardUrl), (raw): void => {
-        if (!this.isCurrentEntityDetailScriptRequest(entityId, tick)) {
-          return;
-        }
-        const result = String(raw);
-        if (result === 'true' || result === '"true"') {
-          this.runPendingEntityDetailScript();
-          return;
-        }
-        this.dashboardLoadedUrl = '';
-        this.dashboardBridgeReady = false;
-        this.dashboardAuthProvided = false;
-        this.forceLoadDashboard(dashboardUrl);
-      });
-      return;
-    }
+    const dashboardUrl = this.dashboardUrlForEntityDetail(normalizedBaseUrl, entityId);
+    this.pendingEntityDetailDashboardNavigation = true;
     this.openDashboard();
     this.dashboardUrl = dashboardUrl;
     this.dashboardLoadedUrl = '';
     this.dashboardCurrentUrl = dashboardUrl;
     this.dashboardBridgeReady = false;
     this.dashboardAuthProvided = false;
-    this.forceLoadDashboard(dashboardUrl);
   }
 
   private canOpenEntityDetailInCurrentDashboard(baseUrl: string): boolean {
@@ -1133,26 +1132,70 @@ export struct AppRuntimeHost {
     if (!UrlService.isHttpLikeUrl(currentUrl)) {
       return false;
     }
-    if (!this.isLovelaceDashboardPage(currentUrl)) {
-      return false;
-    }
-    return UrlService.endpointKey(currentUrl) === UrlService.endpointKey(baseUrl);
+    return this.isCurrentHaFrontendUrlForEntityDetail(baseUrl, currentUrl);
   }
 
-  private shouldNavigateCurrentHaPageToDashboardForEntityDetail(baseUrl: string): boolean {
-    if (!this.isWebControllerMounted() || this.dashboardInsecureBlocked) {
-      return false;
-    }
+  private dashboardUrlForEntityDetail(baseUrl: string, entityId: string): string {
     const currentUrl = this.currentDashboardUrl();
-    if (!UrlService.isHttpLikeUrl(currentUrl) || this.isLovelaceDashboardPage(currentUrl)) {
-      return false;
+    if (UrlService.isHttpLikeUrl(currentUrl) &&
+      this.isCurrentHaFrontendUrlForEntityDetail(baseUrl, currentUrl)) {
+      return UrlService.buildEntityDetailUrl(UrlService.normalizeBaseUrl(currentUrl), entityId);
     }
-    return UrlService.endpointKey(currentUrl) === UrlService.endpointKey(baseUrl);
+    return UrlService.buildEntityDetailUrl(baseUrl, entityId);
   }
 
-  private isLovelaceDashboardPage(url: string): boolean {
-    const path = UrlService.urlPathOnly(url);
-    return path === '/' || path === '/lovelace' || path.startsWith('/lovelace/');
+  private isCurrentHaFrontendUrlForEntityDetail(baseUrl: string, currentUrl: string): boolean {
+    if (!UrlService.isHttpLikeUrl(currentUrl)) {
+      return false;
+    }
+    const currentKey = UrlService.endpointKey(currentUrl);
+    if (currentKey === UrlService.endpointKey(baseUrl)) {
+      return true;
+    }
+    const aliases = [this.haBaseUrl, this.serverExternalUrl, this.serverInternalUrl];
+    for (let i = 0; i < aliases.length; i++) {
+      const alias = UrlService.normalizeBaseUrl(aliases[i]);
+      if (alias.length > 0 && currentKey === UrlService.endpointKey(alias)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private isPendingEntityDetailDashboardUrl(url: string): boolean {
+    return this.pendingEntityDetailBaseUrl.length > 0 &&
+      this.isCurrentHaFrontendUrlForEntityDetail(this.pendingEntityDetailBaseUrl, url);
+  }
+
+  private navigatePendingEntityDetailToDashboard(entityId: string, tick: number, panelUrl: string = ''): void {
+    const baseUrl = this.pendingEntityDetailBaseUrl;
+    if (baseUrl.length === 0 || !this.isCurrentEntityDetailScriptRequest(entityId, tick)) {
+      return;
+    }
+    const panelPath = panelUrl.trim();
+    const frontendPath = panelPath.length > 0 ? `/${panelPath.startsWith('/') ? panelPath.slice(1) : panelPath}` : '/';
+    const dashboardUrl = UrlService.buildEntityDetailUrl(baseUrl, entityId, frontendPath);
+    this.pendingEntityDetailDashboardNavigation = true;
+    this.openDashboard();
+    this.dashboardUrl = dashboardUrl;
+    this.dashboardCurrentUrl = dashboardUrl;
+    this.tryRunWebScript(CardEntityDetailLaunchService.navigateToDashboardScript(dashboardUrl), (raw): void => {
+      if (!this.isCurrentEntityDetailScriptRequest(entityId, tick)) {
+        return;
+      }
+      const result = String(raw);
+      if (result === 'true' || result === '"true"') {
+        if (this.isPendingEntityDetailDashboardUrl(this.currentDashboardUrl())) {
+          this.pendingEntityDetailDashboardNavigation = false;
+          this.runPendingEntityDetailScript();
+        }
+        return;
+      }
+      this.dashboardLoadedUrl = '';
+      this.dashboardBridgeReady = false;
+      this.dashboardAuthProvided = false;
+      this.forceLoadDashboard(dashboardUrl);
+    });
   }
 
   private runPendingEntityDetailScript(): void {
@@ -1161,7 +1204,7 @@ export struct AppRuntimeHost {
     if (!CardEntityDetailLaunchService.isValidEntityId(entityId)) {
       return;
     }
-    if (this.pendingEntityDetailScriptInFlight) {
+    if (this.pendingEntityDetailDashboardNavigation || this.pendingEntityDetailScriptInFlight) {
       return;
     }
     this.pendingEntityDetailScriptInFlight = true;
@@ -1171,20 +1214,51 @@ export struct AppRuntimeHost {
         this.runPendingEntityDetailScript();
         return;
       }
-      const result = String(raw);
-      if (result === 'opened' || result === '"opened"' || result === 'true' || result === '"true"') {
+      const result = this.normalizeEntityDetailScriptResult(String(raw));
+      if (result === 'opened' || result === 'true') {
         this.pendingEntityDetailEntityId = '';
         this.pendingEntityDetailRequestTick = 0;
+        this.pendingEntityDetailBaseUrl = '';
+        this.pendingEntityDetailDashboardNavigation = false;
         this.entityDetailOpenedFromCard = true;
         return;
       }
-      if (result === 'missing_entity' || result === '"missing_entity"') {
+      if (result === 'missing_entity') {
         this.pendingEntityDetailEntityId = '';
         this.pendingEntityDetailRequestTick = 0;
+        this.pendingEntityDetailBaseUrl = '';
+        this.pendingEntityDetailDashboardNavigation = false;
         this.entityDetailOpenedFromCard = false;
         hilog.warn(DOMAIN, TAG, 'Pending entity detail target is missing. entity=%{public}s', entityId);
+        return;
+      }
+      if (result === 'not_dashboard' || result.startsWith('not_dashboard:')) {
+        this.navigatePendingEntityDetailToDashboard(entityId, requestTick, this.entityDetailDashboardPanelFromResult(result));
       }
     });
+  }
+
+  private normalizeEntityDetailScriptResult(result: string): string {
+    if (result.length >= 2 && result.startsWith('"') && result.endsWith('"')) {
+      return result.slice(1, result.length - 1);
+    }
+    return result;
+  }
+
+  private entityDetailDashboardPanelFromResult(result: string): string {
+    const prefix = 'not_dashboard:';
+    if (!result.startsWith(prefix)) {
+      return '';
+    }
+    const encoded = result.slice(prefix.length).trim();
+    if (encoded.length === 0) {
+      return '';
+    }
+    try {
+      return decodeURIComponent(encoded);
+    } catch (_) {
+      return encoded;
+    }
   }
 
   private shouldCloseCardEntityDetailBeforeDashboardBack(): boolean {

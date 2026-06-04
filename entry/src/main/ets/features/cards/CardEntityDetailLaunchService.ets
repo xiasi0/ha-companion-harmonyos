@@ -54,6 +54,14 @@ export class CardEntityDetailLaunchService {
       `var entityId=${encoded};` +
       `function q(root,selector){return root&&typeof root.querySelector==='function'?root.querySelector(selector):null;}` +
       `function isUpdated(el){return el&&el.hasUpdated!==false;}` +
+      `function dashboardPanelUrl(panels){` +
+      `if(!panels){return '';}` +
+      `if(panels.home&&panels.home.component_name==='home'){return 'home';}` +
+      `if(panels.lovelace&&panels.lovelace.component_name==='lovelace'){return 'lovelace';}` +
+      `for(var key in panels){if(!Object.prototype.hasOwnProperty.call(panels,key)){continue;}var panel=panels[key];` +
+      `if(panel&&(panel.component_name==='home'||panel.component_name==='lovelace')){return key;}}` +
+      `return '';` +
+      `}` +
       `function notifyClosed(){` +
       `if(window.__haHarmonyCardMoreInfoClosedNotified){return;}` +
       `window.__haHarmonyCardMoreInfoClosedNotified=true;` +
@@ -92,33 +100,30 @@ export class CardEntityDetailLaunchService {
       `}catch(e){}` +
       `schedule();` +
       `}` +
-      `function hasRenderedViewContent(layout){` +
-      `var name=String(layout.localName||'');` +
-      `var root=layout.shadowRoot||layout;` +
-      `var cardCount=layout.cards&&layout.cards.length?layout.cards.length:0;` +
-      `var sectionCount=layout.sections&&layout.sections.length?layout.sections.length:0;` +
-      `if((name==='hui-masonry-view'||name==='hui-panel-view'||name==='hui-sidebar-view')&&cardCount>0&&!q(root,'hui-card,hui-card-options')){return false;}` +
-      `if(name==='hui-sections-view'&&sectionCount>0&&!q(root,'hui-section')){return false;}` +
-      `return true;` +
-      `}` +
       `function readiness(ha){` +
       `if(!ha){return 'pending';}` +
       `if(!ha.hass||!ha.hass.states||!ha.shadowRoot||!isUpdated(ha)){return 'pending';}` +
       `if(!ha.hass.states[entityId]){return 'missing_entity';}` +
+      `var panelUrl=ha.hass.panelUrl||'';` +
+      `var slash=location.pathname.indexOf('/',1);` +
+      `var pathPanel=location.pathname==='/'?'':(slash<0?location.pathname.substring(1):location.pathname.substring(1,slash));` +
+      `if(pathPanel&&panelUrl!==pathPanel){return 'pending';}` +
+      `var panelInfo=panelUrl&&ha.hass.panels?ha.hass.panels[panelUrl]:null;` +
+      `if(!panelUrl||!panelInfo){return 'pending';}` +
+      `if(panelInfo.component_name!=='lovelace'&&panelInfo.component_name!=='home'){` +
+      `var targetPanel=dashboardPanelUrl(ha.hass.panels);` +
+      `return targetPanel?'not_dashboard:'+encodeURIComponent(targetPanel):'not_dashboard';` +
+      `}` +
       `var main=q(ha.shadowRoot,'home-assistant-main');` +
       `if(!main||!main.shadowRoot||!isUpdated(main)){return 'pending';}` +
       `var resolver=q(main.shadowRoot,'partial-panel-resolver');` +
       `if(!resolver||!isUpdated(resolver)){return 'pending';}` +
-      `var panel=q(resolver,'ha-panel-lovelace');` +
+      `var panel=q(resolver,panelInfo.component_name==='home'?'ha-panel-home':'ha-panel-lovelace');` +
       `if(!panel||!panel.shadowRoot||!isUpdated(panel)){return 'pending';}` +
       `var root=q(panel.shadowRoot,'hui-root');` +
       `if(!root||!root.shadowRoot||!isUpdated(root)){return 'pending';}` +
       `var viewContainer=q(root.shadowRoot,'hui-view-container#view');` +
       `if(!viewContainer||!isUpdated(viewContainer)){return 'pending';}` +
-      `var view=q(viewContainer,'hui-view');` +
-      `if(!view||!isUpdated(view)){return 'pending';}` +
-      `var layout=view.firstElementChild;` +
-      `if(!layout||!isUpdated(layout)||!hasRenderedViewContent(layout)){return 'pending';}` +
       `return 'ready';` +
       `}` +
       `function clearReadyWatcher(){` +
@@ -147,7 +152,7 @@ export class CardEntityDetailLaunchService {
       `var main=ha&&ha.shadowRoot?q(ha.shadowRoot,'home-assistant-main'):null;` +
       `if(main){observe(main.shadowRoot);}` +
       `var resolver=main&&main.shadowRoot?q(main.shadowRoot,'partial-panel-resolver'):null;` +
-      `var panel=resolver?q(resolver,'ha-panel-lovelace'):null;` +
+      `var panel=resolver?q(resolver,'ha-panel-lovelace,ha-panel-home'):null;` +
       `if(panel){observe(panel.shadowRoot);}` +
       `var root=panel&&panel.shadowRoot?q(panel.shadowRoot,'hui-root'):null;` +
       `if(root){observe(root.shadowRoot);}` +
@@ -156,7 +161,7 @@ export class CardEntityDetailLaunchService {
       `function checkReady(){` +
       `observeReadyRoots();` +
       `var state=readiness(document.querySelector('home-assistant'));` +
-      `if(state==='ready'||state==='missing_entity'){notifyReady();}` +
+      `if(state==='ready'||state==='missing_entity'||state==='not_dashboard'||state.indexOf('not_dashboard:')===0){notifyReady();}` +
       `}` +
       `window.__haHarmonyCardMoreInfoReadyCheck=checkReady;` +
       `function scheduleReady(){Promise.resolve().then(function(){var fn=window.__haHarmonyCardMoreInfoReadyCheck;if(typeof fn==='function'){fn();}});}` +
@@ -172,8 +177,10 @@ export class CardEntityDetailLaunchService {
       `var ha=document.querySelector('home-assistant');` +
       `var state=readiness(ha);` +
       `if(state==='missing_entity'){return 'missing_entity';}` +
+      `if(state==='not_dashboard'||state.indexOf('not_dashboard:')===0){return state;}` +
       `if(state!=='ready'){installReadyWatcher();return 'pending';}` +
       `installCloseWatcher(ha);` +
+      `if(isDialogOpen(ha)){return 'opened';}` +
       `ha.dispatchEvent(new CustomEvent('hass-more-info',{detail:{entityId:entityId},bubbles:true,composed:true}));` +
       `var check=window.__haHarmonyCardMoreInfoCheck;if(typeof check==='function'){Promise.resolve().then(check);}` +
       `return 'opened';` +
@@ -197,10 +204,10 @@ export class CardEntityDetailLaunchService {
       `if(!target){return false;}` +
       `try{` +
       `var url=new URL(target,location.href);` +
-      `if(url.origin!==location.origin){return false;}` +
+      `if(url.origin!==location.origin){url=new URL(url.pathname+url.search+url.hash,location.href);}` +
       `var path=url.pathname+url.search+url.hash;` +
       `if((location.pathname+location.search+location.hash)===path){return true;}` +
-      `history.replaceState(history.state,'',path);` +
+      `try{history.replaceState(history.state,'',path);}catch(e){return false;}` +
       `window.dispatchEvent(new CustomEvent('location-changed',{detail:{replace:true}}));` +
       `return true;` +
       `}catch(e){return false;}` +

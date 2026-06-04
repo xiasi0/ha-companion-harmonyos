@@ -31,7 +31,7 @@ export class HaConnectionPolicyService {
       return HaConnectionPolicyService.blocked('missing_server', false);
     }
     const info = await ServerManager.getServerInfo(context, id);
-    if (!StorageService.hasLogin(info)) {
+    if (!StorageService.hasCredentials(info)) {
       return HaConnectionPolicyService.blocked('missing_login', false);
     }
     const settings = await AppSettingsStore.loadServerConnectionPolicySettings(context, id);

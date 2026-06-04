@@ -54,7 +54,7 @@ export class ServerInstanceStore {
         continue;
       }
       const record = await ServerInstanceStore.load(context, id);
-      if (record && StorageService.hasLogin(record.info)) {
+      if (record && StorageService.hasCredentials(record.info)) {
         records.push(record);
       }
     }
@@ -253,7 +253,7 @@ export class ServerInstanceStore {
         ServerInstanceStore.customData(manager, accountName, 'cloudhookUrl'),
         ServerInstanceStore.customData(manager, accountName, 'remoteUiUrl')
       );
-      if (!StorageService.hasLogin(info)) {
+      if (!StorageService.hasCredentials(info)) {
         return undefined;
       }
       return ServerInstanceStore.payload(

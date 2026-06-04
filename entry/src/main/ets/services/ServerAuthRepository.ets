@@ -56,6 +56,10 @@ export class ServerAuthRepository {
     const info = await ServerManager.getServerInfo(context, id);
     const session = ServerAuthRepository.session(id, info);
     if (session.accessToken.length === 0) {
+      if (session.refreshToken.length > 0) {
+        const refreshed = await ServerAuthRepository.refreshWithBaseUrl(context, id, refreshBaseUrl);
+        return refreshed.accessToken.length > 0 ? refreshed : session;
+      }
       return session;
     }
     if (!ServerAuthRepository.shouldRefresh(info)) {
@@ -111,7 +115,7 @@ export class ServerAuthRepository {
   }
 
   private static session(serverInstanceId: string, info: StoredServerInfo): ServerAuthSession {
-    if (!StorageService.hasLogin(info)) {
+    if (!StorageService.hasCredentials(info)) {
       return new ServerAuthSessionPayload();
     }
     const session = new ServerAuthSessionPayload();

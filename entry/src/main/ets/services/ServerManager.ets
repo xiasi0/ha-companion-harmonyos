@@ -85,15 +85,23 @@ export class ServerManager {
   static async saveActiveServerInfo(context: common.Context, info: StoredServerInfo): Promise<ManagedServer> {
     const normalized = ServerManager.normalizeInfo(info);
     if (!StorageService.hasLogin(normalized)) {
-      const next = await ServerManager.removeActiveServer(context);
-      ServerManager.applyActiveToAppStorage(next);
+      const active = ServerManager.getActiveServerSync(context);
+      if (active &&
+        ServerManager.normalizeBaseUrl(active.info.baseUrl) === ServerManager.normalizeBaseUrl(normalized.baseUrl)) {
+        const next = await ServerManager.removeActiveServer(context);
+        ServerManager.applyActiveToAppStorage(next);
+      } else {
+        ServerManager.applyActiveToAppStorage(normalized);
+      }
       return new ManagedServerPayload();
     }
     const runtime = await ServerInstanceStore.loadRuntime(context);
     const activeId = runtime.activeServerId;
     const active = activeId.length > 0 ? ServerInstanceStore.loadSync(context, activeId) : undefined;
     const existing = await ServerManager.findExistingServerByBaseUrl(context, normalized.baseUrl);
-    const target = active ?? existing;
+    const activeMatches = active &&
+      ServerManager.normalizeBaseUrl(active.info.baseUrl) === ServerManager.normalizeBaseUrl(normalized.baseUrl);
+    const target = activeMatches ? active : existing;
     const saved = await ServerInstanceStore.save(context, target ? target.id : '', target ? target.name : '', normalized);
     runtime.activeServerId = saved.id;
     if (!runtime.serverOrder.includes(saved.id)) {
