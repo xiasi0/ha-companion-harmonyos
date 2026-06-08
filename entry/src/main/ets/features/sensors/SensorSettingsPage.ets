@@ -77,7 +77,10 @@ export struct SensorSettingsPage {
     if (sensor.id === 'location_background') {
       return Localization.t('sensor_desc_location_background');
     }
-    return sensor.summary;
+    if (sensor.summary.length > 0) {
+      return sensor.summary;
+    }
+    return Localization.t('sensor_desc_direct');
   }
 
   private sensorItem(sensor: SensorEntry): SettingsItem {
@@ -109,6 +112,7 @@ export struct SensorSettingsPage {
       switchRevision: this.switchRevision,
       title: Localization.t('sensor_title'),
       hideBackButton: false,
+      embeddedInNavigation: true,
       onBack: this.onBack,
       onOpen: (item: SettingsItem): void => {
         if (item.actionId.length > 0) {

@@ -1,6 +1,9 @@
 // Coordinates sensor preferences, permissions, and Home Assistant sensor publishing.
 // UI hosts call this layer instead of directly invoking HarmonySensorService.
 import common from '@ohos.app.ability.common';
+import batteryInfo from '@ohos.batteryInfo';
+import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
+import type { Permissions } from '@ohos.abilityAccessCtrl';
 import { HaConnectionPolicyService } from '../../services/HaConnectionPolicyService';
 import { HarmonyLocationSentMode, HarmonySensorService, SensorPreferenceSnapshot } from '../../services/HarmonySensorService';
 import { NetworkService } from '../../services/NetworkService';
@@ -16,8 +19,11 @@ import {
 import { HarmonySensorSyncResult, WebhookResult } from '../../services/HarmonySensorModels';
 import { HaLocationRuntimeService } from '../location/HaLocationRuntimeService';
 import { LocationSensorCoordinator } from './LocationSensorCoordinator';
-import { SensorGroup } from './SensorModels';
+import { SensorGroup, SensorUpdateFrequency } from './SensorModels';
 import { SensorRuntimeFlags, SensorRuntimePresenter } from './SensorRuntimePresenter';
+
+const HARDWARE_SENSOR_SYNC_MIN_INTERVAL_MS: number = 15000;
+const MULTIMODAL_SENSOR_SYNC_MIN_INTERVAL_MS: number = 5000;
 
 export interface SensorRuntimeSnapshot {
   baseUrl: string;
@@ -29,6 +35,7 @@ export interface SensorRuntimeSnapshot {
   locationSentMode: string;
   locationDiagnosticsJson: string;
   locationGeofenceStatus: string;
+  sensorUpdateFrequency: string;
 }
 
 export interface SensorRuntimeCallbacks {
@@ -58,6 +65,11 @@ export class SensorRuntimeService {
   private pendingPublicSensorSyncReason: string = 'manual_sync';
   private backgroundLocationPermissionPending: boolean = false;
   private deviceTrackerClearKey: string = '';
+  private periodicSensorTimer: number = -1;
+  private hardwareSensorSyncTimer: number = -1;
+  private multimodalSensorSyncTimer: number = -1;
+  private lastHardwareSensorSyncAt: number = 0;
+  private lastMultimodalSensorSyncAt: number = 0;
 
   static migratedFlags(): SensorRuntimeFlags {
     return {
@@ -68,7 +80,8 @@ export class SensorRuntimeService {
       lastUpdateTriggerEnabled: false,
       locationBackgroundEnabled: false,
       zoneBackgroundEnabled: false,
-      accurateLocationEnabled: false
+      accurateLocationEnabled: false,
+      directSensorIds: []
     };
   }
 
@@ -80,7 +93,7 @@ export class SensorRuntimeService {
       HaLocationRuntimeService.setLocationEnabled(enabled);
       this.syncPublicSensors('location_enabled_changed', callbacks);
     });
-    if (!this.hasAnyLocationSensorEnabled(callbacks.snapshot().flags)) {
+    if (!this.needsForegroundLocation(callbacks.snapshot().flags)) {
       return;
     }
     this.locationService.startLocationWatch((snapshot: HarmonyLocationSnapshot): void => {
@@ -96,16 +109,20 @@ export class SensorRuntimeService {
   }
 
   stop(): void {
+    this.stopPeriodicSensorUpdates();
+    this.stopRealtimeSensorSyncRetries();
     this.locationService.stopLocationWatch();
     this.locationService.stopLocationEnabledWatch();
     this.locationService.stopGeofences().catch((): void => {});
   }
 
   reset(): void {
+    this.stopPeriodicSensorUpdates();
     this.latestLocationSnapshot = undefined;
     this.latestLocationEnabled = this.locationService.getLocationEnabled();
     this.locationZones = [];
     this.currentLocationZoneName = '';
+    this.stopRealtimeSensorSyncRetries();
   }
 
   requestLocationPermissionAndEnable(
@@ -131,7 +148,8 @@ export class SensorRuntimeService {
           lastUpdateTriggerEnabled: flags.lastUpdateTriggerEnabled,
           locationBackgroundEnabled: true,
           zoneBackgroundEnabled: false,
-          accurateLocationEnabled: true
+          accurateLocationEnabled: true,
+          directSensorIds: flags.directSensorIds
         });
         this.latestLocationEnabled = this.locationService.getLocationEnabled();
         this.startLocationSensorsIfNeeded(callbacks);
@@ -175,10 +193,11 @@ export class SensorRuntimeService {
         lastUpdateTriggerEnabled: flags.lastUpdateTriggerEnabled,
         locationBackgroundEnabled: false,
         zoneBackgroundEnabled: false,
-        accurateLocationEnabled: false
+        accurateLocationEnabled: false,
+        directSensorIds: flags.directSensorIds
       });
-      this.stopLocationRuntime(callbacks);
       HaLocationRuntimeService.stop();
+      this.stopLocationRuntimeIfUnused(callbacks);
       callbacks.bumpSwitchRevision();
       this.syncPublicSensors('location_sent_mode_changed', callbacks);
       return;
@@ -203,10 +222,12 @@ export class SensorRuntimeService {
             lastUpdateTriggerEnabled: flags.lastUpdateTriggerEnabled,
             locationBackgroundEnabled: flags.locationBackgroundEnabled,
             zoneBackgroundEnabled: false,
-            accurateLocationEnabled: false
+            accurateLocationEnabled: false,
+            directSensorIds: flags.directSensorIds
           });
           callbacks.bumpSwitchRevision();
           HaLocationRuntimeService.stop();
+          this.stopLocationRuntimeIfUnused(callbacks);
           this.syncPublicSensors('location_sent_mode_changed', callbacks);
           return;
         }
@@ -220,7 +241,8 @@ export class SensorRuntimeService {
           lastUpdateTriggerEnabled: flags.lastUpdateTriggerEnabled,
           locationBackgroundEnabled: flags.locationBackgroundEnabled,
           zoneBackgroundEnabled: value === 'zone',
-          accurateLocationEnabled: value === 'exact'
+          accurateLocationEnabled: value === 'exact',
+          directSensorIds: flags.directSensorIds
         });
         this.latestLocationEnabled = this.locationService.getLocationEnabled();
         this.startLocationSensorsIfNeeded(callbacks);
@@ -243,10 +265,14 @@ export class SensorRuntimeService {
         lastUpdateTriggerEnabled: flags.lastUpdateTriggerEnabled,
         locationBackgroundEnabled: false,
         zoneBackgroundEnabled: flags.zoneBackgroundEnabled,
-        accurateLocationEnabled: flags.accurateLocationEnabled
+        accurateLocationEnabled: flags.accurateLocationEnabled,
+        directSensorIds: flags.directSensorIds
       });
-      if (!this.hasAnyLocationSensorEnabled(callbacks.snapshot().flags)) {
+      if (!this.needsForegroundLocation(callbacks.snapshot().flags)) {
         this.stopLocationRuntime(callbacks);
+        HaLocationRuntimeService.stop();
+      } else if (!this.hasAnyLocationSensorEnabled(callbacks.snapshot().flags)) {
+        this.stopLocationGeofences(callbacks);
         HaLocationRuntimeService.stop();
       }
       callbacks.bumpSwitchRevision();
@@ -270,7 +296,8 @@ export class SensorRuntimeService {
             lastUpdateTriggerEnabled: current.lastUpdateTriggerEnabled,
             locationBackgroundEnabled: false,
             zoneBackgroundEnabled: current.zoneBackgroundEnabled,
-            accurateLocationEnabled: current.accurateLocationEnabled
+            accurateLocationEnabled: current.accurateLocationEnabled,
+            directSensorIds: current.directSensorIds
           });
           callbacks.setMessage(Localization.t('sensor_background_location_denied'));
           callbacks.bumpSwitchRevision();
@@ -308,6 +335,46 @@ export class SensorRuntimeService {
     return true;
   }
 
+  setSensorEnabledWithPermission(
+    sensorId: string,
+    enabled: boolean,
+    callbacks: SensorRuntimeCallbacks,
+    onChanged: () => void
+  ): void {
+    if (!enabled) {
+      if (this.setSensorEnabled(sensorId, false, callbacks)) {
+        onChanged();
+      }
+      return;
+    }
+    if (sensorId === 'geocoded_location') {
+      this.enableGeocodedLocationSensor(callbacks, onChanged);
+      return;
+    }
+    const permissions = this.requiredDirectSensorPermissions(sensorId);
+    if (permissions.length === 0) {
+      if (this.setSensorEnabled(sensorId, true, callbacks)) {
+        onChanged();
+      }
+      return;
+    }
+    this.requestDirectSensorPermissions(callbacks.context(), permissions)
+      .then((granted: boolean): void => {
+        if (!granted) {
+          callbacks.setMessage(Localization.t('sensor_permission_or_pending'));
+          callbacks.bumpSwitchRevision();
+          return;
+        }
+        if (this.setSensorEnabled(sensorId, true, callbacks)) {
+          onChanged();
+        }
+      })
+      .catch((): void => {
+        callbacks.setMessage(Localization.t('sensor_permission_or_pending'));
+        callbacks.bumpSwitchRevision();
+      });
+  }
+
   refreshLocationZones(syncAfterRefresh: boolean, callbacks: SensorRuntimeCallbacks): void {
     const snapshot = callbacks.snapshot();
     if (!snapshot.registered || this.locationZonesRefreshing) {
@@ -319,7 +386,7 @@ export class SensorRuntimeService {
         if (baseUrl.length === 0) {
           return Promise.resolve([]);
         }
-        return HarmonySensorService.fetchZones(baseUrl, snapshot.webhookId, '');
+        return HarmonySensorService.fetchZones(baseUrl, snapshot.webhookId, snapshot.cloudhookUrl);
       })
       .then((zones: HarmonyLocationZone[]): void => {
         this.locationZones = zones;
@@ -338,7 +405,7 @@ export class SensorRuntimeService {
   }
 
   refreshCurrentLocationForDiagnostics(trigger: string, callbacks: SensorRuntimeCallbacks): void {
-    if (!this.hasAnyLocationSensorEnabled(callbacks.snapshot().flags)) {
+    if (!this.needsForegroundLocation(callbacks.snapshot().flags)) {
       return;
     }
     const now = Date.now();
@@ -359,18 +426,43 @@ export class SensorRuntimeService {
       });
   }
 
+  refreshPeriodicSensorTimer(callbacks: SensorRuntimeCallbacks): void {
+    this.stopPeriodicSensorUpdates();
+    const snapshot = callbacks.snapshot();
+    if (!snapshot.registered || !this.hasAnyEnabledSensor(snapshot.flags)) {
+      return;
+    }
+    const delayMs = this.periodicSensorDelayMs(snapshot.sensorUpdateFrequency);
+    this.periodicSensorTimer = setTimeout((): void => {
+      this.periodicSensorTimer = -1;
+      this.syncPublicSensors('sensor_periodic', callbacks);
+    }, delayMs);
+  }
+
   syncPublicSensors(reason: string, callbacks: SensorRuntimeCallbacks): void {
-    AppStorage.setOrCreate<string>('lastUpdateTrigger', reason);
     const snapshot = callbacks.snapshot();
     if (!snapshot.registered) {
       return;
     }
-    this.reconcileDeviceTrackerLocationState(reason, snapshot, callbacks);
     if (this.publicSensorSyncing) {
-      this.publicSensorSyncPending = true;
-      this.pendingPublicSensorSyncReason = reason;
+      if (this.isRealtimeSensorSyncThrottled(reason)) {
+        this.scheduleRealtimeSensorSyncRetry(reason, callbacks);
+      } else {
+        this.publicSensorSyncPending = true;
+        this.pendingPublicSensorSyncReason = reason;
+      }
       return;
     }
+    if (this.isRealtimeSensorSyncThrottled(reason)) {
+      this.scheduleRealtimeSensorSyncRetry(reason, callbacks);
+      return;
+    }
+    this.markRealtimeSensorSyncStarted(reason);
+    if (AppStorage.get<string>('lastUpdateTrigger') !== reason) {
+      AppStorage.setOrCreate<string>('lastUpdateTrigger', reason);
+    }
+    this.refreshPeriodicSensorTimer(callbacks);
+    this.reconcileDeviceTrackerLocationState(reason, snapshot, callbacks);
     this.publicSensorSyncing = true;
     SensorRuntimeService.resolveAllowedBaseUrl(callbacks.context()).then((baseUrl: string) => {
       if (baseUrl.length === 0) {
@@ -385,13 +477,14 @@ export class SensorRuntimeService {
       return HarmonySensorService.syncPublicSensors(
         baseUrl,
         snapshot.webhookId,
-        '',
+        snapshot.cloudhookUrl,
         SensorRuntimePresenter.preferences(snapshot.flags),
         this.latestLocationSnapshot,
         this.latestLocationEnabled,
         this.currentLocationZoneName,
         SensorRuntimePresenter.locationSentMode(snapshot.locationSentMode),
-        this.shouldSendLocationUpdate(reason)
+        this.shouldSendLocationUpdate(reason),
+        reason
       );
     }).then((result): void => {
       if (LocationSensorCoordinator.shouldRecordDiagnostics(reason, result.locationSummary)) {
@@ -417,12 +510,182 @@ export class SensorRuntimeService {
     return SensorRuntimePresenter.hasAnyLocationSensorEnabled(flags);
   }
 
+  needsForegroundLocation(flags: SensorRuntimeFlags): boolean {
+    return SensorRuntimePresenter.needsForegroundLocation(flags);
+  }
+
   enabledSensorCount(flags: SensorRuntimeFlags): number {
     return SensorRuntimePresenter.enabledSensorCount(flags);
   }
 
   sensorGroups(flags: SensorRuntimeFlags): SensorGroup[] {
     return SensorRuntimePresenter.sensorGroups(flags);
+  }
+
+  private stopPeriodicSensorUpdates(): void {
+    if (this.periodicSensorTimer < 0) {
+      return;
+    }
+    clearTimeout(this.periodicSensorTimer);
+    this.periodicSensorTimer = -1;
+  }
+
+  private stopRealtimeSensorSyncRetries(): void {
+    if (this.hardwareSensorSyncTimer >= 0) {
+      clearTimeout(this.hardwareSensorSyncTimer);
+      this.hardwareSensorSyncTimer = -1;
+    }
+    if (this.multimodalSensorSyncTimer >= 0) {
+      clearTimeout(this.multimodalSensorSyncTimer);
+      this.multimodalSensorSyncTimer = -1;
+    }
+  }
+
+  private periodicSensorDelayMs(frequency: string): number {
+    if (frequency === SensorUpdateFrequency.FAST_ALWAYS) {
+      return 60000;
+    }
+    if (frequency === SensorUpdateFrequency.FAST_WHILE_CHARGING) {
+      if (batteryInfo.chargingStatus === batteryInfo.BatteryChargeState.ENABLE ||
+        batteryInfo.chargingStatus === batteryInfo.BatteryChargeState.FULL) {
+        return 60000;
+      }
+    }
+    return 900000;
+  }
+
+  private isRealtimeSensorSyncThrottled(reason: string): boolean {
+    const now = Date.now();
+    if (reason === 'hardware_sensor_event') {
+      return now - this.lastHardwareSensorSyncAt < HARDWARE_SENSOR_SYNC_MIN_INTERVAL_MS;
+    }
+    if (reason === 'multimodal_motion_event') {
+      return now - this.lastMultimodalSensorSyncAt < MULTIMODAL_SENSOR_SYNC_MIN_INTERVAL_MS;
+    }
+    return false;
+  }
+
+  private scheduleRealtimeSensorSyncRetry(reason: string, callbacks: SensorRuntimeCallbacks): void {
+    if (reason === 'hardware_sensor_event') {
+      if (this.hardwareSensorSyncTimer >= 0) {
+        return;
+      }
+      const delayMs = this.realtimeSensorSyncDelayMs(reason);
+      this.hardwareSensorSyncTimer = setTimeout((): void => {
+        this.hardwareSensorSyncTimer = -1;
+        this.syncPublicSensors(reason, callbacks);
+      }, delayMs);
+      return;
+    }
+    if (reason === 'multimodal_motion_event') {
+      if (this.multimodalSensorSyncTimer >= 0) {
+        return;
+      }
+      const delayMs = this.realtimeSensorSyncDelayMs(reason);
+      this.multimodalSensorSyncTimer = setTimeout((): void => {
+        this.multimodalSensorSyncTimer = -1;
+        this.syncPublicSensors(reason, callbacks);
+      }, delayMs);
+    }
+  }
+
+  private realtimeSensorSyncDelayMs(reason: string): number {
+    const now = Date.now();
+    if (reason === 'hardware_sensor_event') {
+      return Math.max(HARDWARE_SENSOR_SYNC_MIN_INTERVAL_MS - (now - this.lastHardwareSensorSyncAt), 1);
+    }
+    if (reason === 'multimodal_motion_event') {
+      return Math.max(MULTIMODAL_SENSOR_SYNC_MIN_INTERVAL_MS - (now - this.lastMultimodalSensorSyncAt), 1);
+    }
+    return 1;
+  }
+
+  private markRealtimeSensorSyncStarted(reason: string): void {
+    const now = Date.now();
+    if (reason === 'hardware_sensor_event') {
+      this.lastHardwareSensorSyncAt = now;
+    } else if (reason === 'multimodal_motion_event') {
+      this.lastMultimodalSensorSyncAt = now;
+    }
+  }
+
+  private hasAnyEnabledSensor(flags: SensorRuntimeFlags): boolean {
+    return SensorRuntimePresenter.enabledSensorCount(flags) > 0;
+  }
+
+  private enableGeocodedLocationSensor(callbacks: SensorRuntimeCallbacks, onChanged: () => void): void {
+    this.locationService.requestApproximateLocationPermission(callbacks.context())
+      .then((granted: boolean): void => {
+        if (!granted) {
+          callbacks.setMessage(Localization.t('sensor_location_permission_denied'));
+          callbacks.bumpSwitchRevision();
+          return;
+        }
+        if (!this.setSensorEnabled('geocoded_location', true, callbacks)) {
+          return;
+        }
+        this.latestLocationEnabled = this.locationService.getLocationEnabled();
+        this.startLocationSensorsIfNeeded(callbacks);
+        this.syncCurrentLocation('geocoded_location_enabled', callbacks, onChanged);
+      })
+      .catch((): void => {
+        callbacks.setMessage(Localization.t('sensor_location_permission_failed'));
+        callbacks.bumpSwitchRevision();
+      });
+  }
+
+  private requiredDirectSensorPermissions(sensorId: string): Permissions[] {
+    if (sensorId === 'bluetooth_state') {
+      return ['ohos.permission.ACCESS_BLUETOOTH' as Permissions];
+    }
+    if (sensorId === 'steps_sensor') {
+      return ['ohos.permission.ACTIVITY_MOTION' as Permissions];
+    }
+    if (sensorId === 'harmony_operating_hand') {
+      return ['ohos.permission.ACTIVITY_MOTION' as Permissions];
+    }
+    if (sensorId === 'harmony_holding_hand') {
+      return ['ohos.permission.DETECT_GESTURE' as Permissions];
+    }
+    return [];
+  }
+
+  private async requestDirectSensorPermissions(
+    context: common.Context,
+    permissions: Permissions[]
+  ): Promise<boolean> {
+    const missing: Permissions[] = [];
+    for (let i = 0; i < permissions.length; i++) {
+      if (!this.hasPermission(permissions[i])) {
+        missing.push(permissions[i]);
+      }
+    }
+    if (missing.length === 0) {
+      return true;
+    }
+    try {
+      const result = await abilityAccessCtrl.createAtManager().requestPermissionsFromUser(context, missing);
+      if (result.authResults.length < missing.length) {
+        return false;
+      }
+      for (let i = 0; i < missing.length; i++) {
+        if (result.authResults[i] !== 0) {
+          return false;
+        }
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  private hasPermission(permission: Permissions): boolean {
+    try {
+      return abilityAccessCtrl.createAtManager().getSelfPermissionStatus(permission) ===
+        abilityAccessCtrl.PermissionStatus.GRANTED;
+    } catch (_) {
+      return false;
+    }
   }
 
   private disableLocationFlags(callbacks: SensorRuntimeCallbacks): void {
@@ -435,7 +698,8 @@ export class SensorRuntimeService {
       lastUpdateTriggerEnabled: flags.lastUpdateTriggerEnabled,
       locationBackgroundEnabled: false,
       zoneBackgroundEnabled: false,
-      accurateLocationEnabled: false
+      accurateLocationEnabled: false,
+      directSensorIds: flags.directSensorIds
     });
   }
 
@@ -470,7 +734,7 @@ export class SensorRuntimeService {
         };
         return Promise.resolve(result);
       }
-      return HarmonySensorService.clearDeviceTrackerLocation(baseUrl, snapshot.webhookId, '');
+      return HarmonySensorService.clearDeviceTrackerLocation(baseUrl, snapshot.webhookId, snapshot.cloudhookUrl);
     }).then((result): void => {
       this.recordLocationDiagnostics(reason,
         `clear_location:${result.responseCode}:${NetworkService.shortText(result.body)}`, callbacks);
@@ -492,7 +756,8 @@ export class SensorRuntimeService {
       lastUpdateTriggerEnabled: current.lastUpdateTriggerEnabled,
       locationBackgroundEnabled: true,
       zoneBackgroundEnabled: sentMode === 'never' ? false : current.zoneBackgroundEnabled,
-      accurateLocationEnabled: sentMode === 'never' ? true : current.accurateLocationEnabled
+      accurateLocationEnabled: sentMode === 'never' ? true : current.accurateLocationEnabled,
+      directSensorIds: current.directSensorIds
     });
     if (sentMode === 'never') {
       callbacks.setLocationSentMode('exact');
@@ -534,9 +799,24 @@ export class SensorRuntimeService {
 
   private stopLocationRuntime(callbacks: SensorRuntimeCallbacks): void {
     this.locationService.stopLocationWatch();
+    this.stopLocationGeofences(callbacks);
+    this.latestLocationSnapshot = undefined;
+  }
+
+  private stopLocationRuntimeIfUnused(callbacks: SensorRuntimeCallbacks): void {
+    if (!this.needsForegroundLocation(callbacks.snapshot().flags)) {
+      this.stopLocationRuntime(callbacks);
+      return;
+    }
+    if (!this.hasAnyLocationSensorEnabled(callbacks.snapshot().flags)) {
+      this.stopLocationGeofences(callbacks);
+    }
+  }
+
+  private stopLocationGeofences(callbacks: SensorRuntimeCallbacks): void {
     this.locationService.stopGeofences().catch((): void => {});
     callbacks.setLocationGeofenceStatus('stopped');
-    this.latestLocationSnapshot = undefined;
+    this.currentLocationZoneName = '';
   }
 
   private handleLocationSnapshot(

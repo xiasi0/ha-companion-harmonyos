@@ -25,6 +25,18 @@
       "value": "Allows Home Assistant to update device location in the background for home, away, and zone automations."
     },
     {
+      "name": "activity_motion_permission_reason",
+      "value": "Used to read device motion, step, and operating hand state data and sync it to Home Assistant."
+    },
+    {
+      "name": "detect_gesture_permission_reason",
+      "value": "Used to read device holding hand state data and sync it to Home Assistant."
+    },
+    {
+      "name": "bluetooth_permission_reason",
+      "value": "Used to read device Bluetooth state data and sync it to Home Assistant."
+    },
+    {
       "name": "background_refresh_permission_reason",
       "value": "Allows Home Assistant to keep background data in sync after persistent connection is enabled, for refreshing home screen cards."
     },

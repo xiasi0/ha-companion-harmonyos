@@ -1,7 +1,7 @@
 import { HarmonySensorService } from '../../services/HarmonySensorService';
 import { Localization } from '../../shared/i18n/Localization';
 import { SensorGroup } from './SensorModels';
-import { SensorRuntimeFlags } from './SensorRuntimePresenter';
+import { SensorRuntimeFlags, SensorRuntimePresenter } from './SensorRuntimePresenter';
 import { SensorRuntimeCallbacks, SensorRuntimeService } from './SensorRuntimeService';
 
 export interface SensorRuntimeBridgeState {
@@ -13,6 +13,7 @@ export interface SensorRuntimeBridgeState {
   sensorLocationEnabled: boolean;
   sensorZoneBackgroundEnabled: boolean;
   sensorAccurateLocationEnabled: boolean;
+  sensorDirectEnabledJson: string;
   locationHistoryJson: string;
   locationSentMode: string;
   locationDiagnosticsJson: string;
@@ -30,7 +31,8 @@ export class SensorRuntimeBridgeService {
       lastUpdateTriggerEnabled: state.sensorLastUpdateTriggerEnabled,
       locationBackgroundEnabled: state.sensorLocationEnabled,
       zoneBackgroundEnabled: state.sensorZoneBackgroundEnabled,
-      accurateLocationEnabled: state.sensorAccurateLocationEnabled
+      accurateLocationEnabled: state.sensorAccurateLocationEnabled,
+      directSensorIds: SensorRuntimePresenter.directSensorIdsFromJson(state.sensorDirectEnabledJson)
     };
   }
 
@@ -43,6 +45,7 @@ export class SensorRuntimeBridgeService {
     state.sensorLocationEnabled = flags.locationBackgroundEnabled;
     state.sensorZoneBackgroundEnabled = flags.zoneBackgroundEnabled;
     state.sensorAccurateLocationEnabled = flags.accurateLocationEnabled;
+    state.sensorDirectEnabledJson = SensorRuntimePresenter.directSensorIdsToJson(flags.directSensorIds);
   }
 
   static sensorGroups(runtime: SensorRuntimeService, state: SensorRuntimeBridgeState): SensorGroup[] {
@@ -73,9 +76,6 @@ export class SensorRuntimeBridgeService {
       return;
     }
     const nextEnabled = !runtime.isSensorEnabled(sensorId, SensorRuntimeBridgeService.flags(state));
-    if (!runtime.setSensorEnabled(sensorId, nextEnabled, callbacks)) {
-      return;
-    }
-    onChanged();
+    runtime.setSensorEnabledWithPermission(sensorId, nextEnabled, callbacks, onChanged);
   }
 }

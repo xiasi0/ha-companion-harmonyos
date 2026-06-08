@@ -104,7 +104,7 @@ export class ServerAccountRuntimeService {
       await HarmonySensorService.clearDeviceTrackerLocation(
         policy.baseUrl,
         deleteInfo.webhookId,
-        ''
+        deleteInfo.cloudhookUrl
       ).catch((): void => {});
       await ServerAccountRuntimeService.revokeSession(policy.baseUrl, deleteInfo.refreshToken);
     }
@@ -174,6 +174,7 @@ export class ServerAccountRuntimeService {
     AppStorage.setOrCreate<boolean>('sensorLocationEnabled', false);
     AppStorage.setOrCreate<boolean>('sensorZoneBackgroundEnabled', false);
     AppStorage.setOrCreate<boolean>('sensorAccurateLocationEnabled', false);
+    AppStorage.setOrCreate<string>('sensorDirectEnabledJson', '[]');
     AppStorage.setOrCreate<number>('sensorDefaultMigrationVersion', 4);
     AppStorage.setOrCreate<string>('sensorUpdateFrequency', SensorUpdateFrequency.NORMAL);
     AppStorage.setOrCreate<string>('locationHistoryJson', '[]');

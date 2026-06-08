@@ -34,6 +34,8 @@ export struct SettingsHomePage {
   searchText: string = '';
   @Prop
   searchPlaceholder: string = '';
+  @Prop
+  embeddedInNavigation: boolean = false;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   private settingsScroller: Scroller = new Scroller();
   private lastReportedScrollOffset: number = 0;
@@ -82,12 +84,17 @@ export struct SettingsHomePage {
     return item.title;
   }
 
+  private itemRenderKey(item: SettingsItem): string {
+    return `${item.type}-${this.itemKey(item)}`;
+  }
+
   @Builder
   private renderSettingsItem(item: SettingsItem): void {
     if (item.type === SettingsItemType.SWITCH) {
       SettingsSwitchRow({
         item,
         isOn: item.isOn,
+        syncRevision: this.switchRevision,
         active: this.itemKey(item) === this.selectedKey,
         onOpen: (target: SettingsItem): void => {
           this.persistScrollOffset();
@@ -118,7 +125,7 @@ export struct SettingsHomePage {
         if ((itemIndex ?? 0) < section.items.length - 1) {
           SettingsBoundary()
         }
-      }, (item: SettingsItem) => `${item.type}-${item.title}-${item.summary}-${item.status}-${item.actionId}-${item.isOn}-${this.switchRevision}`)
+      }, (item: SettingsItem) => this.itemRenderKey(item))
     }
     .width('100%')
     .borderRadius(SettingsUiConfig.groupRadius)
@@ -141,42 +148,82 @@ export struct SettingsHomePage {
 
   @Builder
   private renderSettingsList(): void {
-    List({ scroller: this.settingsScroller, space: SettingsUiConfig.listSpace }) {
-      if (this.showSearch) {
-        ListItem() {
-          this.renderSearchControl()
-        }
-        .width('100%')
-      }
-
-      ForEach(this.sections, (section: SettingsSection) => {
-        if (section.items.length > 0) {
-          if (section.title.trim().length > 0) {
-            ListItem() {
-              SettingsCategory({ title: section.title })
-            }
-            .width('100%')
-          }
-
+    Stack({ alignContent: Alignment.End }) {
+      List({ scroller: this.settingsScroller, space: SettingsUiConfig.listSpace }) {
+        if (this.showSearch) {
           ListItem() {
-            this.renderSettingsGroup(section)
+            this.renderSearchControl()
           }
           .width('100%')
         }
-      }, (section: SettingsSection) => `${section.title}-${this.switchRevision}`)
+
+        ForEach(this.sections, (section: SettingsSection) => {
+          if (section.items.length > 0) {
+            if (section.title.trim().length > 0) {
+              ListItem() {
+                SettingsCategory({ title: section.title })
+              }
+              .width('100%')
+            }
+
+            ListItem() {
+              this.renderSettingsGroup(section)
+            }
+            .width('100%')
+          }
+        }, (section: SettingsSection) => section.title)
+      }
+      .padding(SettingsUiConfig.listPadding())
+      .width('100%')
+      .height('100%')
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+      .contentEndOffset(SettingsUiConfig.listContentEndOffset)
+      .clip(false)
+      .cachedCount(3, true)
+      .scrollBar(BarState.Off)
+      .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+
+      ScrollBar({
+        scroller: this.settingsScroller,
+        direction: ScrollBarDirection.Vertical,
+        state: BarState.Auto
+      })
+        .width(9)
+        .height('100%')
+        .backgroundColor(Color.Transparent)
     }
-    .padding(SettingsUiConfig.listPadding())
     .layoutWeight(1)
     .width('100%')
-    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-    .contentEndOffset(SettingsUiConfig.listContentEndOffset)
-    .clip(false)
-    .cachedCount(3, true)
-    .scrollBar(SettingsUiConfig.scrollBarState())
     .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
   }
 
-  build() {
+  @Builder
+  private renderEmbeddedContent(): void {
+    Column() {
+      Column() {
+        this.renderSettingsList()
+      }
+      .width('100%')
+      .constraintSize({ maxWidth: this.contentMaxWidth })
+      .height('100%')
+    }
+    .width('100%')
+    .height('100%')
+    .alignItems(HorizontalAlign.Center)
+    .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+    .gesture(
+      PanGesture({ direction: PanDirection.Horizontal, distance: 24 })
+        .onActionEnd((event: GestureEvent) => {
+          if (event.offsetX > 60 || event.offsetX < -60) {
+            this.persistScrollOffset();
+            this.onSwipeBack();
+          }
+        })
+    )
+  }
+
+  @Builder
+  private renderNavigationContent(): void {
     HdsNavigation() {
       Column() {
         Column() {
@@ -209,5 +256,13 @@ export struct SettingsHomePage {
           }
         })
     )
+  }
+
+  build() {
+    if (this.embeddedInNavigation) {
+      this.renderEmbeddedContent()
+    } else {
+      this.renderNavigationContent()
+    }
   }
 }

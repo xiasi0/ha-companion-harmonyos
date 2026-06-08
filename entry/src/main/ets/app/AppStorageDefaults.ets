@@ -34,11 +34,16 @@ export class AppStorageDefaults {
     AppStorage.setOrCreate<boolean>('sensorLocationEnabled', AppStorage.get<boolean>('sensorLocationEnabled') ?? false);
     AppStorage.setOrCreate<boolean>('sensorZoneBackgroundEnabled', AppStorage.get<boolean>('sensorZoneBackgroundEnabled') ?? false);
     AppStorage.setOrCreate<boolean>('sensorAccurateLocationEnabled', AppStorage.get<boolean>('sensorAccurateLocationEnabled') ?? false);
+    AppStorage.setOrCreate<string>('sensorDirectEnabledJson', AppStorage.get<string>('sensorDirectEnabledJson') ?? '[]');
     AppStorage.setOrCreate<string>('locationHistoryJson', AppStorage.get<string>('locationHistoryJson') ?? '[]');
     AppStorage.setOrCreate<string>('locationSentMode', AppStorage.get<string>('locationSentMode') ?? 'never');
     AppStorage.setOrCreate<string>('locationDiagnosticsJson', AppStorage.get<string>('locationDiagnosticsJson') ?? '');
     AppStorage.setOrCreate<string>('locationGeofenceStatus', AppStorage.get<string>('locationGeofenceStatus') ?? 'not_started');
     AppStorage.setOrCreate<string>('lastUpdateTrigger', AppStorage.get<string>('lastUpdateTrigger') ?? 'unknown');
+    AppStorage.setOrCreate<boolean>('appActive', AppStorage.get<boolean>('appActive') ?? false);
+    AppStorage.setOrCreate<string>('sensorHardwareValuesJson', AppStorage.get<string>('sensorHardwareValuesJson') ?? '{}');
+    AppStorage.setOrCreate<string>('sensorMultimodalValuesJson', AppStorage.get<string>('sensorMultimodalValuesJson') ?? '{}');
+    AppStorage.setOrCreate<string>('sensorGeocodedLocationJson', AppStorage.get<string>('sensorGeocodedLocationJson') ?? '{}');
     AppStorage.setOrCreate<number>('sensorDefaultMigrationVersion', AppStorage.get<number>('sensorDefaultMigrationVersion') ?? 0);
     AppStorage.setOrCreate<string>('sensorUpdateFrequency', AppStorage.get<string>('sensorUpdateFrequency') ?? SensorUpdateFrequency.NORMAL);
     AppStorage.setOrCreate<boolean>('fullScreenEnabled', AppStorage.get<boolean>('fullScreenEnabled') ?? false);

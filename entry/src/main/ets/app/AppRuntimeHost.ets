@@ -109,10 +109,11 @@ export struct AppRuntimeHost {
   @StorageLink('sensorLocationEnabled') @Watch('onAppSettingChanged') sensorLocationEnabled: boolean = false;
   @StorageLink('sensorZoneBackgroundEnabled') @Watch('onAppSettingChanged') sensorZoneBackgroundEnabled: boolean = false;
   @StorageLink('sensorAccurateLocationEnabled') @Watch('onAppSettingChanged') sensorAccurateLocationEnabled: boolean = false;
-  @StorageLink('locationHistoryJson') @Watch('onAppSettingChanged') locationHistoryJson: string = '[]';
+  @StorageLink('sensorDirectEnabledJson') @Watch('onSensorDirectEnabledChanged') sensorDirectEnabledJson: string = '[]';
+  @StorageLink('locationHistoryJson') locationHistoryJson: string = '[]';
   @StorageLink('locationSentMode') @Watch('onAppSettingChanged') locationSentMode: string = 'never';
-  @StorageLink('locationDiagnosticsJson') @Watch('onAppSettingChanged') locationDiagnosticsJson: string = '';
-  @StorageLink('locationGeofenceStatus') @Watch('onAppSettingChanged') locationGeofenceStatus: string = 'not_started';
+  @StorageLink('locationDiagnosticsJson') locationDiagnosticsJson: string = '';
+  @StorageLink('locationGeofenceStatus') locationGeofenceStatus: string = 'not_started';
   @StorageLink('sensorDefaultMigrationVersion') @Watch('onAppSettingChanged') sensorDefaultMigrationVersion: number = 0;
   @StorageLink('sensorUpdateFrequency') @Watch('onAppSettingChanged') sensorUpdateFrequency: string = SensorUpdateFrequency.NORMAL;
   @StorageLink('fullScreenEnabled') @Watch('onAppSettingChanged') fullScreenEnabled: boolean = false;
@@ -267,13 +268,26 @@ export struct AppRuntimeHost {
       locationHistoryJson: this.locationHistoryJson,
       locationSentMode: this.locationSentMode,
       locationDiagnosticsJson: this.locationDiagnosticsJson,
-      locationGeofenceStatus: this.locationGeofenceStatus
+      locationGeofenceStatus: this.locationGeofenceStatus,
+      sensorUpdateFrequency: this.sensorUpdateFrequency
     };
   }
 
   subscribeBatteryEvents(onEvent: () => void): void { this.systemEventService.subscribeBatteryEvents(onEvent); }
 
   subscribeNetworkEvents(onEvent: () => void): void { this.systemEventService.subscribeNetworkEvents(onEvent); }
+
+  subscribeDirectSensorEvents(onEvent: (reason: string) => void): void {
+    this.systemEventService.subscribeDirectSensorEvents(onEvent);
+  }
+
+  subscribeHardwareSensorEvents(onEvent: (reason: string) => void): void {
+    this.systemEventService.subscribeHardwareSensorEvents(onEvent);
+  }
+
+  refreshPeriodicSensorTimer(): void {
+    this.sensorRuntimeService.refreshPeriodicSensorTimer(AppRuntimeCallbackFactory.sensors(this));
+  }
 
   registerBackDispatcher(handler: () => boolean): void { if (this.backDispatcher) { this.backDispatcher.register(handler); } }
 
@@ -314,6 +328,16 @@ export struct AppRuntimeHost {
     this.persistCurrentAppSettings();
     this.bumpSettingsRevision();
     this.refreshHomeNetworkStatus();
+    this.refreshPeriodicSensorTimer();
+  }
+
+  private onSensorDirectEnabledChanged(): void {
+    if (this.restoringAppSettings) {
+      return;
+    }
+    this.systemEventService.refreshSensorEventSubscriptions();
+    AppSettingsStore.saveSensorFlags(this.context(), SensorRuntimeBridgeService.flags(this)).catch((): void => {});
+    this.refreshPeriodicSensorTimer();
   }
 
   private onNotificationUnreadCountChanged(): void {
@@ -331,6 +355,7 @@ export struct AppRuntimeHost {
     } finally {
       this.restoringAppSettings = false;
     }
+    this.systemEventService.refreshSensorEventSubscriptions();
   }
 
   refreshHomeNetworkStatus(allowDashboardUrlReload: boolean = false): void {
@@ -1377,20 +1402,70 @@ export struct AppRuntimeHost {
         return ServerManager.getActiveServer(this.context())
           .then((active: ManagedServer | undefined): ManagedServer | undefined => {
             const activeId = active ? active.id : '';
-            this.serverOptions = this.serverOptionsFromServers(servers, activeId);
+            const nextServerOptions = this.serverOptionsFromServers(servers, activeId);
+            let nextSelectedId = this.selectedServerSettingsId;
+            let nextSelectedName = this.selectedServerSettingsName;
+            let nextSelectedInfo = this.selectedServerSettingsInfo;
+            let nextSelectedActive = this.selectedServerSettingsActive;
             if (this.selectedServerSettingsId.length > 0) {
               const selected = servers.find((server: ManagedServer): boolean => server.id === this.selectedServerSettingsId);
               if (selected) {
-                this.applySelectedServerSettings(selected, activeId);
+                nextSelectedId = selected.id;
+                nextSelectedName = this.managedServerDisplayName(selected);
+                nextSelectedInfo = selected.info;
+                nextSelectedActive = selected.id === activeId;
               }
             } else if (active) {
-              this.applySelectedServerSettings(active, activeId);
+              nextSelectedId = active.id;
+              nextSelectedName = this.managedServerDisplayName(active);
+              nextSelectedInfo = active.info;
+              nextSelectedActive = true;
             }
-            this.bumpSettingsRevision();
+            const changed = !this.sameServerOptions(this.serverOptions, nextServerOptions) ||
+              nextSelectedId !== this.selectedServerSettingsId ||
+              nextSelectedName !== this.selectedServerSettingsName ||
+              nextSelectedActive !== this.selectedServerSettingsActive ||
+              !this.sameStoredServerInfoForSettings(this.selectedServerSettingsInfo, nextSelectedInfo);
+            if (changed) {
+              this.serverOptions = nextServerOptions;
+              this.selectedServerSettingsId = nextSelectedId;
+              this.selectedServerSettingsName = nextSelectedName;
+              this.selectedServerSettingsInfo = nextSelectedInfo;
+              this.selectedServerSettingsActive = nextSelectedActive;
+              this.bumpSettingsRevision();
+            }
             return active;
           });
       })
       .catch((): void => {});
+  }
+
+  private sameServerOptions(current: ServerOption[], next: ServerOption[]): boolean {
+    if (current.length !== next.length) {
+      return false;
+    }
+    for (let i = 0; i < current.length; i++) {
+      if (current[i].id !== next[i].id ||
+        current[i].name !== next[i].name ||
+        current[i].summary !== next[i].summary ||
+        current[i].active !== next[i].active) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private sameStoredServerInfoForSettings(current: StoredServerInfo, next: StoredServerInfo): boolean {
+    return current.baseUrl === next.baseUrl &&
+      current.accessToken === next.accessToken &&
+      current.refreshToken === next.refreshToken &&
+      current.accessTokenExpiresAt === next.accessTokenExpiresAt &&
+      current.deviceName === next.deviceName &&
+      current.mobileAppDeviceId === next.mobileAppDeviceId &&
+      current.webhookId === next.webhookId &&
+      current.webhookSecret === next.webhookSecret &&
+      current.cloudhookUrl === next.cloudhookUrl &&
+      current.remoteUiUrl === next.remoteUiUrl;
   }
 
   private serverOptionsFromServers(servers: ManagedServer[], activeId: string): ServerOption[] {
@@ -1595,19 +1670,38 @@ export struct AppRuntimeHost {
 
   applySensorFlags(flags: SensorRuntimeFlags): void {
     SensorRuntimeBridgeService.applyFlags(this, flags);
+    this.systemEventService.refreshSensorEventSubscriptions();
     AppSettingsStore.saveSensorFlags(this.context(), flags).catch((): void => {});
   }
 
-  setLocationHistoryJsonValue(value: string): void { this.locationHistoryJson = value; }
+  setLocationHistoryJsonValue(value: string): void {
+    if (this.locationHistoryJson === value) {
+      return;
+    }
+    this.locationHistoryJson = value;
+    AppSettingsStore.saveLocationHistoryJson(this.context(), value).catch((): void => {});
+  }
 
   setLocationSentModeValue(value: string): void {
     this.locationSentMode = value;
     AppSettingsStore.saveLocationSentMode(this.context(), value).catch((): void => {});
   }
 
-  setLocationDiagnosticsJsonValue(value: string): void { this.locationDiagnosticsJson = value; }
+  setLocationDiagnosticsJsonValue(value: string): void {
+    if (this.locationDiagnosticsJson === value) {
+      return;
+    }
+    this.locationDiagnosticsJson = value;
+    AppSettingsStore.saveLocationDiagnosticsJson(this.context(), value).catch((): void => {});
+  }
 
-  setLocationGeofenceStatusValue(value: string): void { this.locationGeofenceStatus = value; }
+  setLocationGeofenceStatusValue(value: string): void {
+    if (this.locationGeofenceStatus === value) {
+      return;
+    }
+    this.locationGeofenceStatus = value;
+    AppSettingsStore.saveLocationGeofenceStatus(this.context(), value).catch((): void => {});
+  }
 
   refreshLocationZones(syncAfterRefresh: boolean): void { this.sensorRuntimeService.refreshLocationZones(syncAfterRefresh, AppRuntimeCallbackFactory.sensors(this)); }
 
