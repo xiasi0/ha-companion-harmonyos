@@ -24,6 +24,7 @@ export struct SensorSettingsOverlayHost {
       SensorUpdateFrequencyPage({
         selected: this.selectedFrequency,
         contentMaxWidth: this.contentMaxWidth,
+        embeddedInNavigation: true,
         onBack: this.onBack,
         onHelp: this.onHelp,
         onSelect: this.onSelectFrequency,

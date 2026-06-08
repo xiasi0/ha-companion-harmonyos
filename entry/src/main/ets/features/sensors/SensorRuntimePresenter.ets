@@ -11,6 +11,7 @@ export interface SensorRuntimeFlags {
   locationBackgroundEnabled: boolean;
   zoneBackgroundEnabled: boolean;
   accurateLocationEnabled: boolean;
+  directSensorIds: string[];
 }
 
 export interface SensorToggleResult {
@@ -29,7 +30,8 @@ export class SensorRuntimePresenter {
       lastUpdateTriggerEnabled: flags.lastUpdateTriggerEnabled,
       locationBackgroundEnabled: flags.locationBackgroundEnabled,
       zoneBackgroundEnabled: flags.zoneBackgroundEnabled,
-      accurateLocationEnabled: flags.accurateLocationEnabled
+      accurateLocationEnabled: flags.accurateLocationEnabled,
+      directSensorIds: flags.directSensorIds
     };
   }
 
@@ -54,6 +56,11 @@ export class SensorRuntimePresenter {
     return flags.locationBackgroundEnabled || flags.zoneBackgroundEnabled || flags.accurateLocationEnabled;
   }
 
+  static needsForegroundLocation(flags: SensorRuntimeFlags): boolean {
+    return SensorRuntimePresenter.hasAnyLocationSensorEnabled(flags) ||
+      SensorRuntimePresenter.containsText(flags.directSensorIds, 'geocoded_location');
+  }
+
   static withSensorEnabled(sensorId: string, enabled: boolean, flags: SensorRuntimeFlags): SensorToggleResult {
     if (!HarmonySensorService.isSupportedPublicSensor(sensorId)) {
       return {
@@ -70,12 +77,15 @@ export class SensorRuntimePresenter {
       lastUpdateTriggerEnabled: sensorId === 'last_update_trigger' ? enabled : flags.lastUpdateTriggerEnabled,
       locationBackgroundEnabled: sensorId === 'location_background' ? enabled : flags.locationBackgroundEnabled,
       zoneBackgroundEnabled: sensorId === 'zone_background' ? enabled : flags.zoneBackgroundEnabled,
-      accurateLocationEnabled: sensorId === 'accurate_location' ? enabled : flags.accurateLocationEnabled
+      accurateLocationEnabled: sensorId === 'accurate_location' ? enabled : flags.accurateLocationEnabled,
+      directSensorIds: HarmonySensorService.isCorePublicSensor(sensorId)
+        ? flags.directSensorIds
+        : SensorRuntimePresenter.withDirectSensorId(sensorId, enabled, flags.directSensorIds)
     };
     return {
       supported: true,
       flags: next,
-      shouldStopLocationRuntime: !SensorRuntimePresenter.hasAnyLocationSensorEnabled(next)
+      shouldStopLocationRuntime: !SensorRuntimePresenter.needsForegroundLocation(next)
     };
   }
 
@@ -96,7 +106,7 @@ export class SensorRuntimePresenter {
         count += 1;
       }
     }
-    return count;
+    return count + flags.directSensorIds.length;
   }
 
   static sensorGroups(flags: SensorRuntimeFlags): SensorGroup[] {
@@ -119,5 +129,35 @@ export class SensorRuntimePresenter {
       };
       return mappedGroup;
     });
+  }
+
+  static directSensorIdsFromJson(value: string): string[] {
+    return HarmonySensorService.directSensorIdsFromJson(value);
+  }
+
+  static directSensorIdsToJson(value: string[]): string {
+    return HarmonySensorService.directSensorIdsToJson(value);
+  }
+
+  private static withDirectSensorId(sensorId: string, enabled: boolean, ids: string[]): string[] {
+    const result: string[] = [];
+    for (let i = 0; i < ids.length; i++) {
+      if (ids[i] !== sensorId && !SensorRuntimePresenter.containsText(result, ids[i])) {
+        result.push(ids[i]);
+      }
+    }
+    if (enabled) {
+      result.push(sensorId);
+    }
+    return result;
+  }
+
+  private static containsText(values: string[], target: string): boolean {
+    for (let i = 0; i < values.length; i++) {
+      if (values[i] === target) {
+        return true;
+      }
+    }
+    return false;
   }
 }

@@ -12,6 +12,7 @@ import { HarmonySensorSyncResult } from '../../services/HarmonySensorModels';
 import { LongRunningTaskService } from '../background/LongRunningTaskService';
 import { LocationSensorCoordinator } from '../sensors/LocationSensorCoordinator';
 import { ServerManager } from '../../services/ServerManager';
+import { AppSettingsStore } from '../../services/AppSettingsStore';
 import { SensorRuntimeFlags, SensorRuntimePresenter } from '../sensors/SensorRuntimePresenter';
 
 interface LocationRuntimeSnapshot {
@@ -81,12 +82,6 @@ export class HaLocationRuntimeService {
 
   static stop(): void {
     const context = HaLocationRuntimeService.context;
-    if (!HaLocationRuntimeService.running) {
-      if (context) {
-        LongRunningTaskService.stopLocation(context as common.UIAbilityContext).catch((): void => {});
-      }
-      return;
-    }
     HaLocationRuntimeService.running = false;
     HaLocationRuntimeService.locationService.stopLocationWatch();
     HaLocationRuntimeService.locationService.stopLocationEnabledWatch();
@@ -94,7 +89,7 @@ export class HaLocationRuntimeService {
     if (context) {
       LongRunningTaskService.stopLocation(context as common.UIAbilityContext).catch((): void => {});
     }
-    AppStorage.setOrCreate<string>('locationGeofenceStatus', 'stopped');
+    HaLocationRuntimeService.setLocationGeofenceStatus('stopped');
   }
 
   static setLatestLocation(snapshot: HarmonyLocationSnapshot | undefined, zoneName: string): void {
@@ -166,7 +161,7 @@ export class HaLocationRuntimeService {
         if (baseUrl.length === 0) {
           return Promise.resolve([]);
         }
-        return HarmonySensorService.fetchZones(baseUrl, snapshot.webhookId, '');
+        return HarmonySensorService.fetchZones(baseUrl, snapshot.webhookId, snapshot.cloudhookUrl);
       })
       .then((zones: HarmonyLocationZone[]): void => {
         HaLocationRuntimeService.zones = zones;
@@ -200,9 +195,9 @@ export class HaLocationRuntimeService {
         HaLocationRuntimeService.handleGeofenceTransition(transition);
       }
     ).then((status: HarmonyGeofenceStatus): void => {
-      AppStorage.setOrCreate<string>('locationGeofenceStatus', status.summary);
+      HaLocationRuntimeService.setLocationGeofenceStatus(status.summary);
     }).catch((err: Error | string | number | boolean | Object): void => {
-      AppStorage.setOrCreate<string>('locationGeofenceStatus', `geofence_error:${HaLocationRuntimeService.stringifyError(err)}`);
+      HaLocationRuntimeService.setLocationGeofenceStatus(`geofence_error:${HaLocationRuntimeService.stringifyError(err)}`);
     }).finally((): void => {
       HaLocationRuntimeService.geofenceRefreshing = false;
     });
@@ -224,7 +219,9 @@ export class HaLocationRuntimeService {
   }
 
   private static syncSensors(reason: string): void {
-    AppStorage.setOrCreate<string>('lastUpdateTrigger', reason);
+    if (AppStorage.get<string>('lastUpdateTrigger') !== reason) {
+      AppStorage.setOrCreate<string>('lastUpdateTrigger', reason);
+    }
     const snapshot = HaLocationRuntimeService.snapshot();
     if (!snapshot.registered) {
       return;
@@ -243,7 +240,8 @@ export class HaLocationRuntimeService {
       lastUpdateTriggerEnabled: preferences.lastUpdateTriggerEnabled,
       locationBackgroundEnabled: preferences.locationBackgroundEnabled && HaLocationRuntimeService.running,
       zoneBackgroundEnabled: preferences.zoneBackgroundEnabled,
-      accurateLocationEnabled: preferences.accurateLocationEnabled
+      accurateLocationEnabled: preferences.accurateLocationEnabled,
+      directSensorIds: preferences.directSensorIds
     };
 
     HaLocationRuntimeService.resolveAllowedBaseUrl().then((baseUrl: string) => {
@@ -259,13 +257,14 @@ export class HaLocationRuntimeService {
       return HarmonySensorService.syncPublicSensors(
         baseUrl,
         snapshot.webhookId,
-        '',
+        snapshot.cloudhookUrl,
         activePreferences,
         HaLocationRuntimeService.latestLocation,
         HaLocationRuntimeService.locationEnabled,
         HaLocationRuntimeService.currentZoneName,
         SensorRuntimePresenter.locationSentMode(snapshot.locationSentMode),
-        HaLocationRuntimeService.shouldSendLocationUpdate(reason)
+        HaLocationRuntimeService.shouldSendLocationUpdate(reason),
+        reason
       );
     }).then((result): void => {
       if (LocationSensorCoordinator.shouldRecordDiagnostics(reason, result.locationSummary)) {
@@ -286,7 +285,7 @@ export class HaLocationRuntimeService {
   }
 
   private static appendHistory(snapshot: HarmonyLocationSnapshot, trigger: string, result: string): void {
-    AppStorage.setOrCreate<string>('locationHistoryJson', LocationSensorCoordinator.appendHistory(
+    HaLocationRuntimeService.setLocationHistoryJson(LocationSensorCoordinator.appendHistory(
       AppStorage.get<string>('locationHistoryJson') ?? '[]',
       snapshot,
       trigger,
@@ -301,26 +300,60 @@ export class HaLocationRuntimeService {
       snapshot: HaLocationRuntimeService.latestLocation,
       zoneName: HaLocationRuntimeService.currentZoneName,
       trigger,
-      sentMode: SensorRuntimePresenter.locationSentMode(AppStorage.get<string>('locationSentMode') ?? 'exact'),
+      sentMode: SensorRuntimePresenter.locationSentMode(AppStorage.get<string>('locationSentMode') ?? 'never'),
       geofenceStatus: AppStorage.get<string>('locationGeofenceStatus') ?? 'not_started',
       result
     });
-    AppStorage.setOrCreate<string>('locationDiagnosticsJson', diagnostics.summary);
+    HaLocationRuntimeService.setLocationDiagnosticsJson(diagnostics.summary);
     if (diagnostics.historyChanged) {
-      AppStorage.setOrCreate<string>('locationHistoryJson', diagnostics.historyJson);
+      HaLocationRuntimeService.setLocationHistoryJson(diagnostics.historyJson);
+    }
+  }
+
+  private static setLocationHistoryJson(value: string): void {
+    if (AppStorage.get<string>('locationHistoryJson') === value) {
+      return;
+    }
+    AppStorage.setOrCreate<string>('locationHistoryJson', value);
+    const context = HaLocationRuntimeService.context;
+    if (context) {
+      AppSettingsStore.saveLocationHistoryJson(context, value).catch((): void => {});
+    }
+  }
+
+  private static setLocationDiagnosticsJson(value: string): void {
+    if (AppStorage.get<string>('locationDiagnosticsJson') === value) {
+      return;
+    }
+    AppStorage.setOrCreate<string>('locationDiagnosticsJson', value);
+    const context = HaLocationRuntimeService.context;
+    if (context) {
+      AppSettingsStore.saveLocationDiagnosticsJson(context, value).catch((): void => {});
+    }
+  }
+
+  private static setLocationGeofenceStatus(value: string): void {
+    if (AppStorage.get<string>('locationGeofenceStatus') === value) {
+      return;
+    }
+    AppStorage.setOrCreate<string>('locationGeofenceStatus', value);
+    const context = HaLocationRuntimeService.context;
+    if (context) {
+      AppSettingsStore.saveLocationGeofenceStatus(context, value).catch((): void => {});
     }
   }
 
   private static snapshot(): LocationRuntimeSnapshot {
     const flags: SensorRuntimeFlags = {
-      batterySOCEnabled: AppStorage.get<boolean>('sensorBatterySOCEnabled') ?? true,
-      chargingStatusEnabled: AppStorage.get<boolean>('sensorChargingStatusEnabled') ?? true,
-      pluggedTypeEnabled: AppStorage.get<boolean>('sensorPluggedTypeEnabled') ?? true,
-      bearerTypesEnabled: AppStorage.get<boolean>('sensorBearerTypesEnabled') ?? true,
-      lastUpdateTriggerEnabled: AppStorage.get<boolean>('sensorLastUpdateTriggerEnabled') ?? true,
+      batterySOCEnabled: AppStorage.get<boolean>('sensorBatterySOCEnabled') ?? false,
+      chargingStatusEnabled: AppStorage.get<boolean>('sensorChargingStatusEnabled') ?? false,
+      pluggedTypeEnabled: AppStorage.get<boolean>('sensorPluggedTypeEnabled') ?? false,
+      bearerTypesEnabled: AppStorage.get<boolean>('sensorBearerTypesEnabled') ?? false,
+      lastUpdateTriggerEnabled: AppStorage.get<boolean>('sensorLastUpdateTriggerEnabled') ?? false,
       locationBackgroundEnabled: AppStorage.get<boolean>('sensorLocationEnabled') ?? false,
       zoneBackgroundEnabled: AppStorage.get<boolean>('sensorZoneBackgroundEnabled') ?? false,
-      accurateLocationEnabled: AppStorage.get<boolean>('sensorAccurateLocationEnabled') ?? false
+      accurateLocationEnabled: AppStorage.get<boolean>('sensorAccurateLocationEnabled') ?? false,
+      directSensorIds: SensorRuntimePresenter.directSensorIdsFromJson(AppStorage.get<string>('sensorDirectEnabledJson') ?? '[]')
     };
     const baseUrl = AppStorage.get<string>('haBaseUrl') ?? '';
     const webhookId = AppStorage.get<string>('haWebhookId') ?? '';
@@ -331,7 +364,7 @@ export class HaLocationRuntimeService {
       registered: baseUrl.trim().length > 0 && webhookId.trim().length > 0,
       flags,
       locationHistoryJson: AppStorage.get<string>('locationHistoryJson') ?? '[]',
-      locationSentMode: AppStorage.get<string>('locationSentMode') ?? 'exact',
+      locationSentMode: AppStorage.get<string>('locationSentMode') ?? 'never',
       locationGeofenceStatus: AppStorage.get<string>('locationGeofenceStatus') ?? 'not_started'
     };
   }

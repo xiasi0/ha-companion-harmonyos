@@ -7,8 +7,10 @@ import { SettingsUiConfig } from './SettingsUiConfig';
 
 @Component
 export struct SettingsSwitchRow {
-  @Prop
+  @Prop @Watch('syncChecked')
   isOn: boolean = false;
+  @Prop
+  syncRevision: number = 0;
   @Prop
   item: SettingsItem = {
     type: SettingsItemType.SWITCH,
@@ -26,9 +28,20 @@ export struct SettingsSwitchRow {
   @Prop
   active: boolean = false;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
+  @State private checked: boolean = false;
   @State private isTouched: boolean = false;
   @State private lastToggleAt: number = 0;
   onOpen: (item: SettingsItem) => void = () => {};
+
+  aboutToAppear(): void {
+    this.syncChecked();
+  }
+
+  private syncChecked(): void {
+    if (this.checked !== this.isOn) {
+      this.checked = this.isOn;
+    }
+  }
 
   private acceptToggle(): boolean {
     const now = Date.now();
@@ -70,14 +83,16 @@ export struct SettingsSwitchRow {
       }
       .layoutWeight(1)
 
-      Toggle({ type: ToggleType.Switch, isOn: this.isOn })
+      Toggle({ type: ToggleType.Switch, isOn: this.checked })
         .width(36)
         .height(20)
         .selectedColor(HaColors.SETTINGS_SWITCH_THUMB_ON)
-        .onChange(() => {
-          if (this.acceptToggle()) {
-            this.onOpen(this.item);
+        .onChange((value: boolean) => {
+          if (!this.acceptToggle()) {
+            return;
           }
+          this.checked = value;
+          this.onOpen(this.item);
         })
     }
     .width('100%')

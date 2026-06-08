@@ -13,6 +13,10 @@ import { NativeSettingsOverlayHost } from './NativeSettingsOverlayHost';
 import { SensorSettingsOverlayHost } from '../sensors/SensorSettingsOverlayHost';
 import { NotificationHistoryPage } from '../notifications/NotificationHistoryPage';
 import { NotificationService } from '../notifications/NotificationService';
+import { SettingsUiConfig } from './components/SettingsUiConfig';
+import { HaTheme } from '../../shared/theme/HaTheme';
+import { Localization } from '../../shared/i18n/Localization';
+import { HdsNavDestination } from '@kit.UIDesignKit';
 import common from '@ohos.app.ability.common';
 
 export const SETTINGS_NAV_SERVER: string = 'CompanionServerSettings';
@@ -24,6 +28,15 @@ export const SETTINGS_NAV_NOTIFICATION_HISTORY: string = 'CompanionNotificationH
 
 export interface SettingsNavDestinationParam {
   key: string;
+}
+
+export interface SettingsNavSyncTarget {
+  route: AppRoute;
+  detailKey: string;
+}
+
+export interface SettingsNavSyncActions {
+  onSynced: (target: SettingsNavSyncTarget) => void;
 }
 
 const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
@@ -108,6 +121,10 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSelectSensorFrequency: () => {}
 };
 
+const DEFAULT_SETTINGS_NAV_SYNC_ACTIONS: SettingsNavSyncActions = {
+  onSynced: () => {}
+};
+
 function isServerDetail(detailKey: string): boolean {
   return detailKey.startsWith('server_');
 }
@@ -122,20 +139,46 @@ function navParam(key: string): SettingsNavDestinationParam {
   return { key: key };
 }
 
-function routeToRoot(pathStack: NavPathStack, actions: SettingsRuntimeActions): void {
+function routeToRoot(
+  pathStack: NavPathStack,
+  actions: SettingsRuntimeActions,
+  onSynced?: (target: SettingsNavSyncTarget) => void
+): void {
   actions.onRoute(AppRoute.COMPANION_SETTINGS);
   popToRoot(pathStack, true);
+  notifySynced(onSynced, AppRoute.COMPANION_SETTINGS);
 }
 
-function routeToServer(pathStack: NavPathStack, actions: SettingsRuntimeActions): void {
+function routeToServer(
+  pathStack: NavPathStack,
+  actions: SettingsRuntimeActions,
+  onSynced?: (target: SettingsNavSyncTarget) => void
+): void {
   actions.onRoute(AppRoute.SERVER_SETTINGS);
   popToRoot(pathStack, false);
   pathStack.pushPath({ name: SETTINGS_NAV_SERVER, param: navParam(SETTINGS_NAV_SERVER) }, true);
+  notifySynced(onSynced, AppRoute.SERVER_SETTINGS);
 }
 
-function routeToDetail(pathStack: NavPathStack, detailKey: string): void {
+function routeToDetail(
+  pathStack: NavPathStack,
+  detailKey: string,
+  onSynced?: (target: SettingsNavSyncTarget) => void
+): void {
   const param: SettingsNavDestinationParam = { key: detailKey };
   pathStack.pushPath({ name: SETTINGS_NAV_DETAIL, param: param }, true);
+  notifySynced(onSynced, AppRoute.SETTINGS_DETAIL, detailKey);
+}
+
+function notifySynced(
+  onSynced: ((target: SettingsNavSyncTarget) => void) | undefined,
+  route: AppRoute,
+  detailKey: string = ''
+): void {
+  if (!onSynced) {
+    return;
+  }
+  onSynced({ route: route, detailKey: detailKey });
 }
 
 function usesServerEditDialog(actionId: string): boolean {
@@ -150,19 +193,27 @@ function usesExternalServerFlow(actionId: string): boolean {
   return actionId === 'server_connection_security';
 }
 
-function routeAction(pathStack: NavPathStack, actions: SettingsRuntimeActions, actionId: string): void {
+function routeAction(
+  pathStack: NavPathStack,
+  actions: SettingsRuntimeActions,
+  actionId: string,
+  onSynced?: (target: SettingsNavSyncTarget) => void
+): void {
   actions.onAction(actionId);
   setTimeout((): void => {
     if (actionId === 'open_server' || actionId.startsWith('open_server_detail:')) {
-      routeToServer(pathStack, actions);
+      routeToServer(pathStack, actions, onSynced);
     } else if (actionId === 'open_display_gestures') {
-      routeToDetail(pathStack, 'display_gestures');
+      routeToDetail(pathStack, 'display_gestures', onSynced);
     } else if (actionId === 'open_sensor_settings') {
       pathStack.pushPath({ name: SETTINGS_NAV_SENSOR, param: navParam(SETTINGS_NAV_SENSOR) }, true);
+      notifySynced(onSynced, AppRoute.SENSOR_SETTINGS);
     } else if (actionId === 'open_sensor_update_frequency') {
       pathStack.pushPath({ name: SETTINGS_NAV_SENSOR_FREQUENCY, param: navParam(SETTINGS_NAV_SENSOR_FREQUENCY) }, true);
+      notifySynced(onSynced, AppRoute.SENSOR_UPDATE_FREQUENCY);
     } else if (actionId === 'open_notification_settings') {
       pathStack.pushPath({ name: SETTINGS_NAV_NOTIFICATION, param: navParam(SETTINGS_NAV_NOTIFICATION) }, true);
+      notifySynced(onSynced, AppRoute.NOTIFICATION_SETTINGS);
     }
   }, 0);
 }
@@ -170,7 +221,8 @@ function routeAction(pathStack: NavPathStack, actions: SettingsRuntimeActions, a
 export function openSettingsNavigationItem(
   item: SettingsItem,
   pathStack: NavPathStack,
-  actions: SettingsRuntimeActions
+  actions: SettingsRuntimeActions,
+  onSynced?: (target: SettingsNavSyncTarget) => void
 ): void {
   actions.onOpen(item);
   if (item.type === SettingsItemType.SWITCH ||
@@ -180,11 +232,11 @@ export function openSettingsNavigationItem(
   }
   setTimeout((): void => {
     if (item.actionId.startsWith('server_')) {
-      routeToDetail(pathStack, item.actionId);
+      routeToDetail(pathStack, item.actionId, onSynced);
     } else if (item.actionId === 'open_server' || item.actionId.startsWith('open_server_detail:')) {
-      routeToServer(pathStack, actions);
+      routeToServer(pathStack, actions, onSynced);
     } else if (item.actionId.length > 0) {
-      routeToDetail(pathStack, item.actionId);
+      routeToDetail(pathStack, item.actionId, onSynced);
     }
   }, 0);
 }
@@ -192,9 +244,10 @@ export function openSettingsNavigationItem(
 export function openSettingsNavigationAction(
   actionId: string,
   pathStack: NavPathStack,
-  actions: SettingsRuntimeActions
+  actions: SettingsRuntimeActions,
+  onSynced?: (target: SettingsNavSyncTarget) => void
 ): void {
-  routeAction(pathStack, actions, actionId);
+  routeAction(pathStack, actions, actionId, onSynced);
 }
 
 @Builder
@@ -232,9 +285,11 @@ struct CompanionServerSettingsRoute {
   @Consume('settingsRuntimeSnapshot') snapshot: SettingsRuntimeSnapshot = DEFAULT_SETTINGS_RUNTIME_SNAPSHOT;
   @Consume('settingsRuntimeActions') actions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
   @Consume('settingsPathStack') pathStack: NavPathStack;
+  @Consume('settingsNavSyncActions') navSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
+  @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       ServerSettingsSurfaceHost({
         title: this.snapshot.serverTitle,
         sections: this.snapshot.serverSections,
@@ -246,18 +301,23 @@ struct CompanionServerSettingsRoute {
         choiceDialogKey: this.snapshot.choiceDialogKey,
         secureConnectionChoice: this.snapshot.secureConnectionChoice,
         dark: this.snapshot.dark,
-        onBack: (): void => routeToRoot(this.pathStack, this.actions),
-        onOpen: (item: SettingsItem): void => openSettingsNavigationItem(item, this.pathStack, this.actions),
-        onAction: (actionId: string): void => openSettingsNavigationAction(actionId, this.pathStack, this.actions),
+        onBack: (): void => routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced),
+        onOpen: (item: SettingsItem): void =>
+          openSettingsNavigationItem(item, this.pathStack, this.actions, this.navSyncActions.onSynced),
+        onAction: (actionId: string): void =>
+          openSettingsNavigationAction(actionId, this.pathStack, this.actions, this.navSyncActions.onSynced),
         onScrollOffsetChange: this.actions.onServerScrollOffsetChange,
         onSwipeBack: this.actions.onSwipeBack,
         onSelectChoice: this.actions.onSelectCompanionChoice,
         onCloseChoice: this.actions.onCloseCompanionChoice
       })
     }
-    .hideTitleBar(true)
+    .titleBar(SettingsUiConfig.titleBar(this.snapshot.serverTitle,
+      (): void => routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced), this.appResolvedDark))
+    .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+    .hideBackButton(false)
     .onBackPressed((): boolean => {
-      routeToRoot(this.pathStack, this.actions);
+      routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced);
       return true;
     })
   }
@@ -269,16 +329,18 @@ struct CompanionSensorSettingsRoute {
   @Consume('settingsOverlaySnapshot') overlaySnapshot: AppRuntimeOverlaySnapshot;
   @Consume('settingsOverlayActions') overlayActions: AppRuntimeOverlayActions = DEFAULT_OVERLAY_ACTIONS;
   @Consume('settingsPathStack') pathStack: NavPathStack;
+  @Consume('settingsNavSyncActions') navSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
+  @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       SensorSettingsOverlayHost({
         route: AppRoute.SENSOR_SETTINGS,
         groups: this.overlaySnapshot.sensorGroups,
         selectedFrequency: this.overlaySnapshot.sensorUpdateFrequency,
         contentMaxWidth: this.overlaySnapshot.contentMaxWidth,
         switchRevision: this.overlaySnapshot.switchRevision,
-        onBack: (): void => routeToRoot(this.pathStack, this.actions),
+        onBack: (): void => routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced),
         onHelp: this.overlayActions.onSensorHelp,
         onSearch: this.overlayActions.onSensorSearch,
         onFilter: this.overlayActions.onSensorFilter,
@@ -287,9 +349,12 @@ struct CompanionSensorSettingsRoute {
         onSwipeBack: this.overlayActions.onSwipeBack
       })
     }
-    .hideTitleBar(true)
+    .titleBar(SettingsUiConfig.titleBar(Localization.t('sensor_title'),
+      (): void => routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced), this.appResolvedDark))
+    .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+    .hideBackButton(false)
     .onBackPressed((): boolean => {
-      routeToRoot(this.pathStack, this.actions);
+      routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced);
       return true;
     })
   }
@@ -301,16 +366,18 @@ struct CompanionSensorFrequencyRoute {
   @Consume('settingsOverlaySnapshot') overlaySnapshot: AppRuntimeOverlaySnapshot;
   @Consume('settingsOverlayActions') overlayActions: AppRuntimeOverlayActions = DEFAULT_OVERLAY_ACTIONS;
   @Consume('settingsPathStack') pathStack: NavPathStack;
+  @Consume('settingsNavSyncActions') navSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
+  @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
 
   build() {
-    NavDestination() {
+    HdsNavDestination() {
       SensorSettingsOverlayHost({
         route: AppRoute.SENSOR_UPDATE_FREQUENCY,
         groups: this.overlaySnapshot.sensorGroups,
         selectedFrequency: this.overlaySnapshot.sensorUpdateFrequency,
         contentMaxWidth: this.overlaySnapshot.contentMaxWidth,
         switchRevision: this.overlaySnapshot.switchRevision,
-        onBack: (): void => routeToRoot(this.pathStack, this.actions),
+        onBack: (): void => routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced),
         onHelp: this.overlayActions.onSensorHelp,
         onSearch: this.overlayActions.onSensorSearch,
         onFilter: this.overlayActions.onSensorFilter,
@@ -319,9 +386,12 @@ struct CompanionSensorFrequencyRoute {
         onSwipeBack: this.overlayActions.onSwipeBack
       })
     }
-    .hideTitleBar(true)
+    .titleBar(SettingsUiConfig.titleBar(Localization.t('settings_sensor_update_frequency'),
+      (): void => routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced), this.appResolvedDark))
+    .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+    .hideBackButton(false)
     .onBackPressed((): boolean => {
-      routeToRoot(this.pathStack, this.actions);
+      routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced);
       return true;
     })
   }
@@ -334,13 +404,14 @@ struct CompanionNativeSettingsRoute {
   @Consume('settingsOverlaySnapshot') overlaySnapshot: AppRuntimeOverlaySnapshot;
   @Consume('settingsOverlayActions') overlayActions: AppRuntimeOverlayActions = DEFAULT_OVERLAY_ACTIONS;
   @Consume('settingsPathStack') pathStack: NavPathStack;
+  @Consume('settingsNavSyncActions') navSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
 
   build() {
     NavDestination() {
       NativeSettingsOverlayHost({
         route: this.route,
         profile: this.overlaySnapshot.profile,
-        onBack: (): void => routeToRoot(this.pathStack, this.actions),
+        onBack: (): void => routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced),
         onOpenNotificationHistory: (): void => {
           this.pathStack.pushPath({
             name: SETTINGS_NAV_NOTIFICATION_HISTORY,
@@ -352,7 +423,7 @@ struct CompanionNativeSettingsRoute {
     }
     .hideTitleBar(true)
     .onBackPressed((): boolean => {
-      routeToRoot(this.pathStack, this.actions);
+      routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced);
       return true;
     })
   }
@@ -363,10 +434,12 @@ struct CompanionNotificationHistoryRoute {
   @Consume('settingsRuntimeActions') actions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
   @Consume('settingsOverlaySnapshot') overlaySnapshot: AppRuntimeOverlaySnapshot;
   @Consume('settingsPathStack') pathStack: NavPathStack;
+  @Consume('settingsNavSyncActions') navSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
 
   private backToNotifications(): void {
     this.actions.onRoute(AppRoute.NOTIFICATION_SETTINGS);
     this.pathStack.pop(true);
+    this.navSyncActions.onSynced({ route: AppRoute.NOTIFICATION_SETTINGS, detailKey: '' });
   }
 
   build() {
@@ -394,12 +467,15 @@ struct CompanionSettingsDetailRoute {
   @Consume('settingsRuntimeSnapshot') snapshot: SettingsRuntimeSnapshot = DEFAULT_SETTINGS_RUNTIME_SNAPSHOT;
   @Consume('settingsRuntimeActions') actions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
   @Consume('settingsPathStack') pathStack: NavPathStack;
+  @Consume('settingsNavSyncActions') navSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
 
   private backToParent(): void {
     if (isServerDetail(this.snapshot.detailKey)) {
       this.actions.onRoute(AppRoute.SERVER_SETTINGS);
+      this.navSyncActions.onSynced({ route: AppRoute.SERVER_SETTINGS, detailKey: '' });
     } else {
       this.actions.onRoute(AppRoute.COMPANION_SETTINGS);
+      this.navSyncActions.onSynced({ route: AppRoute.COMPANION_SETTINGS, detailKey: '' });
     }
     this.pathStack.pop(true);
   }
@@ -428,14 +504,14 @@ struct CompanionSettingsDetailRoute {
         gestureActionValue: this.actions.gestureActionValue,
         onRoute: (route: number): void => {
           if (route === AppRoute.SERVER_SETTINGS) {
-            routeToServer(this.pathStack, this.actions);
+            routeToServer(this.pathStack, this.actions, this.navSyncActions.onSynced);
           } else {
-            routeToRoot(this.pathStack, this.actions);
+            routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced);
           }
         },
         onSetDetailHeader: (key: string, title: string): void => {
           this.actions.onSetDetailHeader(key, title);
-          routeToDetail(this.pathStack, key);
+          routeToDetail(this.pathStack, key, this.navSyncActions.onSynced);
         },
         onOpenDashboard: this.actions.onOpenDashboard,
         onSsidInputChange: this.actions.onSsidInputChange,
@@ -446,10 +522,11 @@ struct CompanionSettingsDetailRoute {
           this.actions.onSelectGestureAction(key, value);
           this.actions.onSetDetailHeader('display_gestures', CompanionSettingsData.gestureTitle(key));
           this.pathStack.pop(true);
+          this.navSyncActions.onSynced({ route: AppRoute.SETTINGS_DETAIL, detailKey: 'display_gestures' });
         },
         onSelectChoice: (key: string, value: string): void => {
           this.actions.onSelectDetailChoice(key, value);
-          routeToRoot(this.pathStack, this.actions);
+          routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced);
         },
         onTextChange: this.actions.onDetailTextChange,
         onOptionChange: (value: string): void => {

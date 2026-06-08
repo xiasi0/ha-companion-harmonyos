@@ -156,6 +156,7 @@ export struct ServerSettingsSurfaceHost {
       selectedKey: this.selectedKey,
       scrollOffset: this.scrollOffset,
       switchRevision: this.switchRevision,
+      embeddedInNavigation: true,
       onBack: this.onBack,
       onOpen: this.onOpen,
       onAction: this.onAction,

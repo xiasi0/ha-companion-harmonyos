@@ -30,6 +30,9 @@ export interface AppLifecycleRuntimeCallbacks {
   applyThemePreferences: () => void;
   subscribeBatteryEvents: (onEvent: () => void) => void;
   subscribeNetworkEvents: (onEvent: () => void) => void;
+  subscribeDirectSensorEvents: (onEvent: (reason: string) => void) => void;
+  subscribeHardwareSensorEvents: (onEvent: (reason: string) => void) => void;
+  refreshPeriodicSensorTimer: () => void;
   syncPublicSensors: (reason: string) => void;
   refreshHomeNetworkStatus: (allowDashboardUrlReload?: boolean) => void;
   ensureMobileAppRegistration: (reason: string) => void;
@@ -56,6 +59,7 @@ export interface AppLifecycleRuntimeCallbacks {
 
 export class AppLifecycleRuntimeService {
   static aboutToAppear(state: AppLifecycleRuntimeState, callbacks: AppLifecycleRuntimeCallbacks): void {
+    AppLifecycleRuntimeService.setAppActive(true);
     Localization.setAppLanguage(state.appLanguage);
     callbacks.initializeDeviceName();
     callbacks.syncCardServerConnection();
@@ -69,6 +73,13 @@ export class AppLifecycleRuntimeService {
       callbacks.refreshHomeNetworkStatus(false);
       callbacks.syncPublicSensors('network_event');
     });
+    callbacks.subscribeDirectSensorEvents((reason: string): void => {
+      callbacks.syncPublicSensors(reason);
+    });
+    callbacks.subscribeHardwareSensorEvents((reason: string): void => {
+      callbacks.syncPublicSensors(reason);
+    });
+    callbacks.refreshPeriodicSensorTimer();
     callbacks.startLocationSensorsIfNeeded();
     callbacks.refreshLocationZones(false);
     callbacks.registerBackDispatcher((): boolean => {
@@ -97,6 +108,7 @@ export class AppLifecycleRuntimeService {
   }
 
   static aboutToDisappear(callbacks: AppLifecycleRuntimeCallbacks): void {
+    AppLifecycleRuntimeService.setAppActive(false);
     callbacks.clearBackDispatcher();
     callbacks.unsubscribeSystemEvents();
     callbacks.stopSensorRuntime();
@@ -104,6 +116,7 @@ export class AppLifecycleRuntimeService {
   }
 
   static onForeground(state: AppLifecycleRuntimeState, callbacks: AppLifecycleRuntimeCallbacks): void {
+    AppLifecycleRuntimeService.setAppActive(true);
     callbacks.applyThemePreferences();
     callbacks.syncCardServerConnection();
     callbacks.ensureMobileAppRegistration('app_foreground');
@@ -133,6 +146,8 @@ export class AppLifecycleRuntimeService {
   }
 
   static onBackground(state: AppLifecycleRuntimeState, callbacks: AppLifecycleRuntimeCallbacks): void {
+    AppLifecycleRuntimeService.setAppActive(false);
+    callbacks.syncPublicSensors('app_background');
     if (callbacks.isIgnoringAppLockTransitions()) {
       return;
     }
@@ -161,5 +176,14 @@ export class AppLifecycleRuntimeService {
     state.dashboardAuthProvided = restoreDecision.dashboardAuthProvided;
     state.step = restoreDecision.route;
     state.message = restoreDecision.message;
+  }
+
+  private static setAppActive(active: boolean): void {
+    if (AppStorage.get<boolean>('appActive') === active) {
+      return;
+    }
+    if (!AppStorage.set<boolean>('appActive', active)) {
+      AppStorage.setOrCreate<boolean>('appActive', active);
+    }
   }
 }

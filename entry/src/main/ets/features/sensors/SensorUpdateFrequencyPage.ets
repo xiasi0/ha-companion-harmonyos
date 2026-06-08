@@ -15,6 +15,8 @@ export struct SensorUpdateFrequencyPage {
   selected: string = SensorUpdateFrequency.NORMAL;
   @Prop
   contentMaxWidth: number = SettingsUiConfig.contentMaxWidth;
+  @Prop
+  embeddedInNavigation: boolean = false;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   private scroller: Scroller = new Scroller();
   onBack: () => void = () => {};
@@ -83,52 +85,88 @@ export struct SensorUpdateFrequencyPage {
 
   @Builder
   private renderPageContent(): void {
-    Scroll(this.scroller) {
-      Column({ space: SettingsUiConfig.listSpace }) {
-        Column() {
-          Text(Localization.t('sensor_frequency_body'))
-            .fontSize(16)
-            .fontColor(HaTheme.textPrimary(this.appResolvedDark))
-            .lineHeight(24)
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+    Stack({ alignContent: Alignment.End }) {
+      Scroll(this.scroller) {
+        Column({ space: SettingsUiConfig.listSpace }) {
+          Column() {
+            Text(Localization.t('sensor_frequency_body'))
+              .fontSize(16)
+              .fontColor(HaTheme.textPrimary(this.appResolvedDark))
+              .lineHeight(24)
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+          }
+          .width('100%')
+          .borderRadius(SettingsUiConfig.groupRadius)
+          .backgroundColor(HaTheme.surface(this.appResolvedDark))
+          .shadow(SettingsUiConfig.groupShadow())
+          .padding(SettingsUiConfig.groupPadding)
+
+          Column() {
+            this.renderOption(SensorUpdateFrequency.NORMAL)
+            SettingsBoundary()
+            this.renderOption(SensorUpdateFrequency.FAST_WHILE_CHARGING)
+            SettingsBoundary()
+            this.renderOption(SensorUpdateFrequency.FAST_ALWAYS)
+          }
+          .width('100%')
+          .borderRadius(SettingsUiConfig.groupRadius)
+          .backgroundColor(HaTheme.surface(this.appResolvedDark))
+          .shadow(SettingsUiConfig.groupShadow())
+          .padding(SettingsUiConfig.groupPadding)
+
+          Column()
+            .height(4)
+
+          this.renderInfo()
         }
         .width('100%')
-        .borderRadius(SettingsUiConfig.groupRadius)
-        .backgroundColor(HaTheme.surface(this.appResolvedDark))
-        .shadow(SettingsUiConfig.groupShadow())
-        .padding(SettingsUiConfig.groupPadding)
-
-        Column() {
-          this.renderOption(SensorUpdateFrequency.NORMAL)
-          SettingsBoundary()
-          this.renderOption(SensorUpdateFrequency.FAST_WHILE_CHARGING)
-          SettingsBoundary()
-          this.renderOption(SensorUpdateFrequency.FAST_ALWAYS)
-        }
-        .width('100%')
-        .borderRadius(SettingsUiConfig.groupRadius)
-        .backgroundColor(HaTheme.surface(this.appResolvedDark))
-        .shadow(SettingsUiConfig.groupShadow())
-        .padding(SettingsUiConfig.groupPadding)
-
-        Column()
-          .height(4)
-
-        this.renderInfo()
+        .constraintSize({ maxWidth: this.contentMaxWidth })
+        .padding(SettingsUiConfig.scrollContentPadding())
       }
+      .layoutWeight(1)
       .width('100%')
-      .constraintSize({ maxWidth: this.contentMaxWidth })
-      .padding(SettingsUiConfig.scrollContentPadding())
+      .height('100%')
+      .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
+      .clip(false)
+      .scrollBar(BarState.Off)
+      .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+
+      ScrollBar({
+        scroller: this.scroller,
+        direction: ScrollBarDirection.Vertical,
+        state: BarState.Auto
+      })
+        .width(9)
+        .height('100%')
+        .backgroundColor(Color.Transparent)
     }
     .layoutWeight(1)
     .width('100%')
-    .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-    .clip(false)
     .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
   }
 
-  build() {
+  @Builder
+  private renderEmbeddedContent(): void {
+    Column() {
+      this.renderPageContent()
+    }
+    .width('100%')
+    .height('100%')
+    .alignItems(HorizontalAlign.Center)
+    .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+    .gesture(
+      PanGesture({ direction: PanDirection.Horizontal, distance: 24 })
+        .onActionEnd((event: GestureEvent) => {
+          if (event.offsetX > 60 || event.offsetX < -60) {
+            this.onSwipeBack();
+          }
+        })
+    )
+  }
+
+  @Builder
+  private renderNavigationContent(): void {
     HdsNavigation() {
       this.renderPageContent()
     }
@@ -147,5 +185,13 @@ export struct SensorUpdateFrequencyPage {
           }
         })
     )
+  }
+
+  build() {
+    if (this.embeddedInNavigation) {
+      this.renderEmbeddedContent()
+    } else {
+      this.renderNavigationContent()
+    }
   }
 }

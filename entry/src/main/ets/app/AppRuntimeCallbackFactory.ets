@@ -42,6 +42,9 @@ export interface AppRuntimeCallbackTarget {
   applySensorDefaultMigration(): void;
   subscribeBatteryEvents(onEvent: () => void): void;
   subscribeNetworkEvents(onEvent: () => void): void;
+  subscribeDirectSensorEvents(onEvent: (reason: string) => void): void;
+  subscribeHardwareSensorEvents(onEvent: (reason: string) => void): void;
+  refreshPeriodicSensorTimer(): void;
   startLocationSensorsIfNeeded(): void;
   refreshLocationZones(syncAfterRefresh: boolean): void;
   reconcileBackgroundLocationPermission(): void;
@@ -210,6 +213,11 @@ export class AppRuntimeCallbackFactory {
       applyThemePreferences: (): void => target.applyThemePreferences(),
       subscribeBatteryEvents: (onEvent: () => void): void => target.subscribeBatteryEvents(onEvent),
       subscribeNetworkEvents: (onEvent: () => void): void => target.subscribeNetworkEvents(onEvent),
+      subscribeDirectSensorEvents: (onEvent: (reason: string) => void): void =>
+        target.subscribeDirectSensorEvents(onEvent),
+      subscribeHardwareSensorEvents: (onEvent: (reason: string) => void): void =>
+        target.subscribeHardwareSensorEvents(onEvent),
+      refreshPeriodicSensorTimer: (): void => target.refreshPeriodicSensorTimer(),
       refreshHomeNetworkStatus: (allowDashboardUrlReload?: boolean): void =>
         target.refreshHomeNetworkStatus(allowDashboardUrlReload),
       syncPublicSensors: (reason: string): void => target.syncPublicSensors(reason),

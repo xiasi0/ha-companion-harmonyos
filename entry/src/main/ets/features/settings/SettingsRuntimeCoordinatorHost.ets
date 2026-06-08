@@ -20,6 +20,8 @@ import {
   SETTINGS_NAV_SENSOR_FREQUENCY,
   SETTINGS_NAV_SERVER,
   SettingsNavDestinationParam,
+  SettingsNavSyncActions,
+  SettingsNavSyncTarget,
   openSettingsNavigationAction,
   openSettingsNavigationItem
 } from './SettingsNavigationRoutes';
@@ -130,20 +132,25 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSelectSensorFrequency: () => {}
 };
 
+const DEFAULT_SETTINGS_NAV_SYNC_ACTIONS: SettingsNavSyncActions = {
+  onSynced: () => {}
+};
+
 const PATH_STACK_RESTORE_DELAY_MS: number = 50;
 @Component
 export struct SettingsRuntimeCoordinatorHost {
-  @Prop snapshot: SettingsRuntimeSnapshot = DEFAULT_SETTINGS_RUNTIME_SNAPSHOT;
-  @Prop overlaySnapshot: AppRuntimeOverlaySnapshot = DEFAULT_OVERLAY_SNAPSHOT;
-  @Prop @Watch('onRuntimeChanged') route: number = AppRoute.COMPANION_SETTINGS;
-  @Prop @Watch('onRuntimeChanged') detailKey: string = '';
-  @Prop @Watch('onRuntimeChanged') switchRevision: number = 0;
+  @Prop @Watch('onRuntimeDataChanged') snapshot: SettingsRuntimeSnapshot = DEFAULT_SETTINGS_RUNTIME_SNAPSHOT;
+  @Prop @Watch('onRuntimeDataChanged') overlaySnapshot: AppRuntimeOverlaySnapshot = DEFAULT_OVERLAY_SNAPSHOT;
+  @Prop @Watch('onRuntimeRouteChanged') route: number = AppRoute.COMPANION_SETTINGS;
+  @Prop @Watch('onRuntimeRouteChanged') detailKey: string = '';
+  @Prop @Watch('onRuntimeDataChanged') switchRevision: number = 0;
   actions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
   overlayActions: AppRuntimeOverlayActions = DEFAULT_OVERLAY_ACTIONS;
   @Provide('settingsRuntimeSnapshot') providedSnapshot: SettingsRuntimeSnapshot = DEFAULT_SETTINGS_RUNTIME_SNAPSHOT;
   @Provide('settingsRuntimeActions') providedActions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
   @Provide('settingsOverlaySnapshot') providedOverlaySnapshot: AppRuntimeOverlaySnapshot = DEFAULT_OVERLAY_SNAPSHOT;
   @Provide('settingsOverlayActions') providedOverlayActions: AppRuntimeOverlayActions = DEFAULT_OVERLAY_ACTIONS;
+  @Provide('settingsNavSyncActions') providedNavSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
   @Provide('settingsPathStack') pathStack: NavPathStack = new NavPathStack();
   private syncedRoute: number = AppRoute.COMPANION_SETTINGS;
   private syncedDetailKey: string = '';
@@ -157,7 +164,11 @@ export struct SettingsRuntimeCoordinatorHost {
     this.refreshProvidedRuntime();
   }
 
-  private onRuntimeChanged(): void {
+  private onRuntimeDataChanged(): void {
+    this.refreshProvidedRuntime();
+  }
+
+  private onRuntimeRouteChanged(): void {
     this.refreshProvidedRuntime();
     this.schedulePathStackRestore(true);
   }
@@ -167,6 +178,11 @@ export struct SettingsRuntimeCoordinatorHost {
     this.providedActions = this.actions;
     this.providedOverlaySnapshot = this.overlaySnapshot;
     this.providedOverlayActions = this.overlayActions;
+    this.providedNavSyncActions = {
+      onSynced: (target: SettingsNavSyncTarget): void => {
+        this.markPathStackSynced(target);
+      }
+    };
   }
 
   private popToRoot(animated: boolean): void {
@@ -176,53 +192,74 @@ export struct SettingsRuntimeCoordinatorHost {
   }
 
   private isRestorableSettingsRoute(): boolean {
-    return this.snapshot.route === AppRoute.COMPANION_SETTINGS ||
-      this.snapshot.route === AppRoute.SERVER_SETTINGS ||
-      this.snapshot.route === AppRoute.SETTINGS_DETAIL;
+    return this.route === AppRoute.COMPANION_SETTINGS ||
+      this.route === AppRoute.SERVER_SETTINGS ||
+      this.route === AppRoute.SETTINGS_DETAIL ||
+      this.route === AppRoute.SENSOR_SETTINGS ||
+      this.route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
+      this.route === AppRoute.NOTIFICATION_SETTINGS;
   }
 
   private restorePathStackForSnapshot(animated: boolean): void {
     if (!this.isRestorableSettingsRoute()) {
-      this.syncedRoute = this.snapshot.route;
-      this.syncedDetailKey = this.snapshot.detailKey;
+      this.syncedRoute = this.route;
+      this.syncedDetailKey = this.detailKey;
       return;
     }
     this.popToRoot(false);
-    if (this.snapshot.route === AppRoute.SERVER_SETTINGS) {
+    if (this.route === AppRoute.SERVER_SETTINGS) {
       const serverParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_SERVER };
       this.pathStack.pushPath({ name: SETTINGS_NAV_SERVER, param: serverParam }, animated);
-    } else if (this.snapshot.route === AppRoute.SETTINGS_DETAIL && this.snapshot.detailKey.length > 0) {
+    } else if (this.route === AppRoute.SENSOR_SETTINGS) {
+      const sensorParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_SENSOR };
+      this.pathStack.pushPath({ name: SETTINGS_NAV_SENSOR, param: sensorParam }, animated);
+    } else if (this.route === AppRoute.SENSOR_UPDATE_FREQUENCY) {
+      const frequencyParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_SENSOR_FREQUENCY };
+      this.pathStack.pushPath({ name: SETTINGS_NAV_SENSOR_FREQUENCY, param: frequencyParam }, animated);
+    } else if (this.route === AppRoute.NOTIFICATION_SETTINGS) {
+      const notificationParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_NOTIFICATION };
+      this.pathStack.pushPath({ name: SETTINGS_NAV_NOTIFICATION, param: notificationParam }, animated);
+    } else if (this.route === AppRoute.SETTINGS_DETAIL && this.detailKey.length > 0) {
       if (this.isServerDetail()) {
         const serverParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_SERVER };
         this.pathStack.pushPath({ name: SETTINGS_NAV_SERVER, param: serverParam }, false);
       }
-      const param: SettingsNavDestinationParam = { key: this.snapshot.detailKey };
+      const param: SettingsNavDestinationParam = { key: this.detailKey };
       this.pathStack.pushPath({ name: SETTINGS_NAV_DETAIL, param: param }, animated);
     }
-    this.syncedRoute = this.snapshot.route;
-    this.syncedDetailKey = this.snapshot.detailKey;
+    this.syncedRoute = this.route;
+    this.syncedDetailKey = this.detailKey;
   }
 
   private schedulePathStackRestore(animated: boolean): void {
     setTimeout((): void => {
       if (!this.isRestorableSettingsRoute()) {
-        this.syncedRoute = this.snapshot.route;
-        this.syncedDetailKey = this.snapshot.detailKey;
+        this.syncedRoute = this.route;
+        this.syncedDetailKey = this.detailKey;
         return;
       }
-      if (this.snapshot.route === this.syncedRoute && this.snapshot.detailKey === this.syncedDetailKey) {
+      if (this.route === this.syncedRoute && this.detailKey === this.syncedDetailKey) {
         return;
       }
       this.restorePathStackForSnapshot(animated);
     }, PATH_STACK_RESTORE_DELAY_MS);
   }
 
+  private markPathStackSynced(target: SettingsNavSyncTarget): void {
+    this.syncedRoute = target.route;
+    this.syncedDetailKey = target.detailKey;
+  }
+
   private openSettingsItem(item: SettingsItem): void {
-    openSettingsNavigationItem(item, this.pathStack, this.actions);
+    openSettingsNavigationItem(item, this.pathStack, this.actions, (target: SettingsNavSyncTarget): void => {
+      this.markPathStackSynced(target);
+    });
   }
 
   private openSettingsAction(actionId: string): void {
-    openSettingsNavigationAction(actionId, this.pathStack, this.actions);
+    openSettingsNavigationAction(actionId, this.pathStack, this.actions, (target: SettingsNavSyncTarget): void => {
+      this.markPathStackSynced(target);
+    });
   }
 
   private routeTo(route: number): void {
@@ -243,7 +280,7 @@ export struct SettingsRuntimeCoordinatorHost {
   }
 
   private isServerDetail(): boolean {
-    return this.snapshot.detailKey.startsWith('server_');
+    return this.detailKey.startsWith('server_');
   }
 
   @Builder

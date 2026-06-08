@@ -3,10 +3,11 @@
 import common from '@ohos.app.ability.common';
 import preferences from '@ohos.data.preferences';
 import { SensorUpdateFrequency } from '../features/sensors/SensorModels';
-import { SensorRuntimeFlags } from '../features/sensors/SensorRuntimePresenter';
+import type { SensorRuntimeFlags } from '../features/sensors/SensorRuntimePresenter';
 import { HomeNetworkService, HomeNetworkSettings } from './HomeNetworkService';
 import { AppSettingsKeys, AppSettingsScopedKeys } from './AppSettingsKeys';
 import { AppSettingsValueCodec } from './AppSettingsValueCodec';
+import { HarmonySensorService } from './HarmonySensorService';
 import { ServerInstanceStore } from './ServerInstanceStore';
 
 export interface ServerConnectionPolicySettings {
@@ -64,12 +65,36 @@ export class AppSettingsStore {
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SENSOR_LOCATION_BACKGROUND, flags.locationBackgroundEnabled);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SENSOR_ZONE_BACKGROUND, flags.zoneBackgroundEnabled);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SENSOR_ACCURATE_LOCATION, flags.accurateLocationEnabled);
+    await AppSettingsStore.putActiveValue(
+      context,
+      pref,
+      AppSettingsKeys.SENSOR_DIRECT_ENABLED_JSON,
+      HarmonySensorService.directSensorIdsToJson(flags.directSensorIds)
+    );
     await AppSettingsStore.flush(pref);
   }
 
   static async saveLocationSentMode(context: common.Context, value: string): Promise<void> {
     const pref = await AppSettingsStore.getPreferences(context);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_SENT_MODE, AppSettingsStore.normalizeLocationSentMode(value));
+    await AppSettingsStore.flush(pref);
+  }
+
+  static async saveLocationHistoryJson(context: common.Context, value: string): Promise<void> {
+    const pref = await AppSettingsStore.getPreferences(context);
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_HISTORY_JSON, value);
+    await AppSettingsStore.flush(pref);
+  }
+
+  static async saveLocationDiagnosticsJson(context: common.Context, value: string): Promise<void> {
+    const pref = await AppSettingsStore.getPreferences(context);
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_DIAGNOSTICS_JSON, value);
+    await AppSettingsStore.flush(pref);
+  }
+
+  static async saveLocationGeofenceStatus(context: common.Context, value: string): Promise<void> {
+    const pref = await AppSettingsStore.getPreferences(context);
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_GEOFENCE_STATUS, value);
     await AppSettingsStore.flush(pref);
   }
 
@@ -158,6 +183,14 @@ export class AppSettingsStore {
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SENSOR_LOCATION_BACKGROUND, AppStorage.get<boolean>('sensorLocationEnabled') ?? false);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SENSOR_ZONE_BACKGROUND, AppStorage.get<boolean>('sensorZoneBackgroundEnabled') ?? false);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SENSOR_ACCURATE_LOCATION, AppStorage.get<boolean>('sensorAccurateLocationEnabled') ?? false);
+    await AppSettingsStore.putActiveValue(
+      context,
+      pref,
+      AppSettingsKeys.SENSOR_DIRECT_ENABLED_JSON,
+      HarmonySensorService.directSensorIdsToJson(
+        HarmonySensorService.directSensorIdsFromJson(AppStorage.get<string>('sensorDirectEnabledJson') ?? '[]')
+      )
+    );
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_HISTORY_JSON, AppStorage.get<string>('locationHistoryJson') ?? '[]');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_SENT_MODE, AppSettingsStore.normalizeLocationSentMode(AppStorage.get<string>('locationSentMode') ?? 'never'));
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_DIAGNOSTICS_JSON, AppStorage.get<string>('locationDiagnosticsJson') ?? '');
@@ -262,6 +295,14 @@ export class AppSettingsStore {
     AppSettingsStore.setAppStorage<boolean>(
       'sensorAccurateLocationEnabled',
       AppSettingsValueCodec.booleanField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.SENSOR_ACCURATE_LOCATION, false))
+    );
+    AppSettingsStore.setAppStorage<string>(
+      'sensorDirectEnabledJson',
+      HarmonySensorService.directSensorIdsToJson(
+        HarmonySensorService.directSensorIdsFromJson(
+          AppSettingsValueCodec.stringField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.SENSOR_DIRECT_ENABLED_JSON, '[]'))
+        )
+      )
     );
     AppSettingsStore.setAppStorage<string>(
       'locationHistoryJson',

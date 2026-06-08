@@ -25,6 +25,18 @@
       "value": "允许 Home Assistant 在后台更新设备位置，用于到家、离家和区域自动化。"
     },
     {
+      "name": "activity_motion_permission_reason",
+      "value": "用于读取设备运动、计步和当前操作手状态，并同步到 Home Assistant。"
+    },
+    {
+      "name": "detect_gesture_permission_reason",
+      "value": "用于读取设备握持手状态，并同步到 Home Assistant。"
+    },
+    {
+      "name": "bluetooth_permission_reason",
+      "value": "用于读取设备蓝牙状态，并同步到 Home Assistant。"
+    },
+    {
       "name": "background_refresh_permission_reason",
       "value": "允许 Home Assistant 在启用持久连接后保持后台数据同步，用于刷新桌面卡片。"
     },
