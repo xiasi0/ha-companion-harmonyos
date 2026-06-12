@@ -69,13 +69,14 @@ export interface AppRuntimeCallbackTarget {
   context(): common.Context;
   setStep(route: AppRoute): void;
   setMessage(message: string): void;
-  bumpSettingsRevision(): void;
+  refreshSettingsState(): void;
   ignoreAppLockTransitions(): void;
   openServerSettings(): void;
   startAddServerFromSettings(): void;
   openCompanionChoiceDialog(key: string): void;
   openSecureConnectionFromSettings(): void;
   resetSensorRuntime(): void;
+  refreshSensorLiveRows(): void;
   resetAddServerSnapshot(): void;
   sensorRuntimeSnapshot(): SensorRuntimeSnapshot;
   applySensorFlags(flags: SensorRuntimeFlags): void;
@@ -100,7 +101,7 @@ export class AppRuntimeCallbackFactory {
       refreshDashboardTheme: (): void => target.refreshDashboardTheme(),
       refreshCards: (): void => target.syncCardServerConnection(),
       refreshHomeNetworkStatus: (): void => target.refreshHomeNetworkStatus(false),
-      bumpSettingsRevision: (): void => target.bumpSettingsRevision()
+      refreshSettingsState: (): void => target.refreshSettingsState()
     };
   }
 
@@ -114,7 +115,7 @@ export class AppRuntimeCallbackFactory {
         target.syncSettingsServerNameToHomeAssistant(name, info),
       setStep: (route: AppRoute): void => target.setStep(route),
       setMessage: (message: string): void => target.setMessage(message),
-      bumpSwitchRevision: (): void => target.bumpSettingsRevision(),
+      refreshSettingsState: (): void => target.refreshSettingsState(),
       applyWindowPreferences: (): void => target.applyWindowPreferences(),
       applyDashboardPreferences: (): void => target.applyDashboardPreferences(),
       refreshCards: (): void => target.syncCardServerConnection(),
@@ -133,7 +134,7 @@ export class AppRuntimeCallbackFactory {
       applyServerInfo: (info: StoredServerInfo): void => target.applyStoredServerInfo(info),
       resetSensorRuntime: (): void => target.resetSensorRuntime(),
       resetAddServerSnapshot: (): void => target.resetAddServerSnapshot(),
-      bumpSettingsRevision: (): void => target.bumpSettingsRevision(),
+      refreshSettingsState: (): void => target.refreshSettingsState(),
       restoreAppSettings: (): Promise<void> => target.restoreInstanceAppSettingsState()
     };
   }
@@ -148,7 +149,7 @@ export class AppRuntimeCallbackFactory {
       setLocationDiagnosticsJson: (value: string): void => target.setLocationDiagnosticsJsonValue(value),
       setLocationGeofenceStatus: (value: string): void => target.setLocationGeofenceStatusValue(value),
       setMessage: (value: string): void => target.setMessage(value),
-      bumpSwitchRevision: (): void => target.bumpSettingsRevision(),
+      refreshLiveRows: (): void => target.refreshSensorLiveRows(),
       stringifyError: (err: Error | string | number | boolean | Object | ArrayBuffer): string => target.stringifyError(err)
     };
   }

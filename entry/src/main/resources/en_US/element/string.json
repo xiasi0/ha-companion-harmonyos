@@ -26,7 +26,7 @@
     },
     {
       "name": "activity_motion_permission_reason",
-      "value": "Used to read device motion, step, and operating hand state data and sync it to Home Assistant."
+      "value": "Used to read device motion and operating hand state data and sync it to Home Assistant."
     },
     {
       "name": "detect_gesture_permission_reason",

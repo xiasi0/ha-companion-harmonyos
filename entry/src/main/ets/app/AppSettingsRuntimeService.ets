@@ -18,7 +18,6 @@ export interface AppSettingsRuntimeTarget extends SettingsSectionRuntimeState, G
   serverNameOverride: string;
   companionSettingsScrollOffset: number;
   serverSettingsScrollOffset: number;
-  settingsRevision: number;
   showCompanionChoiceDialog: boolean;
   companionChoiceDialogKey: string;
   screenOrientation: string;
@@ -28,6 +27,7 @@ export interface AppSettingsRuntimeTarget extends SettingsSectionRuntimeState, G
   secureConnectionChoice: string;
   serviceCardUpdateFrequency: string;
   notificationUnreadCount: number;
+  settingsRefreshTick: number;
   appResolvedDark: boolean;
   showDeleteServerDialog: boolean;
   deletingServer: boolean;
@@ -100,6 +100,7 @@ export class AppSettingsRuntimeService {
     const profile = target.currentDeviceProfile();
     return {
       route: target.step,
+      refreshTick: target.settingsRefreshTick,
       companionSections: SettingsSectionRuntimeService.companionSectionsFromState(target, profile),
       serverSections: SettingsSectionRuntimeService.serverSectionsFromState(target, profile),
       serverTitle: target.selectedServerSettingsName.length > 0
@@ -109,7 +110,6 @@ export class AppSettingsRuntimeService {
       selectedKey: AppSettingsRuntimeService.selectedSettingsKey(target.step, target.settingsDetailKey),
       companionScrollOffset: target.companionSettingsScrollOffset,
       serverScrollOffset: target.serverSettingsScrollOffset,
-      switchRevision: target.settingsRevision,
       showChoiceDialog: target.showCompanionChoiceDialog,
       choiceDialogKey: target.companionChoiceDialogKey,
       screenOrientation: target.screenOrientation,
@@ -193,12 +193,12 @@ export class AppSettingsRuntimeService {
       onOpenDashboard: (): void => target.returnToDashboardFromSettings(),
       onSsidInputChange: (value: string): void => {
         target.homeSsidInput = value;
-        target.bumpSettingsRevision();
+        target.refreshSettingsState();
       },
       onAddSsid: (): void => {
         target.homeSsidInput = NetworkService.normalizeWifiSsids([target.homeSsidInput])[0] ?? '';
         SettingsInteractionRuntimeService.addHomeWifiSsid(target);
-        target.bumpSettingsRevision();
+        target.refreshSettingsState();
         AppSettingsStore.saveHomeNetwork(
           target.context(),
           target.homeWifiSsids,
@@ -208,7 +208,7 @@ export class AppSettingsRuntimeService {
       },
       onRemoveSsid: (value: string): void => {
         SettingsInteractionRuntimeService.removeHomeWifiSsid(value, target);
-        target.bumpSettingsRevision();
+        target.refreshSettingsState();
         AppSettingsStore.saveHomeNetwork(
           target.context(),
           target.homeWifiSsids,
@@ -218,7 +218,7 @@ export class AppSettingsRuntimeService {
       },
       onPrioritizeChange: (value: boolean): void => {
         target.prioritizeInternal = value;
-        target.bumpSettingsRevision();
+        target.refreshSettingsState();
         AppSettingsStore.saveHomeNetwork(
           target.context(),
           target.homeWifiSsids,

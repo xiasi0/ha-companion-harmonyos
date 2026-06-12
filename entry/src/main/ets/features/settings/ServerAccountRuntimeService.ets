@@ -49,7 +49,7 @@ export interface ServerAccountRuntimeCallbacks {
   applyServerInfo: (info: StoredServerInfo) => void;
   resetSensorRuntime: () => void;
   resetAddServerSnapshot: () => void;
-  bumpSettingsRevision: () => void;
+  refreshSettingsState: () => void;
   restoreAppSettings: () => Promise<void>;
 }
 
@@ -145,7 +145,7 @@ export class ServerAccountRuntimeService {
     state.handledAuthCode = '';
     state.addingServerFromSettings = false;
     callbacks.resetAddServerSnapshot();
-    callbacks.bumpSettingsRevision();
+    callbacks.refreshSettingsState();
 
     setTimeout((): void => {
       state.showDeleteServerDialog = false;

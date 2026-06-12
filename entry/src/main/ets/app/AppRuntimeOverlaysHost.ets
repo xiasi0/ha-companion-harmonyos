@@ -25,8 +25,7 @@ const DEFAULT_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   profile: new DefaultDeviceProfileInfo(),
   sensorGroups: [],
   sensorUpdateFrequency: SensorUpdateFrequency.NORMAL,
-  contentMaxWidth: 720,
-  switchRevision: 0
+  contentMaxWidth: 720
 };
 
 const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
@@ -37,7 +36,7 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSensorHelp: () => {},
   onSensorSearch: () => {},
   onSensorFilter: () => {},
-  onToggleSensor: () => {},
+  onToggleSensor: (_id: string, _enabled: boolean): void => {},
   onSelectSensorFrequency: () => {}
 };
 
@@ -81,7 +80,6 @@ export struct AppRuntimeOverlaysHost {
               groups: this.snapshot.sensorGroups,
               selectedFrequency: this.snapshot.sensorUpdateFrequency,
               contentMaxWidth: this.snapshot.contentMaxWidth,
-              switchRevision: this.snapshot.switchRevision,
               onBack: this.actions.onBackToNativeTarget,
               onHelp: this.actions.onSensorHelp,
               onSearch: this.actions.onSensorSearch,

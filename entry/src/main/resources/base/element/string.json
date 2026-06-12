@@ -26,7 +26,7 @@
     },
     {
       "name": "activity_motion_permission_reason",
-      "value": "用于读取设备运动、计步和当前操作手状态，并同步到 Home Assistant。"
+      "value": "用于读取设备运动和当前操作手状态，并同步到 Home Assistant。"
     },
     {
       "name": "detect_gesture_permission_reason",

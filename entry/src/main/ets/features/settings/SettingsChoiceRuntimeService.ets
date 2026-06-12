@@ -24,7 +24,7 @@ export interface SettingsChoiceRuntimeCallbacks {
   refreshDashboardTheme: () => void;
   refreshCards: () => void;
   refreshHomeNetworkStatus: () => void;
-  bumpSettingsRevision: () => void;
+  refreshSettingsState: () => void;
 }
 
 export class SettingsChoiceRuntimeService {
@@ -86,20 +86,20 @@ export class SettingsChoiceRuntimeService {
     if (key === 'display_orientation') {
       state.screenOrientation = value;
       callbacks.applyWindowPreferences();
-      callbacks.bumpSettingsRevision();
+      callbacks.refreshSettingsState();
       return true;
     }
     if (key === 'display_zoom') {
       state.pageZoomLevel = value;
       callbacks.applyDashboardPreferences();
-      callbacks.bumpSettingsRevision();
+      callbacks.refreshSettingsState();
       return true;
     }
     if (key === 'display_language') {
       state.appLanguage = value;
       Localization.setAppLanguage(value);
       state.appConfigTick += 1;
-      callbacks.bumpSettingsRevision();
+      callbacks.refreshSettingsState();
       return true;
     }
     if (key === 'display_theme') {
@@ -107,19 +107,19 @@ export class SettingsChoiceRuntimeService {
       callbacks.applyThemePreferences();
       callbacks.applyWindowPreferences();
       callbacks.refreshDashboardTheme();
-      callbacks.bumpSettingsRevision();
+      callbacks.refreshSettingsState();
       return true;
     }
     if (key === 'server_connection_security') {
       state.secureConnectionChoice = SettingsChoiceRuntimeService.normalizeSecureConnectionChoice(value);
       callbacks.refreshHomeNetworkStatus();
-      callbacks.bumpSettingsRevision();
+      callbacks.refreshSettingsState();
       return true;
     }
     if (key === 'service_card_update_frequency') {
       state.serviceCardUpdateFrequency = SettingsChoiceRuntimeService.normalizeServiceCardUpdateFrequency(value, state.websocketMode);
       callbacks.refreshCards();
-      callbacks.bumpSettingsRevision();
+      callbacks.refreshSettingsState();
       return true;
     }
     return false;

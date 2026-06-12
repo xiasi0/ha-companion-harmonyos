@@ -298,7 +298,6 @@ struct CardEditPage {
         title: '关联设备或实体',
         hideBackButton: false,
         sections: this.sections,
-        switchRevision: this.revision,
         showSearch: true,
         searchText: this.searchText,
         searchPlaceholder: '搜索实体',

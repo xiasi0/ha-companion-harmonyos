@@ -37,15 +37,14 @@ export interface SensorAttributes {
   frequency?: number;
   link_speed?: number;
   ip_address?: string;
-  version_code?: number;
+  app_version_code?: number;
+  app_version_name?: string;
+  current_time_zone?: string;
+  process_state?: string;
   os_full_name?: string;
   sdk_api_version?: number;
   display_version?: string;
   security_patch?: string;
-  manufacturer?: string;
-  brand?: string;
-  market_name?: string;
-  product_model?: string;
   total_size?: number;
   free_size?: number;
   used_size?: number;
@@ -76,23 +75,10 @@ export interface SensorAttributes {
   foldable?: boolean;
   fold_status?: string;
   fold_display_mode?: string;
-  battery_voltage?: number;
-  battery_current?: number;
-  app_active?: boolean;
-  app_memory_vss?: number;
-  app_memory_native_heap_size?: number;
-  app_memory_native_heap_allocated_size?: number;
-  app_memory_native_heap_free_size?: number;
-  app_memory_shared_dirty?: number;
-  app_memory_private_dirty?: number;
-  vibrator_count?: number;
-  local_vibrator_count?: number;
-  hd_haptic_supported?: boolean;
-  supported_effects?: string[];
   color_temperature?: number;
   infrared_luminance?: number;
+  proximity_distance?: number;
   sensor_updated_at?: number;
-  step_detected?: boolean;
   geocoder_available?: boolean;
   place_name?: string;
   country_code?: string;
@@ -108,6 +94,23 @@ export interface SensorAttributes {
   audio_scene?: string;
   output_device_types?: string[];
   output_device_count?: number;
+  slot_id?: number;
+  has_sim?: boolean;
+  is_active?: boolean;
+  sim_state?: string;
+  card_type?: string;
+  operator_numeric?: string;
+  spn?: string;
+  operator_name?: string;
+  operator_key?: string;
+  sim_label_type?: string;
+  sim_label_index?: number;
+  default_voice_slot?: boolean;
+  default_cellular_data_slot_id?: number;
+  max_sim_count?: number;
+  connectde_not_paired_devices?: number;
+  connectde_paired_devices?: number;
+  paired_devices?: number;
 }
 
 export interface SensorDescriptor {

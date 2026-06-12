@@ -6,30 +6,13 @@ import motion from '@ohos.multimodalAwareness.motion';
 import nfcController from '@ohos.nfc.controller';
 import sensor from '@ohos.sensor';
 import { NetworkNetConnection, NetworkService } from './NetworkService';
-
-interface HardwareSensorValues {
-  light?: number;
-  lightColorTemperature?: number;
-  lightInfraredLuminance?: number;
-  pressure?: number;
-  proximity?: number;
-  steps?: number;
-  stepDetected?: boolean;
-  updatedAt?: number;
-}
-
-interface MultimodalSensorValues {
-  operatingHand?: number;
-  holdingHand?: number;
-  updatedAt?: number;
-}
+import { HardwareSensorValues, MultimodalSensorValues, SensorRuntimeValueStore } from './SensorRuntimeValueStore';
 
 export class SystemEventService {
   private static readonly POWER_AND_SCREEN_SENSOR_IDS: string[] = [
     'is_interactive',
     'is_idle',
-    'power_save',
-    'display_state'
+    'power_save'
   ];
   private batteryEventSubscriber: commonEventManager.CommonEventSubscriber | undefined = undefined;
   private directEventSubscriber: commonEventManager.CommonEventSubscriber | undefined = undefined;
@@ -47,9 +30,7 @@ export class SystemEventService {
   private audioDeviceChanged: ((event: audio.DeviceChangeAction) => void) | undefined = undefined;
   private audioSceneChanged: ((scene: audio.AudioScene) => void) | undefined = undefined;
   private lightChanged: ((event: sensor.LightResponse) => void) | undefined = undefined;
-  private pressureChanged: ((event: sensor.BarometerResponse) => void) | undefined = undefined;
   private proximityChanged: ((event: sensor.ProximityResponse) => void) | undefined = undefined;
-  private stepsChanged: ((event: sensor.PedometerResponse) => void) | undefined = undefined;
   private operatingHandChanged: ((status: motion.OperatingHandStatus) => void) | undefined = undefined;
   private holdingHandChanged: ((status: motion.HoldingHandStatus) => void) | undefined = undefined;
   private directSensorEventHandler: ((reason: string) => void) | undefined = undefined;
@@ -155,9 +136,7 @@ export class SystemEventService {
 
   private unsubscribeHardwareSensorEvents(): void {
     this.unsubscribeLightSensor();
-    this.unsubscribePressureSensor();
     this.unsubscribeProximitySensor();
-    this.unsubscribeStepsSensor();
   }
 
   private refreshDirectSensorEvents(): void {
@@ -170,7 +149,7 @@ export class SystemEventService {
     } else {
       this.unsubscribePowerAndScreenEvents();
     }
-    if (this.anyDirectSensorEnabled(['bluetooth_state'])) {
+    if (this.anyDirectSensorEnabled(['bluetooth_state', 'bluetooth_connection'])) {
       this.subscribeBluetoothEvents(onChanged);
     } else {
       this.unsubscribeBluetoothEvents();
@@ -181,18 +160,10 @@ export class SystemEventService {
       this.unsubscribeNfcEvents();
     }
     if (this.anyDirectSensorEnabled([
-      'screen_orientation',
-      'screen_rotation',
-      'screen_resolution',
-      'display_refresh_rate',
-      'display_density',
       'screen_brightness',
-      'display_brightness_headroom',
-      'harmony_screen_shape',
-      'harmony_display_hdr_formats',
-      'harmony_foldable',
-      'harmony_fold_status',
-      'harmony_fold_display_mode'
+      'screen_off_timeout',
+      'screen_orientation',
+      'screen_rotation'
     ])) {
       this.subscribeDisplayEvents(onChanged);
     } else {
@@ -231,20 +202,10 @@ export class SystemEventService {
     } else {
       this.unsubscribeLightSensor();
     }
-    if (this.isDirectSensorEnabled('pressure_sensor')) {
-      this.subscribePressureSensor(onChanged);
-    } else {
-      this.unsubscribePressureSensor();
-    }
     if (this.isDirectSensorEnabled('proximity_sensor')) {
       this.subscribeProximitySensor(onChanged);
     } else {
       this.unsubscribeProximitySensor();
-    }
-    if (this.isDirectSensorEnabled('steps_sensor')) {
-      this.subscribeStepsSensor(onChanged);
-    } else {
-      this.unsubscribeStepsSensor();
     }
   }
 
@@ -260,18 +221,6 @@ export class SystemEventService {
     }
   }
 
-  private unsubscribePressureSensor(): void {
-    if (!this.pressureChanged) {
-      return;
-    }
-    const callback = this.pressureChanged;
-    this.pressureChanged = undefined;
-    try {
-      sensor.off(sensor.SensorId.BAROMETER, callback);
-    } catch (_) {
-    }
-  }
-
   private unsubscribeProximitySensor(): void {
     if (!this.proximityChanged) {
       return;
@@ -280,18 +229,6 @@ export class SystemEventService {
     this.proximityChanged = undefined;
     try {
       sensor.off(sensor.SensorId.PROXIMITY, callback);
-    } catch (_) {
-    }
-  }
-
-  private unsubscribeStepsSensor(): void {
-    if (!this.stepsChanged) {
-      return;
-    }
-    const callback = this.stepsChanged;
-    this.stepsChanged = undefined;
-    try {
-      sensor.off(sensor.SensorId.PEDOMETER, callback);
     } catch (_) {
     }
   }
@@ -342,50 +279,21 @@ export class SystemEventService {
     }
   }
 
-  private subscribePressureSensor(onChanged: (reason: string) => void): void {
-    if (this.pressureChanged) {
-      return;
-    }
-    const callback = (event: sensor.BarometerResponse): void => {
-      if (this.updateHardwareSensorValues({ pressure: event.pressure })) {
-        onChanged('hardware_sensor_event');
-      }
-    };
-    try {
-      sensor.on(sensor.SensorId.BAROMETER, callback, { interval: 'normal' });
-      this.pressureChanged = callback;
-    } catch (_) {
-    }
-  }
-
   private subscribeProximitySensor(onChanged: (reason: string) => void): void {
     if (this.proximityChanged) {
       return;
     }
     const callback = (event: sensor.ProximityResponse): void => {
-      if (this.updateHardwareSensorValues({ proximity: event.distance })) {
+      const changed = this.updateHardwareSensorValues({
+        proximityDistance: event.distance
+      });
+      if (changed) {
         onChanged('hardware_sensor_event');
       }
     };
     try {
       sensor.on(sensor.SensorId.PROXIMITY, callback, { interval: 'normal' });
       this.proximityChanged = callback;
-    } catch (_) {
-    }
-  }
-
-  private subscribeStepsSensor(onChanged: (reason: string) => void): void {
-    if (this.stepsChanged) {
-      return;
-    }
-    const callback = (event: sensor.PedometerResponse): void => {
-      if (this.updateHardwareSensorValues({ steps: event.steps })) {
-        onChanged('hardware_sensor_event');
-      }
-    };
-    try {
-      sensor.on(sensor.SensorId.PEDOMETER, callback, { interval: 'normal' });
-      this.stepsChanged = callback;
     } catch (_) {
     }
   }
@@ -400,18 +308,10 @@ export class SystemEventService {
       light: next.light ?? current.light,
       lightColorTemperature: next.lightColorTemperature ?? current.lightColorTemperature,
       lightInfraredLuminance: next.lightInfraredLuminance ?? current.lightInfraredLuminance,
-      pressure: next.pressure ?? current.pressure,
-      proximity: next.proximity ?? current.proximity,
-      steps: next.steps ?? current.steps,
-      stepDetected: next.stepDetected ?? current.stepDetected,
+      proximityDistance: next.proximityDistance ?? current.proximityDistance,
       updatedAt: now
     };
-    const value = JSON.stringify(merged);
-    if (AppStorage.get<string>('sensorHardwareValuesJson') !== value) {
-      if (!AppStorage.set<string>('sensorHardwareValuesJson', value)) {
-        AppStorage.setOrCreate<string>('sensorHardwareValuesJson', value);
-      }
-    }
+    SensorRuntimeValueStore.updateHardware(merged);
     return true;
   }
 
@@ -425,16 +325,10 @@ export class SystemEventService {
     if (SystemEventService.hasNumberChange(current.lightInfraredLuminance, next.lightInfraredLuminance, 1)) {
       return true;
     }
-    if (SystemEventService.hasNumberChange(current.pressure, next.pressure, 0.5)) {
+    if (SystemEventService.hasNumberChange(current.proximityDistance, next.proximityDistance, 1)) {
       return true;
     }
-    if (SystemEventService.hasNumberChange(current.proximity, next.proximity, 0.1)) {
-      return true;
-    }
-    if (next.steps !== undefined && next.steps !== current.steps) {
-      return true;
-    }
-    return next.stepDetected !== undefined && next.stepDetected !== current.stepDetected;
+    return false;
   }
 
   private static hasNumberChange(current: number | undefined, next: number | undefined, threshold: number): boolean {
@@ -448,15 +342,7 @@ export class SystemEventService {
   }
 
   private static hardwareSensorValues(): HardwareSensorValues {
-    try {
-      const parsed = JSON.parse(AppStorage.get<string>('sensorHardwareValuesJson') ?? '{}') as HardwareSensorValues;
-      if (!parsed || typeof parsed !== 'object') {
-        return {};
-      }
-      return parsed;
-    } catch (_) {
-      return {};
-    }
+    return SensorRuntimeValueStore.hardware();
   }
 
   private subscribeMultimodalEvents(onChanged: (reason: string) => void): void {
@@ -546,12 +432,7 @@ export class SystemEventService {
       holdingHand: next.holdingHand ?? current.holdingHand,
       updatedAt: now
     };
-    const value = JSON.stringify(merged);
-    if (AppStorage.get<string>('sensorMultimodalValuesJson') !== value) {
-      if (!AppStorage.set<string>('sensorMultimodalValuesJson', value)) {
-        AppStorage.setOrCreate<string>('sensorMultimodalValuesJson', value);
-      }
-    }
+    SensorRuntimeValueStore.updateMultimodal(merged);
     return true;
   }
 
@@ -566,15 +447,7 @@ export class SystemEventService {
   }
 
   private static multimodalSensorValues(): MultimodalSensorValues {
-    try {
-      const parsed = JSON.parse(AppStorage.get<string>('sensorMultimodalValuesJson') ?? '{}') as MultimodalSensorValues;
-      if (!parsed || typeof parsed !== 'object') {
-        return {};
-      }
-      return parsed;
-    } catch (_) {
-      return {};
-    }
+    return SensorRuntimeValueStore.multimodal();
   }
 
   private subscribePowerAndScreenEvents(onChanged: (reason: string) => void): void {

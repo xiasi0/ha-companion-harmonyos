@@ -12,7 +12,6 @@ export interface AppRuntimeOverlaySnapshot {
   sensorGroups: SensorGroup[];
   sensorUpdateFrequency: string;
   contentMaxWidth: number;
-  switchRevision: number;
 }
 
 export interface AppRuntimeOverlayActions {
@@ -23,6 +22,6 @@ export interface AppRuntimeOverlayActions {
   onSensorHelp: () => void;
   onSensorSearch: () => void;
   onSensorFilter: () => void;
-  onToggleSensor: (id: string) => void;
+  onToggleSensor: (id: string, enabled: boolean) => void;
   onSelectSensorFrequency: (value: string) => void;
 }

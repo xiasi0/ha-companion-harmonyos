@@ -6,6 +6,8 @@ import { SettingsUiConfig } from './SettingsUiConfig';
 export struct SettingsCategory {
   @Prop
   title: string = '';
+  @Prop
+  showBackground: boolean = true;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
 
   build() {
@@ -16,6 +18,6 @@ export struct SettingsCategory {
       .lineHeight(20)
       .width('100%')
       .padding(SettingsUiConfig.categoryPadding())
-      .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
+      .backgroundColor(this.showBackground ? HaTheme.groupedBackground(this.appResolvedDark) : Color.Transparent)
   }
 }

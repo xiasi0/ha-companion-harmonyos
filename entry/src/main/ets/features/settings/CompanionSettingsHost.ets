@@ -10,7 +10,6 @@ export struct CompanionSettingsHost {
   @Prop contentMaxWidth: number = 0;
   @Prop selectedKey: string = '';
   @Prop scrollOffset: number = 0;
-  @Prop switchRevision: number = 0;
   @Prop @Watch('syncChoiceDialog') showChoiceDialog: boolean = false;
   @Prop choiceTitle: string = '';
   @Prop choiceSelectedValue: string = '';
@@ -67,7 +66,6 @@ export struct CompanionSettingsHost {
       contentMaxWidth: this.contentMaxWidth,
       selectedKey: this.selectedKey,
       scrollOffset: this.scrollOffset,
-      switchRevision: this.switchRevision,
       onBack: this.onBack,
       onOpen: this.onOpen,
       onAction: this.onAction,

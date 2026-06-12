@@ -56,26 +56,32 @@ export class SensorRuntimeBridgeService {
     runtime: SensorRuntimeService,
     state: SensorRuntimeBridgeState,
     sensorId: string,
+    desiredEnabled: boolean | undefined,
     callbacks: SensorRuntimeCallbacks,
-    onChanged: () => void
-  ): void {
+    onChanged: () => void,
+    onRejected: () => void
+  ): boolean {
     if (!HarmonySensorService.isSupportedPublicSensor(sensorId)) {
       state.message = Localization.t('sensor_permission_or_pending');
-      return;
+      return false;
     }
     if (sensorId === 'accurate_location') {
-      runtime.setLocationSharingMode(state.sensorAccurateLocationEnabled ? 'never' : 'exact', callbacks);
-      return;
+      const nextEnabled = desiredEnabled ?? !state.sensorAccurateLocationEnabled;
+      runtime.setLocationSharingMode(nextEnabled ? 'exact' : 'never', callbacks, onChanged, onRejected);
+      return true;
     }
     if (sensorId === 'zone_background') {
-      runtime.setLocationSharingMode(state.sensorZoneBackgroundEnabled ? 'never' : 'zone', callbacks);
-      return;
+      const nextEnabled = desiredEnabled ?? !state.sensorZoneBackgroundEnabled;
+      runtime.setLocationSharingMode(nextEnabled ? 'zone' : 'never', callbacks, onChanged, onRejected);
+      return true;
     }
     if (sensorId === 'location_background') {
-      runtime.toggleBackgroundLocationSharing(callbacks);
-      return;
+      runtime.toggleBackgroundLocationSharing(callbacks, desiredEnabled, onChanged, onRejected);
+      return true;
     }
-    const nextEnabled = !runtime.isSensorEnabled(sensorId, SensorRuntimeBridgeService.flags(state));
-    runtime.setSensorEnabledWithPermission(sensorId, nextEnabled, callbacks, onChanged);
+    const currentEnabled = runtime.isSensorEnabled(sensorId, SensorRuntimeBridgeService.flags(state));
+    const nextEnabled = desiredEnabled ?? !currentEnabled;
+    runtime.setSensorEnabledWithPermission(sensorId, nextEnabled, callbacks, onChanged, onRejected);
+    return true;
   }
 }

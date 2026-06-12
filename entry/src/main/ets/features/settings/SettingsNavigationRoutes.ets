@@ -11,6 +11,7 @@ import { SettingsRuntimeActions, SettingsRuntimeSnapshot } from './SettingsRunti
 import { CompanionSettingsData } from './CompanionSettingsData';
 import { NativeSettingsOverlayHost } from './NativeSettingsOverlayHost';
 import { SensorSettingsOverlayHost } from '../sensors/SensorSettingsOverlayHost';
+import { SensorGroup } from '../sensors/SensorModels';
 import { NotificationHistoryPage } from '../notifications/NotificationHistoryPage';
 import { NotificationService } from '../notifications/NotificationService';
 import { SettingsUiConfig } from './components/SettingsUiConfig';
@@ -41,6 +42,7 @@ export interface SettingsNavSyncActions {
 
 const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
   route: AppRoute.COMPANION_SETTINGS,
+  refreshTick: 0,
   companionSections: [],
   serverSections: [],
   serverTitle: '',
@@ -48,7 +50,6 @@ const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
   selectedKey: '',
   companionScrollOffset: 0,
   serverScrollOffset: 0,
-  switchRevision: 0,
   showChoiceDialog: false,
   choiceDialogKey: '',
   screenOrientation: 'system',
@@ -117,7 +118,7 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSensorHelp: () => {},
   onSensorSearch: () => {},
   onSensorFilter: () => {},
-  onToggleSensor: () => {},
+  onToggleSensor: (_id: string, _enabled: boolean): void => {},
   onSelectSensorFrequency: () => {}
 };
 
@@ -296,7 +297,6 @@ struct CompanionServerSettingsRoute {
         contentMaxWidth: this.snapshot.contentMaxWidth,
         selectedKey: this.snapshot.selectedKey,
         scrollOffset: this.snapshot.serverScrollOffset,
-        switchRevision: this.snapshot.switchRevision,
         showChoiceDialog: this.snapshot.showChoiceDialog && this.snapshot.choiceDialogKey === 'server_connection_security',
         choiceDialogKey: this.snapshot.choiceDialogKey,
         secureConnectionChoice: this.snapshot.secureConnectionChoice,
@@ -327,6 +327,7 @@ struct CompanionServerSettingsRoute {
 struct CompanionSensorSettingsRoute {
   @Consume('settingsRuntimeActions') actions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
   @Consume('settingsOverlaySnapshot') overlaySnapshot: AppRuntimeOverlaySnapshot;
+  @Consume('settingsOverlaySensorGroups') sensorGroups: SensorGroup[];
   @Consume('settingsOverlayActions') overlayActions: AppRuntimeOverlayActions = DEFAULT_OVERLAY_ACTIONS;
   @Consume('settingsPathStack') pathStack: NavPathStack;
   @Consume('settingsNavSyncActions') navSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
@@ -336,10 +337,9 @@ struct CompanionSensorSettingsRoute {
     HdsNavDestination() {
       SensorSettingsOverlayHost({
         route: AppRoute.SENSOR_SETTINGS,
-        groups: this.overlaySnapshot.sensorGroups,
+        groups: this.sensorGroups,
         selectedFrequency: this.overlaySnapshot.sensorUpdateFrequency,
         contentMaxWidth: this.overlaySnapshot.contentMaxWidth,
-        switchRevision: this.overlaySnapshot.switchRevision,
         onBack: (): void => routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced),
         onHelp: this.overlayActions.onSensorHelp,
         onSearch: this.overlayActions.onSensorSearch,
@@ -376,7 +376,6 @@ struct CompanionSensorFrequencyRoute {
         groups: this.overlaySnapshot.sensorGroups,
         selectedFrequency: this.overlaySnapshot.sensorUpdateFrequency,
         contentMaxWidth: this.overlaySnapshot.contentMaxWidth,
-        switchRevision: this.overlaySnapshot.switchRevision,
         onBack: (): void => routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced),
         onHelp: this.overlayActions.onSensorHelp,
         onSearch: this.overlayActions.onSensorSearch,

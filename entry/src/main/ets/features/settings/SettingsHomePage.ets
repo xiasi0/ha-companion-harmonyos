@@ -1,12 +1,17 @@
 import { SettingsItem, SettingsItemType, SettingsSection } from '../../models/SettingsItem';
 import { SettingsCategory } from './components/SettingsCategory';
 import { SettingsBoundary } from './components/SettingsBoundary';
-import { SettingsRow } from './components/SettingsRow';
-import { SettingsSwitchRow } from './components/SettingsSwitchRow';
+import { SettingsLiveRow } from './components/SettingsLiveRow';
+import { SettingsLiveSwitchRow } from './components/SettingsLiveSwitchRow';
 import { SettingsTextInput } from './components/SettingsTextInput';
 import { SettingsUiConfig } from './components/SettingsUiConfig';
 import { HaTheme } from '../../shared/theme/HaTheme';
 import { Localization } from '../../shared/i18n/Localization';
+import {
+  SettingsLiveGroupState,
+  SettingsLiveRowState,
+  SettingsLiveStateStore
+} from '../../services/SettingsLiveStateStore';
 import {
   HdsNavigation,
   HdsNavigationTitleMode
@@ -14,7 +19,7 @@ import {
 
 @Component
 export struct SettingsHomePage {
-  @Prop
+  @Prop @Watch('syncLiveRows')
   sections: SettingsSection[] = [];
   @Prop
   contentMaxWidth: number = SettingsUiConfig.contentMaxWidth;
@@ -22,9 +27,6 @@ export struct SettingsHomePage {
   selectedKey: string = '';
   @Prop
   scrollOffset: number = 0;
-  @Prop
-  switchRevision: number = 0;
-  @Prop
   title: string = Localization.t('settings_companion_title');
   @Prop
   hideBackButton: boolean = true;
@@ -37,6 +39,7 @@ export struct SettingsHomePage {
   @Prop
   embeddedInNavigation: boolean = false;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
+  @State private liveGroups: SettingsLiveGroupState[] = [];
   private settingsScroller: Scroller = new Scroller();
   private lastReportedScrollOffset: number = 0;
   onBack: () => void = () => {};
@@ -47,8 +50,25 @@ export struct SettingsHomePage {
   onSwipeBack: () => void = () => {};
 
   aboutToAppear(): void {
+    this.syncLiveRows();
     this.lastReportedScrollOffset = this.scrollOffset;
     this.restoreScrollOffset();
+  }
+
+  private syncLiveRows(): void {
+    SettingsLiveStateStore.applySections(this.sections);
+    const nextGroups: SettingsLiveGroupState[] = [];
+    for (let i = 0; i < this.sections.length; i++) {
+      const section = this.sections[i];
+      const groupState = new SettingsLiveGroupState();
+      groupState.key = `${i}:${section.title}`;
+      groupState.title = section.title;
+      for (let j = 0; j < section.items.length; j++) {
+        groupState.rows.push(SettingsLiveStateStore.stateFor(section.items[j]));
+      }
+      nextGroups.push(groupState);
+    }
+    this.liveGroups = nextGroups;
   }
 
   private restoreScrollOffset(): void {
@@ -77,34 +97,32 @@ export struct SettingsHomePage {
     this.onScrollOffsetChange(offset);
   }
 
-  private itemKey(item: SettingsItem): string {
-    if (item.actionId.length > 0) {
-      return item.actionId;
+  private rowKey(row: SettingsLiveRowState): string {
+    if (row.actionId.length > 0) {
+      return row.actionId;
     }
-    return item.title;
+    return row.title;
   }
 
-  private itemRenderKey(item: SettingsItem): string {
-    return `${item.type}-${this.itemKey(item)}`;
+  private rowRenderKey(row: SettingsLiveRowState): string {
+    return `${row.type}-${this.rowKey(row)}`;
   }
 
   @Builder
-  private renderSettingsItem(item: SettingsItem): void {
-    if (item.type === SettingsItemType.SWITCH) {
-      SettingsSwitchRow({
-        item,
-        isOn: item.isOn,
-        syncRevision: this.switchRevision,
-        active: this.itemKey(item) === this.selectedKey,
+  private renderSettingsItem(row: SettingsLiveRowState): void {
+    if (row.type === SettingsItemType.SWITCH) {
+      SettingsLiveSwitchRow({
+        state: row,
+        active: this.rowKey(row) === this.selectedKey,
         onOpen: (target: SettingsItem): void => {
           this.persistScrollOffset();
           this.onOpen(target);
         }
       })
     } else {
-      SettingsRow({
-        item,
-        active: this.itemKey(item) === this.selectedKey,
+      SettingsLiveRow({
+        state: row,
+        active: this.rowKey(row) === this.selectedKey,
         onOpen: (target: SettingsItem): void => {
           this.persistScrollOffset();
           this.onOpen(target);
@@ -118,14 +136,14 @@ export struct SettingsHomePage {
   }
 
   @Builder
-  private renderSettingsGroup(section: SettingsSection): void {
+  private renderSettingsGroup(section: SettingsLiveGroupState): void {
     Column() {
-      ForEach(section.items, (item: SettingsItem, itemIndex?: number) => {
-        this.renderSettingsItem(item);
-        if ((itemIndex ?? 0) < section.items.length - 1) {
+      ForEach(section.rows, (row: SettingsLiveRowState, itemIndex?: number) => {
+        this.renderSettingsItem(row);
+        if ((itemIndex ?? 0) < section.rows.length - 1) {
           SettingsBoundary()
         }
-      }, (item: SettingsItem) => this.itemRenderKey(item))
+      }, (row: SettingsLiveRowState) => this.rowRenderKey(row))
     }
     .width('100%')
     .borderRadius(SettingsUiConfig.groupRadius)
@@ -157,8 +175,8 @@ export struct SettingsHomePage {
           .width('100%')
         }
 
-        ForEach(this.sections, (section: SettingsSection) => {
-          if (section.items.length > 0) {
+        ForEach(this.liveGroups, (section: SettingsLiveGroupState) => {
+          if (section.rows.length > 0) {
             if (section.title.trim().length > 0) {
               ListItem() {
                 SettingsCategory({ title: section.title })
@@ -171,7 +189,7 @@ export struct SettingsHomePage {
             }
             .width('100%')
           }
-        }, (section: SettingsSection) => section.title)
+        }, (section: SettingsLiveGroupState) => section.key)
       }
       .padding(SettingsUiConfig.listPadding())
       .width('100%')
