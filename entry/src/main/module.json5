@@ -94,6 +94,9 @@
         }
       },
       {
+        "name": "ohos.permission.GET_DONOTDISTURB_STATE"
+      },
+      {
         "name": "ohos.permission.ACCESS_BIOMETRIC"
       },
       {

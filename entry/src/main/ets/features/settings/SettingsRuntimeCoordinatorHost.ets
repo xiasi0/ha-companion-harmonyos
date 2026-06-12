@@ -1,10 +1,13 @@
 import { AppRoute } from '../../app/AppRoute';
 import { AppRuntimeOverlayActions, AppRuntimeOverlaySnapshot } from '../../app/AppRuntimeOverlayModels';
-import { SettingsItem } from '../../models/SettingsItem';
+import { SensorGroup } from '../sensors/SensorModels';
+import { SettingsItem, SettingsSection } from '../../models/SettingsItem';
+import { SettingsLiveStateStore } from '../../services/SettingsLiveStateStore';
 import { DeviceFormFactor, DeviceProfileInfo, DisplaySizeClass } from '../../shared/device/DeviceProfile';
 import {
   CompanionSettingsSurfaceHost
 } from './SettingsSurfaceRuntimeHost';
+import { GestureSettingGroup } from './CompanionSettingsData';
 import { SettingsRuntimeActions, SettingsRuntimeSnapshot } from './SettingsRuntimeCoordinatorModels';
 import {
   CompanionNotificationHistoryBuilder,
@@ -29,6 +32,7 @@ import { SettingsServerSystemDialogHost } from './SettingsSystemDialogs';
 
 const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
   route: AppRoute.COMPANION_SETTINGS,
+  refreshTick: 0,
   companionSections: [],
   serverSections: [],
   serverTitle: '',
@@ -36,7 +40,6 @@ const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
   selectedKey: '',
   companionScrollOffset: 0,
   serverScrollOffset: 0,
-  switchRevision: 0,
   showChoiceDialog: false,
   choiceDialogKey: '',
   screenOrientation: 'system',
@@ -116,8 +119,7 @@ const DEFAULT_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   profile: new DefaultDeviceProfileInfo(),
   sensorGroups: [],
   sensorUpdateFrequency: 'normal',
-  contentMaxWidth: 720,
-  switchRevision: 0
+  contentMaxWidth: 720
 };
 
 const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
@@ -128,7 +130,7 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSensorHelp: () => {},
   onSensorSearch: () => {},
   onSensorFilter: () => {},
-  onToggleSensor: () => {},
+  onToggleSensor: (_id: string, _enabled: boolean): void => {},
   onSelectSensorFrequency: () => {}
 };
 
@@ -143,25 +145,22 @@ export struct SettingsRuntimeCoordinatorHost {
   @Prop @Watch('onRuntimeDataChanged') overlaySnapshot: AppRuntimeOverlaySnapshot = DEFAULT_OVERLAY_SNAPSHOT;
   @Prop @Watch('onRuntimeRouteChanged') route: number = AppRoute.COMPANION_SETTINGS;
   @Prop @Watch('onRuntimeRouteChanged') detailKey: string = '';
-  @Prop @Watch('onRuntimeDataChanged') switchRevision: number = 0;
   actions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
   overlayActions: AppRuntimeOverlayActions = DEFAULT_OVERLAY_ACTIONS;
   @Provide('settingsRuntimeSnapshot') providedSnapshot: SettingsRuntimeSnapshot = DEFAULT_SETTINGS_RUNTIME_SNAPSHOT;
   @Provide('settingsRuntimeActions') providedActions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
   @Provide('settingsOverlaySnapshot') providedOverlaySnapshot: AppRuntimeOverlaySnapshot = DEFAULT_OVERLAY_SNAPSHOT;
   @Provide('settingsOverlayActions') providedOverlayActions: AppRuntimeOverlayActions = DEFAULT_OVERLAY_ACTIONS;
+  @Provide('settingsOverlaySensorGroups') providedOverlaySensorGroups: SensorGroup[] = [];
   @Provide('settingsNavSyncActions') providedNavSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
   @Provide('settingsPathStack') pathStack: NavPathStack = new NavPathStack();
+  private navSyncActionsCache: SettingsNavSyncActions | undefined = undefined;
   private syncedRoute: number = AppRoute.COMPANION_SETTINGS;
   private syncedDetailKey: string = '';
 
   aboutToAppear(): void {
     this.refreshProvidedRuntime();
     this.schedulePathStackRestore(false);
-  }
-
-  aboutToRender(): void {
-    this.refreshProvidedRuntime();
   }
 
   private onRuntimeDataChanged(): void {
@@ -174,15 +173,153 @@ export struct SettingsRuntimeCoordinatorHost {
   }
 
   private refreshProvidedRuntime(): void {
-    this.providedSnapshot = this.snapshot;
-    this.providedActions = this.actions;
-    this.providedOverlaySnapshot = this.overlaySnapshot;
-    this.providedOverlayActions = this.overlayActions;
-    this.providedNavSyncActions = {
-      onSynced: (target: SettingsNavSyncTarget): void => {
-        this.markPathStackSynced(target);
+    SettingsLiveStateStore.applySections(this.snapshot.companionSections);
+    SettingsLiveStateStore.applySections(this.snapshot.serverSections);
+    if (!this.sameSettingsSnapshot(this.providedSnapshot, this.snapshot)) {
+      this.providedSnapshot = this.snapshot;
+    }
+    if (this.providedActions !== this.actions) {
+      this.providedActions = this.actions;
+    }
+    if (!this.sameOverlaySnapshot(this.providedOverlaySnapshot, this.overlaySnapshot)) {
+      this.providedOverlaySnapshot = this.overlaySnapshot;
+    }
+    if (this.providedOverlayActions !== this.overlayActions) {
+      this.providedOverlayActions = this.overlayActions;
+    }
+    if (this.providedOverlaySensorGroups !== this.overlaySnapshot.sensorGroups) {
+      this.providedOverlaySensorGroups = this.overlaySnapshot.sensorGroups;
+    }
+    const navSyncActions = this.navSyncActions();
+    if (this.providedNavSyncActions !== navSyncActions) {
+      this.providedNavSyncActions = navSyncActions;
+    }
+  }
+
+  private navSyncActions(): SettingsNavSyncActions {
+    if (!this.navSyncActionsCache) {
+      this.navSyncActionsCache = {
+        onSynced: (target: SettingsNavSyncTarget): void => {
+          this.markPathStackSynced(target);
+        }
+      };
+    }
+    return this.navSyncActionsCache;
+  }
+
+  private sameSettingsSnapshot(left: SettingsRuntimeSnapshot, right: SettingsRuntimeSnapshot): boolean {
+    return left.route === right.route &&
+      left.refreshTick === right.refreshTick &&
+      left.serverTitle === right.serverTitle &&
+      left.contentMaxWidth === right.contentMaxWidth &&
+      left.selectedKey === right.selectedKey &&
+      left.companionScrollOffset === right.companionScrollOffset &&
+      left.serverScrollOffset === right.serverScrollOffset &&
+      left.showChoiceDialog === right.showChoiceDialog &&
+      left.choiceDialogKey === right.choiceDialogKey &&
+      left.screenOrientation === right.screenOrientation &&
+      left.pageZoomLevel === right.pageZoomLevel &&
+      left.appLanguage === right.appLanguage &&
+      left.appTheme === right.appTheme &&
+      left.secureConnectionChoice === right.secureConnectionChoice &&
+      left.websocketMode === right.websocketMode &&
+      left.serviceCardUpdateFrequency === right.serviceCardUpdateFrequency &&
+      left.dark === right.dark &&
+      left.showDeleteServerDialog === right.showDeleteServerDialog &&
+      left.deletingServer === right.deletingServer &&
+      left.showEditDialog === right.showEditDialog &&
+      left.editTitle === right.editTitle &&
+      left.editValue === right.editValue &&
+      left.editUnit === right.editUnit &&
+      left.detailKey === right.detailKey &&
+      left.detailTitle === right.detailTitle &&
+      left.detailSummary === right.detailSummary &&
+      left.detailBody === right.detailBody &&
+      left.detailStatus === right.detailStatus &&
+      left.detailAction === right.detailAction &&
+      left.detailTextValue === right.detailTextValue &&
+      left.detailOptionValue === right.detailOptionValue &&
+      left.ssidInput === right.ssidInput &&
+      left.prioritizeInternal === right.prioritizeInternal &&
+      this.sameStringArray(left.wifiSsids, right.wifiSsids) &&
+      this.settingsSectionsSignature(left.companionSections) === this.settingsSectionsSignature(right.companionSections) &&
+      this.settingsSectionsSignature(left.serverSections) === this.settingsSectionsSignature(right.serverSections) &&
+      this.gestureGroupsSignature(left.gestureGroups) === this.gestureGroupsSignature(right.gestureGroups);
+  }
+
+  private sameStringArray(left: string[], right: string[]): boolean {
+    if (left.length !== right.length) {
+      return false;
+    }
+    for (let i = 0; i < left.length; i++) {
+      if (left[i] !== right[i]) {
+        return false;
       }
-    };
+    }
+    return true;
+  }
+
+  private settingsSectionsSignature(sections: SettingsSection[]): string {
+    const parts: string[] = [];
+    for (let i = 0; i < sections.length; i++) {
+      const section = sections[i];
+      parts.push(section.title);
+      for (let j = 0; j < section.items.length; j++) {
+        parts.push(this.settingsItemSignature(section.items[j]));
+      }
+    }
+    return parts.join('\u001f');
+  }
+
+  private settingsItemSignature(item: SettingsItem): string {
+    return [
+      item.type.toString(),
+      item.icon,
+      item.title,
+      item.summary,
+      item.status,
+      item.body,
+      item.action,
+      item.actionId,
+      item.badge,
+      item.isOn ? '1' : '0',
+      item.capability.toString()
+    ].join('\u001e');
+  }
+
+  private gestureGroupsSignature(groups: GestureSettingGroup[]): string {
+    const parts: string[] = [];
+    for (let i = 0; i < groups.length; i++) {
+      const group = groups[i];
+      parts.push(group.title);
+      for (let j = 0; j < group.items.length; j++) {
+        const item = group.items[j];
+        parts.push([item.key, item.title, item.summary].join('\u001e'));
+      }
+    }
+    return parts.join('\u001f');
+  }
+
+  private sameOverlaySnapshot(left: AppRuntimeOverlaySnapshot, right: AppRuntimeOverlaySnapshot): boolean {
+    return left.route === right.route &&
+      left.baseUrl === right.baseUrl &&
+      left.accessToken === right.accessToken &&
+      left.refreshToken === right.refreshToken &&
+      left.assistStartListeningSignal === right.assistStartListeningSignal &&
+      left.assistStartListeningRequested === right.assistStartListeningRequested &&
+      left.sensorGroups === right.sensorGroups &&
+      left.sensorUpdateFrequency === right.sensorUpdateFrequency &&
+      left.contentMaxWidth === right.contentMaxWidth &&
+      this.sameDeviceProfile(left.profile, right.profile);
+  }
+
+  private sameDeviceProfile(left: DeviceProfileInfo, right: DeviceProfileInfo): boolean {
+    return left.widthVp === right.widthVp &&
+      left.heightVp === right.heightVp &&
+      left.formFactor === right.formFactor &&
+      left.sizeClass === right.sizeClass &&
+      left.contentMaxWidth === right.contentMaxWidth &&
+      left.settingsMaxWidth === right.settingsMaxWidth;
   }
 
   private popToRoot(animated: boolean): void {
@@ -290,7 +427,6 @@ export struct SettingsRuntimeCoordinatorHost {
       contentMaxWidth: this.snapshot.contentMaxWidth,
       selectedKey: this.snapshot.selectedKey,
       scrollOffset: this.snapshot.companionScrollOffset,
-      switchRevision: this.snapshot.switchRevision,
       showChoiceDialog: this.snapshot.showChoiceDialog && this.snapshot.choiceDialogKey !== 'server_connection_security',
       choiceDialogKey: this.snapshot.choiceDialogKey,
       screenOrientation: this.snapshot.screenOrientation,

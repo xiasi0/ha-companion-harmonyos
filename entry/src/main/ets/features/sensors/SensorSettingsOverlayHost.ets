@@ -9,13 +9,12 @@ export struct SensorSettingsOverlayHost {
   @Prop groups: SensorGroup[] = [];
   @Prop selectedFrequency: string = SensorUpdateFrequency.NORMAL;
   @Prop contentMaxWidth: number = 720;
-  @Prop switchRevision: number = 0;
 
   onBack: () => void = () => {};
   onHelp: () => void = () => {};
   onSearch: () => void = () => {};
   onFilter: () => void = () => {};
-  onToggleSensor: (id: string) => void = () => {};
+  onToggleSensor: (id: string, enabled: boolean) => void = () => {};
   onSelectFrequency: (value: string) => void = () => {};
   onSwipeBack: () => void = () => {};
 
@@ -34,7 +33,6 @@ export struct SensorSettingsOverlayHost {
       SensorSettingsPage({
         groups: this.groups,
         contentMaxWidth: this.contentMaxWidth,
-        switchRevision: this.switchRevision,
         onBack: this.onBack,
         onHelp: this.onHelp,
         onSearch: this.onSearch,

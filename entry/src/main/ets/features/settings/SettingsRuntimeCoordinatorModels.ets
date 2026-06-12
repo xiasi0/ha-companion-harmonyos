@@ -3,6 +3,7 @@ import { GestureSettingGroup } from './CompanionSettingsData';
 
 export interface SettingsRuntimeSnapshot {
   route: number;
+  refreshTick: number;
   companionSections: SettingsSection[];
   serverSections: SettingsSection[];
   serverTitle: string;
@@ -10,7 +11,6 @@ export interface SettingsRuntimeSnapshot {
   selectedKey: string;
   companionScrollOffset: number;
   serverScrollOffset: number;
-  switchRevision: number;
   showChoiceDialog: boolean;
   choiceDialogKey: string;
   screenOrientation: string;

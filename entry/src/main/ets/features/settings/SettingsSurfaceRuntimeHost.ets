@@ -15,7 +15,6 @@ export struct CompanionSettingsSurfaceHost {
   @Prop contentMaxWidth: number = 0;
   @Prop selectedKey: string = '';
   @Prop scrollOffset: number = 0;
-  @Prop switchRevision: number = 0;
   @Prop showChoiceDialog: boolean = false;
   @Prop choiceDialogKey: string = '';
   @Prop screenOrientation: string = 'system';
@@ -41,7 +40,6 @@ export struct CompanionSettingsSurfaceHost {
       contentMaxWidth: this.contentMaxWidth,
       selectedKey: this.selectedKey,
       scrollOffset: this.scrollOffset,
-      switchRevision: this.switchRevision,
       showChoiceDialog: this.showChoiceDialog,
       choiceTitle: SettingsChoiceRuntimeService.dialogTitle(this.choiceState()),
       choiceSelectedValue: SettingsChoiceRuntimeService.selectedValue(this.choiceState()),
@@ -81,7 +79,6 @@ export struct ServerSettingsSurfaceHost {
   @Prop contentMaxWidth: number = 0;
   @Prop selectedKey: string = '';
   @Prop scrollOffset: number = 0;
-  @Prop switchRevision: number = 0;
   @Prop @Watch('syncChoiceDialog') showChoiceDialog: boolean = false;
   @Prop choiceDialogKey: string = '';
   @Prop secureConnectionChoice: string = '';
@@ -155,7 +152,6 @@ export struct ServerSettingsSurfaceHost {
       contentMaxWidth: this.contentMaxWidth,
       selectedKey: this.selectedKey,
       scrollOffset: this.scrollOffset,
-      switchRevision: this.switchRevision,
       embeddedInNavigation: true,
       onBack: this.onBack,
       onOpen: this.onOpen,

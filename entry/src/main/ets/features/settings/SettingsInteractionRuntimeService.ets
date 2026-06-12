@@ -19,7 +19,7 @@ export interface SettingsInteractionCallbacks {
   syncServerNameToHomeAssistant: (name: string, info: StoredServerInfo) => void;
   setStep: (route: AppRoute) => void;
   setMessage: (message: string) => void;
-  bumpSwitchRevision: () => void;
+  refreshSettingsState: () => void;
   applyWindowPreferences: () => void;
   applyDashboardPreferences: () => void;
   refreshCards: () => void;
@@ -121,34 +121,34 @@ export class SettingsInteractionRuntimeService {
   ): void {
     if (actionId === 'toggle_fullscreen') {
       state.fullScreenEnabled = !state.fullScreenEnabled;
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshSettingsState();
       callbacks.applyWindowPreferences();
       AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
       return;
     }
     if (actionId === 'toggle_keep_screen') {
       state.keepScreenOnEnabled = !state.keepScreenOnEnabled;
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshSettingsState();
       callbacks.applyWindowPreferences();
       AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
       return;
     }
     if (actionId === 'toggle_pinch_to_zoom') {
       state.pinchToZoomEnabled = !state.pinchToZoomEnabled;
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshSettingsState();
       callbacks.applyDashboardPreferences();
       AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
       return;
     }
     if (actionId === 'toggle_autoplay_video') {
       state.autoPlayVideoEnabled = !state.autoPlayVideoEnabled;
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshSettingsState();
       AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
       return;
     }
     if (actionId === 'toggle_always_show_first_view') {
       state.alwaysShowFirstViewOnAppStartEnabled = !state.alwaysShowFirstViewOnAppStartEnabled;
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshSettingsState();
       AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
       return;
     }
@@ -161,7 +161,7 @@ export class SettingsInteractionRuntimeService {
   ): void {
     if (item.actionId === 'server_trust_server') {
       state.trustServer = !state.trustServer;
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshSettingsState();
       callbacks.setMessage(state.trustServer ? Localization.t('server_trusted') : Localization.t('server_untrusted'));
       AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
       return;
@@ -173,7 +173,7 @@ export class SettingsInteractionRuntimeService {
     if (item.actionId === 'server_app_lock_home_bypass') {
       if (state.appLockEnabled) {
         state.appLockHomeBypass = !state.appLockHomeBypass;
-        callbacks.bumpSwitchRevision();
+        callbacks.refreshSettingsState();
         AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
       }
       return;
@@ -248,7 +248,7 @@ export class SettingsInteractionRuntimeService {
     } else if (state.serverEditKey === 'server_session_timeout') {
       state.sessionTimeout = value.length > 0 ? value : '0';
     }
-    callbacks.bumpSwitchRevision();
+    callbacks.refreshSettingsState();
     state.showServerEditDialog = false;
     AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
   }
@@ -301,7 +301,7 @@ export class SettingsInteractionRuntimeService {
         callbacks
       );
     }
-    callbacks.bumpSwitchRevision();
+    callbacks.refreshSettingsState();
     state.step = AppRoute.SERVER_SETTINGS;
     AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
   }
@@ -371,7 +371,7 @@ export class SettingsInteractionRuntimeService {
       state.appLockEnabled = false;
       state.appLockHomeBypass = false;
       state.appLocked = false;
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshSettingsState();
       callbacks.setMessage(Localization.t('app_lock_disabled_message'));
       AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
       return;
@@ -381,7 +381,7 @@ export class SettingsInteractionRuntimeService {
     }
     state.appLockAuthPending = true;
     state.appLockEnabled = true;
-    callbacks.bumpSwitchRevision();
+    callbacks.refreshSettingsState();
     callbacks.ignoreAppLockTransitions();
     callbacks.setMessage(Localization.t('app_lock_requesting_auth'));
     AppLockRuntimeService.authenticateEnable(callbacks.context())
@@ -390,13 +390,13 @@ export class SettingsInteractionRuntimeService {
         if (result.success) {
           state.appLockEnabled = true;
           state.appLocked = false;
-          callbacks.bumpSwitchRevision();
+          callbacks.refreshSettingsState();
           callbacks.setMessage(Localization.t('app_lock_enabled_message'));
           AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
         } else {
           state.appLockEnabled = false;
           state.appLockHomeBypass = false;
-          callbacks.bumpSwitchRevision();
+          callbacks.refreshSettingsState();
           callbacks.setMessage(result.message.length > 0
             ? Localization.format('app_lock_enable_failed_with_message', 'message', result.message)
             : Localization.t('app_lock_enable_failed'));
@@ -407,7 +407,7 @@ export class SettingsInteractionRuntimeService {
         state.appLockAuthPending = false;
         state.appLockEnabled = false;
         state.appLockHomeBypass = false;
-        callbacks.bumpSwitchRevision();
+        callbacks.refreshSettingsState();
         callbacks.setMessage(Localization.t('app_lock_enable_error'));
         AppSettingsStore.saveCurrentAppStorage(callbacks.context()).catch((): void => {});
       });
@@ -425,7 +425,7 @@ export class SettingsInteractionRuntimeService {
     }
     AppSettingsStore.saveWebsocketMode(callbacks.context(), normalized).catch((): void => {});
     callbacks.refreshCards();
-    callbacks.bumpSwitchRevision();
+    callbacks.refreshSettingsState();
     if (normalized === 'always') {
       LongRunningTaskService.ensureActive(callbacks.context() as common.UIAbilityContext)
         .then((): void => {
@@ -435,7 +435,7 @@ export class SettingsInteractionRuntimeService {
         .catch((err: Error): void => {
           state.websocketMode = 'system';
           AppSettingsStore.saveWebsocketMode(callbacks.context(), 'system').catch((): void => {});
-          callbacks.bumpSwitchRevision();
+          callbacks.refreshSettingsState();
           callbacks.setMessage(Localization.format('persistent_connection_failed', 'error', err.message));
         });
       return;

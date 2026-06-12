@@ -2,25 +2,46 @@
 // This file owns sensor payload shape, preference snapshots, and foreground update behavior.
 import batteryInfo from '@ohos.batteryInfo';
 import deviceInfo from '@ohos.deviceInfo';
-import hidebug from '@ohos.hidebug';
 import storageStatistics from '@ohos.file.storageStatistics';
 import power from '@ohos.power';
-import thermal from '@ohos.thermal';
 import audio from '@ohos.multimedia.audio';
 import motion from '@ohos.multimodalAwareness.motion';
 import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
 import bluetoothAccess from '@ohos.bluetooth.access';
+import bluetoothConnection from '@ohos.bluetooth.connection';
+import bluetoothA2dp from '@ohos.bluetooth.a2dp';
+import bluetoothHfp from '@ohos.bluetooth.hfp';
+import bluetoothHid from '@ohos.bluetooth.hid';
+import bluetoothPan from '@ohos.bluetooth.pan';
+import bluetoothBle from '@ohos.bluetooth.ble';
 import nfcController from '@ohos.nfc.controller';
+import screenLock from '@ohos.screenLock';
 import display from '@ohos.display';
-import vibrator from '@ohos.vibrator';
 import geoLocationManager from '@ohos.geoLocationManager';
+import systemDateTime from '@ohos.systemDateTime';
+import { hidebug } from '@kit.PerformanceAnalysisKit';
+import intelligentScene from '@ohos.intelligentScene';
+import settings from '@ohos.settings';
+import common from '@ohos.app.ability.common';
+import statistics from '@ohos.net.statistics';
+import call from '@ohos.telephony.call';
+import sim from '@ohos.telephony.sim';
+import cellularData from '@ohos.telephony.data';
+import { connection } from '@kit.NetworkKit';
 import { wifiManager } from '@kit.ConnectivityKit';
 import type { Permissions } from '@ohos.abilityAccessCtrl';
 import { NetworkHttpMethod, NetworkNetBearType, NetworkNetCap, NetworkService } from './NetworkService';
-import { AppVersionService } from './AppVersionService';
+import { SensorStateRecord, SensorStateStore } from './SensorStateStore';
+import {
+  GeocodedLocationValue,
+  HardwareSensorValues,
+  MultimodalSensorValues,
+  SensorRuntimeValueStore
+} from './SensorRuntimeValueStore';
 import { Localization } from '../shared/i18n/Localization';
 import { HarmonyLocationSnapshot, HarmonyLocationZone } from './HarmonyLocationService';
 import { HarmonySensorEntityCategoryPolicy } from './HarmonySensorEntityCategoryPolicy';
+import { AppVersionService } from './AppVersionService';
 import {
   GetZonesWebhookBody,
   HarmonyLocationSentMode,
@@ -109,39 +130,38 @@ interface HarmonyDisplaySnapshot {
   brightnessMaxHeadroom?: number;
 }
 
-interface HardwareSensorValues {
-  light?: number;
-  lightColorTemperature?: number;
-  lightInfraredLuminance?: number;
-  pressure?: number;
-  proximity?: number;
-  steps?: number;
-  stepDetected?: boolean;
-  updatedAt?: number;
+interface TrafficStatsValues {
+  totalTx?: number;
+  totalRx?: number;
+  cellularTx?: number;
+  cellularRx?: number;
 }
 
-interface MultimodalSensorValues {
-  operatingHand?: number;
-  holdingHand?: number;
-  updatedAt?: number;
+interface MobileDataValues {
+  enabled?: boolean;
+  roamingEnabled?: boolean;
+  defaultSlotId?: number;
 }
 
-interface GeocodedLocationValue {
-  geocoderAvailable?: boolean;
-  latitude?: number;
-  longitude?: number;
-  sourceTimeStamp?: number;
-  placeName?: string;
-  countryCode?: string;
-  countryName?: string;
-  administrativeArea?: string;
-  subAdministrativeArea?: string;
-  locality?: string;
-  subLocality?: string;
-  roadName?: string;
-  subRoadName?: string;
-  premises?: string;
-  postalCode?: string;
+interface BluetoothConnectionValues {
+  connectedNotPairedDevices: number;
+  connectedPairedDevices: number;
+  pairedDevices: number;
+}
+
+interface AppProcessSensorValue {
+  state: string;
+  active: boolean;
+}
+
+interface SimSensorValue {
+  state: string;
+  attributes: SensorAttributes;
+}
+
+interface SimLabelValue {
+  simType: string;
+  index?: number;
 }
 
 interface SensorUpdateResponseError {
@@ -162,6 +182,9 @@ interface SensorUpdateResponseSummary {
 export class HarmonySensorService {
   private static lastSensorRegistrationSignatures: Map<string, string> = new Map<string, string>();
   private static lastSensorUpdateSignatures: Map<string, string> = new Map<string, string>();
+  private static publicIpAddressCache: string = '';
+  private static publicIpAddressCacheAt: number = 0;
+  private static publicIpAddressRetryAfter: number = 0;
 
   private static readonly CORE_PUBLIC_SENSOR_IDS: string[] = [
     'battery_level',
@@ -178,12 +201,9 @@ export class HarmonySensorService {
     'is_charging',
     'battery_health',
     'battery_temperature',
-    'battery_voltage',
-    'battery_current',
     'battery_power',
-    'battery_technology',
-    'battery_capacity_level',
-    'battery_present',
+    'ipv6_address',
+    'public_ip_address',
     'wifi_state',
     'wifi_connection',
     'wifi_bssid',
@@ -192,21 +212,34 @@ export class HarmonySensorService {
     'wifi_signal_strength',
     'wifi_link_speed',
     'hotspot_state',
-    'current_version',
+    'phone_state',
+    'has_call',
+    'voice_capability',
+    'sim_1',
+    'sim_2',
+    'mobile_data',
+    'mobile_data_roaming',
+    'total_tx_traffic',
+    'total_rx_traffic',
+    'cellular_tx_traffic',
+    'cellular_rx_traffic',
     'harmony_os_version',
     'harmony_os_security_patch',
-    'harmony_device_type',
-    'harmony_product_model',
-    'harmony_performance_class',
-    'harmony_boot_count',
-    'storage_sensor',
-    'active',
+    'last_reboot_time',
+    'do_not_disturb_sensor',
     'app_memory',
+    'app_process_state',
+    'current_version',
+    'active',
+    'current_time_zone',
+    'storage_sensor',
     'is_interactive',
     'is_idle',
     'power_save',
-    'current_time_zone',
     'bluetooth_state',
+    'bluetooth_connection',
+    'device_security',
+    'device_locked',
     'audio_sensor',
     'audio_mode',
     'headphone_state',
@@ -217,30 +250,17 @@ export class HarmonySensorService {
     'volume_ring',
     'volume_notification',
     'volume_accessibility',
-    'harmony_thermal_level',
-    'harmony_vibrator_effect_support',
     'harmony_operating_hand',
     'harmony_holding_hand',
     'location_permission',
     'nfc_state',
-    'display_state',
     'screen_orientation',
     'screen_rotation',
-    'screen_resolution',
-    'display_refresh_rate',
-    'display_density',
     'screen_brightness',
-    'display_brightness_headroom',
-    'harmony_screen_shape',
-    'harmony_display_hdr_formats',
-    'harmony_foldable',
-    'harmony_fold_status',
-    'harmony_fold_display_mode',
+    'screen_off_timeout',
     'geocoded_location',
     'light_sensor',
-    'pressure_sensor',
-    'proximity_sensor',
-    'steps_sensor'
+    'proximity_sensor'
   ];
 
   static supportedPublicSensorIds(): string[] {
@@ -285,22 +305,6 @@ export class HarmonySensorService {
     return result;
   }
 
-  static sensorSummary(sensorId: string, prefs: SensorPreferenceSnapshot): string {
-    if (!HarmonySensorService.isSupportedPublicSensor(sensorId)) {
-      return Localization.t('sensor_unavailable_summary');
-    }
-    if (sensorId === 'accurate_location') {
-      return Localization.t('sensor_accurate_summary');
-    }
-    if (sensorId === 'zone_background') {
-      return Localization.t('sensor_zone_summary');
-    }
-    if (sensorId === 'location_background') {
-      return Localization.t('sensor_background_summary');
-    }
-    return '';
-  }
-
   static isSensorEnabled(sensorId: string, prefs: SensorPreferenceSnapshot): boolean {
     switch (sensorId) {
       case 'battery_level':
@@ -334,7 +338,8 @@ export class HarmonySensorService {
     currentZoneName: string,
     locationSentMode: HarmonyLocationSentMode,
     sendLocationUpdate: boolean,
-    reason: string
+    reason: string,
+    context?: common.Context
   ): Promise<HarmonySensorSyncResult> {
     const normalizedBaseUrl = HarmonySensorService.normalizeBaseUrl(baseUrl);
     const trimmedWebhookId = webhookId.trim();
@@ -348,11 +353,12 @@ export class HarmonySensorService {
     }
 
     await HarmonySensorService.refreshGeocodedLocationIfNeeded(prefs, lastLocation);
-    const descriptors = HarmonySensorService.buildSensorDescriptors(
+    const descriptors = await HarmonySensorService.buildSensorDescriptors(
       prefs,
       lastLocation,
       locationEnabledStatus,
-      locationSentMode
+      locationSentMode,
+      context
     );
     const webhookUrls = HarmonySensorService.webhookUrls(normalizedBaseUrl, trimmedWebhookId, cloudhookUrl);
     let registeredCount = 0;
@@ -487,12 +493,34 @@ export class HarmonySensorService {
     );
   }
 
-  private static buildSensorDescriptors(
+  static async loadSensorStates(context: common.Context): Promise<void> {
+    await SensorStateStore.loadRecords(context);
+  }
+
+  static async refreshSensorStates(
     prefs: SensorPreferenceSnapshot,
     lastLocation: HarmonyLocationSnapshot | undefined,
     locationEnabledStatus: boolean,
-    locationSentMode: HarmonyLocationSentMode
-  ): SensorDescriptor[] {
+    locationSentMode: HarmonyLocationSentMode,
+    context?: common.Context
+  ): Promise<void> {
+    await HarmonySensorService.refreshGeocodedLocationIfNeeded(prefs, lastLocation);
+    await HarmonySensorService.buildSensorDescriptors(
+      prefs,
+      lastLocation,
+      locationEnabledStatus,
+      locationSentMode,
+      context
+    );
+  }
+
+  private static async buildSensorDescriptors(
+    prefs: SensorPreferenceSnapshot,
+    lastLocation: HarmonyLocationSnapshot | undefined,
+    locationEnabledStatus: boolean,
+    locationSentMode: HarmonyLocationSentMode,
+    context?: common.Context
+  ): Promise<SensorDescriptor[]> {
     const netSnapshot = HarmonySensorService.getNetworkSnapshot();
     const wifiSnapshot = HarmonySensorService.getWifiSnapshot();
     const storageSnapshot = HarmonySensorService.getStorageSnapshot();
@@ -501,6 +529,8 @@ export class HarmonySensorService {
     const multimodalSnapshot = HarmonySensorService.multimodalSensorValues();
     const geocodedLocation = HarmonySensorService.geocodedLocationValue();
     const audioRouteSnapshot = HarmonySensorService.audioRouteSnapshot();
+    const trafficStats = await HarmonySensorService.trafficStatsValues(prefs);
+    const publicIpAddress = await HarmonySensorService.publicIpAddressValue(prefs);
     const batterySOC = HarmonySensorService.batteryLevelValue();
     const batteryState = HarmonySensorService.batteryStateValue();
     const pluggedType = HarmonySensorService.chargerTypeValue();
@@ -510,6 +540,20 @@ export class HarmonySensorService {
     const batteryPower = HarmonySensorService.batteryPowerValue(batteryVoltage, batteryCurrent);
     const locationAttributes = HarmonySensorService.locationAttributes(lastLocation, locationSentMode);
     const lastUpdateTrigger = AppStorage.get<string>('lastUpdateTrigger') ?? 'unknown';
+    const doNotDisturbEnabled = await HarmonySensorService.doNotDisturbEnabled(prefs);
+    const appVersion = AppVersionService.versionInfo();
+    const appMemorySize = await HarmonySensorService.appMemorySize(prefs);
+    const appProcess = await HarmonySensorService.appProcessInformation(prefs);
+    const screenOffTimeout = HarmonySensorService.screenOffTimeoutValue(prefs, context);
+    const phoneState = await HarmonySensorService.phoneStateValue(prefs);
+    const hasCall = await HarmonySensorService.hasCallValue(prefs);
+    const voiceCapability = HarmonySensorService.voiceCapabilityValue(prefs);
+    const sim1 = await HarmonySensorService.simSensorValue(0, prefs);
+    const sim2 = await HarmonySensorService.simSensorValue(1, prefs);
+    const mobileData = await HarmonySensorService.mobileDataValues(prefs);
+    const bluetoothConnectionValues = HarmonySensorService.bluetoothConnectionValues(prefs);
+    const deviceSecurity = await HarmonySensorService.screenLockSecureMode(prefs);
+    const deviceLocked = await HarmonySensorService.screenLocked(prefs);
 
     const descriptors: SensorDescriptor[] = [
       {
@@ -566,71 +610,16 @@ export class HarmonySensorService {
         stateClass: 'measurement',
       },
       {
-        id: 'battery_voltage',
-        name: 'Battery voltage',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(batteryVoltage),
-        attributes: {},
-        enabled: HarmonySensorService.isSensorEnabled('battery_voltage', prefs),
-        deviceClass: 'voltage',
-        unitOfMeasurement: 'V',
-        stateClass: 'measurement',
-      },
-      {
-        id: 'battery_current',
-        name: 'Battery current',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(batteryCurrent),
-        attributes: {},
-        enabled: HarmonySensorService.isSensorEnabled('battery_current', prefs),
-        deviceClass: 'current',
-        unitOfMeasurement: 'mA',
-        stateClass: 'measurement',
-      },
-      {
         id: 'battery_power',
         name: 'Battery power',
         type: 'sensor',
         icon: SENSOR_ICON_GENERIC,
         state: HarmonySensorService.numberOrUnavailable(batteryPower),
-        attributes: {
-          battery_voltage: batteryVoltage,
-          battery_current: batteryCurrent
-        },
+        attributes: {},
         enabled: HarmonySensorService.isSensorEnabled('battery_power', prefs),
         deviceClass: 'power',
         unitOfMeasurement: 'W',
         stateClass: 'measurement',
-      },
-      {
-        id: 'battery_technology',
-        name: 'Battery technology',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.nonEmptyText(batteryInfo.technology ?? ''),
-        attributes: {},
-        enabled: HarmonySensorService.isSensorEnabled('battery_technology', prefs),
-      },
-      {
-        id: 'battery_capacity_level',
-        name: 'Battery capacity level',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.batteryCapacityLevelValue(),
-        attributes: HarmonySensorService.batteryCapacityLevelAttributes(),
-        enabled: HarmonySensorService.isSensorEnabled('battery_capacity_level', prefs),
-        deviceClass: 'enum',
-      },
-      {
-        id: 'battery_present',
-        name: 'Battery present',
-        type: 'binary_sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: batteryInfo.isBatteryPresent,
-        attributes: {},
-        enabled: HarmonySensorService.isSensorEnabled('battery_present', prefs),
       },
       {
         id: 'charger_type',
@@ -641,6 +630,24 @@ export class HarmonySensorService {
         attributes: HarmonySensorService.chargerTypeAttributes(),
         enabled: prefs.pluggedTypeEnabled,
         deviceClass: 'enum',
+      },
+      {
+        id: 'ipv6_address',
+        name: 'IPv6 address',
+        type: 'sensor',
+        icon: SENSOR_ICON_GENERIC,
+        state: HarmonySensorService.nonEmptyText(HarmonySensorService.ipv6AddressValue()),
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('ipv6_address', prefs),
+      },
+      {
+        id: 'public_ip_address',
+        name: 'Public IP address',
+        type: 'sensor',
+        icon: SENSOR_ICON_GENERIC,
+        state: HarmonySensorService.nonEmptyText(publicIpAddress),
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('public_ip_address', prefs),
       },
       {
         id: 'wifi_state',
@@ -739,15 +746,120 @@ export class HarmonySensorService {
         deviceClass: 'enum',
       },
       {
-        id: 'current_version',
-        name: 'App version',
+        id: 'phone_state',
+        name: 'Phone state',
         type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: AppVersionService.versionName(),
+        icon: HarmonySensorService.phoneStateIcon(phoneState),
+        state: phoneState,
         attributes: {
-          version_code: AppVersionService.versionInfo().versionCode
+          options: ['idle', 'ringing', 'offhook', 'answered', 'unknown']
         },
-        enabled: HarmonySensorService.isSensorEnabled('current_version', prefs),
+        enabled: HarmonySensorService.isSensorEnabled('phone_state', prefs),
+        deviceClass: 'enum',
+      },
+      {
+        id: 'has_call',
+        name: 'Has call',
+        type: 'binary_sensor',
+        icon: 'mdi:phone-in-talk',
+        state: hasCall,
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('has_call', prefs),
+      },
+      {
+        id: 'voice_capability',
+        name: 'Voice capability',
+        type: 'binary_sensor',
+        icon: 'mdi:phone-check',
+        state: voiceCapability,
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('voice_capability', prefs),
+      },
+      {
+        id: 'sim_1',
+        name: 'SIM 1',
+        type: 'sensor',
+        icon: 'mdi:sim',
+        state: sim1.state,
+        attributes: sim1.attributes,
+        enabled: HarmonySensorService.isSensorEnabled('sim_1', prefs),
+      },
+      {
+        id: 'sim_2',
+        name: 'SIM 2',
+        type: 'sensor',
+        icon: 'mdi:sim',
+        state: sim2.state,
+        attributes: sim2.attributes,
+        enabled: HarmonySensorService.isSensorEnabled('sim_2', prefs),
+      },
+      {
+        id: 'mobile_data',
+        name: 'Mobile data',
+        type: 'binary_sensor',
+        icon: 'mdi:signal-cellular-3',
+        state: HarmonySensorService.booleanOrNull(mobileData.enabled),
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('mobile_data', prefs),
+      },
+      {
+        id: 'mobile_data_roaming',
+        name: 'Mobile data roaming',
+        type: 'binary_sensor',
+        icon: 'mdi:signal-cellular-outline',
+        state: HarmonySensorService.booleanOrNull(mobileData.roamingEnabled),
+        attributes: {
+          default_cellular_data_slot_id: mobileData.defaultSlotId
+        },
+        enabled: HarmonySensorService.isSensorEnabled('mobile_data_roaming', prefs),
+      },
+      {
+        id: 'total_tx_traffic',
+        name: 'Total sent traffic',
+        type: 'sensor',
+        icon: 'mdi:upload-network',
+        state: HarmonySensorService.numberOrUnavailable(trafficStats.totalTx),
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('total_tx_traffic', prefs),
+        deviceClass: 'data_size',
+        unitOfMeasurement: 'GB',
+        stateClass: 'total_increasing',
+      },
+      {
+        id: 'total_rx_traffic',
+        name: 'Total received traffic',
+        type: 'sensor',
+        icon: 'mdi:download-network',
+        state: HarmonySensorService.numberOrUnavailable(trafficStats.totalRx),
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('total_rx_traffic', prefs),
+        deviceClass: 'data_size',
+        unitOfMeasurement: 'GB',
+        stateClass: 'total_increasing',
+      },
+      {
+        id: 'cellular_tx_traffic',
+        name: 'Mobile data sent traffic',
+        type: 'sensor',
+        icon: 'mdi:upload-network-outline',
+        state: HarmonySensorService.numberOrUnavailable(trafficStats.cellularTx),
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('cellular_tx_traffic', prefs),
+        deviceClass: 'data_size',
+        unitOfMeasurement: 'GB',
+        stateClass: 'total_increasing',
+      },
+      {
+        id: 'cellular_rx_traffic',
+        name: 'Mobile data received traffic',
+        type: 'sensor',
+        icon: 'mdi:download-network-outline',
+        state: HarmonySensorService.numberOrUnavailable(trafficStats.cellularRx),
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('cellular_rx_traffic', prefs),
+        deviceClass: 'data_size',
+        unitOfMeasurement: 'GB',
+        stateClass: 'total_increasing',
       },
       {
         id: 'harmony_os_version',
@@ -772,68 +884,78 @@ export class HarmonySensorService {
         enabled: HarmonySensorService.isSensorEnabled('harmony_os_security_patch', prefs),
       },
       {
-        id: 'harmony_device_type',
-        name: 'HarmonyOS device type',
+        id: 'last_reboot_time',
+        name: 'Last reboot time',
         type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.nonEmptyText(deviceInfo.deviceType ?? ''),
+        icon: 'mdi:restart',
+        state: HarmonySensorService.lastRebootTimeValue(),
         attributes: {},
-        enabled: HarmonySensorService.isSensorEnabled('harmony_device_type', prefs),
+        enabled: HarmonySensorService.isSensorEnabled('last_reboot_time', prefs),
       },
       {
-        id: 'harmony_product_model',
-        name: 'HarmonyOS product model',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.productModelValue(),
-        attributes: {
-          manufacturer: deviceInfo.manufacture ?? '',
-          brand: deviceInfo.brand ?? '',
-          market_name: deviceInfo.marketName ?? '',
-          product_model: deviceInfo.productModel ?? ''
-        },
-        enabled: HarmonySensorService.isSensorEnabled('harmony_product_model', prefs),
-      },
-      {
-        id: 'harmony_performance_class',
-        name: 'HarmonyOS performance class',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.nonEmptyText(`${deviceInfo.performanceClass ?? ''}`),
-        attributes: {},
-        enabled: HarmonySensorService.isSensorEnabled('harmony_performance_class', prefs),
-      },
-      {
-        id: 'harmony_boot_count',
-        name: 'HarmonyOS boot count',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(deviceInfo.bootCount),
-        attributes: {},
-        enabled: HarmonySensorService.isSensorEnabled('harmony_boot_count', prefs),
-        stateClass: 'measurement',
-      },
-      {
-        id: 'active',
-        name: 'Active',
+        id: 'do_not_disturb_sensor',
+        name: 'Do not disturb sensor',
         type: 'binary_sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: AppStorage.get<boolean>('appActive') ?? false,
-        attributes: {
-          app_active: AppStorage.get<boolean>('appActive') ?? false
-        },
-        enabled: HarmonySensorService.isSensorEnabled('active', prefs),
+        icon: 'mdi:minus-circle',
+        state: doNotDisturbEnabled,
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('do_not_disturb_sensor', prefs),
       },
       {
         id: 'app_memory',
         name: 'App memory',
         type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(HarmonySensorService.appMemoryPss()),
-        attributes: HarmonySensorService.appMemoryAttributes(),
+        icon: 'mdi:memory',
+        state: HarmonySensorService.numberOrUnavailable(appMemorySize),
+        attributes: {},
         enabled: HarmonySensorService.isSensorEnabled('app_memory', prefs),
-        unitOfMeasurement: 'KB',
+        unitOfMeasurement: 'MB',
         stateClass: 'measurement',
+      },
+      {
+        id: 'app_process_state',
+        name: 'App process state',
+        type: 'sensor',
+        icon: 'mdi:application-cog',
+        state: appProcess.state,
+        attributes: {
+          process_state: appProcess.state,
+          is_active: appProcess.active
+        },
+        enabled: HarmonySensorService.isSensorEnabled('app_process_state', prefs),
+        deviceClass: 'enum',
+      },
+      {
+        id: 'current_version',
+        name: 'Current app version',
+        type: 'sensor',
+        icon: 'mdi:cellphone-arrow-down',
+        state: appVersion.versionName,
+        attributes: {
+          app_version_name: appVersion.versionName,
+          app_version_code: appVersion.versionCode
+        },
+        enabled: HarmonySensorService.isSensorEnabled('current_version', prefs),
+      },
+      {
+        id: 'active',
+        name: 'App active',
+        type: 'binary_sensor',
+        icon: 'mdi:application',
+        state: AppStorage.get<boolean>('appActive') ?? false,
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('active', prefs),
+      },
+      {
+        id: 'current_time_zone',
+        name: 'Current time zone',
+        type: 'sensor',
+        icon: 'mdi:map-clock',
+        state: HarmonySensorService.currentTimeZoneValue(),
+        attributes: {
+          current_time_zone: HarmonySensorService.currentTimeZoneValue()
+        },
+        enabled: HarmonySensorService.isSensorEnabled('current_time_zone', prefs),
       },
       {
         id: 'storage_sensor',
@@ -881,15 +1003,6 @@ export class HarmonySensorService {
         enabled: HarmonySensorService.isSensorEnabled('power_save', prefs),
       },
       {
-        id: 'current_time_zone',
-        name: 'Current time zone',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.currentTimeZoneValue(),
-        attributes: {},
-        enabled: HarmonySensorService.isSensorEnabled('current_time_zone', prefs),
-      },
-      {
         id: 'bluetooth_state',
         name: 'Bluetooth state',
         type: 'binary_sensor',
@@ -899,6 +1012,38 @@ export class HarmonySensorService {
           options: [HarmonySensorService.bluetoothStateValue()]
         },
         enabled: HarmonySensorService.isSensorEnabled('bluetooth_state', prefs),
+      },
+      {
+        id: 'bluetooth_connection',
+        name: 'Bluetooth connection',
+        type: 'sensor',
+        icon: 'mdi:bluetooth-connect',
+        state: bluetoothConnectionValues.connectedNotPairedDevices + bluetoothConnectionValues.connectedPairedDevices,
+        attributes: {
+          connectde_not_paired_devices: bluetoothConnectionValues.connectedNotPairedDevices,
+          connectde_paired_devices: bluetoothConnectionValues.connectedPairedDevices,
+          paired_devices: bluetoothConnectionValues.pairedDevices
+        },
+        enabled: HarmonySensorService.isSensorEnabled('bluetooth_connection', prefs),
+        stateClass: 'measurement',
+      },
+      {
+        id: 'device_security',
+        name: 'Device security',
+        type: 'binary_sensor',
+        icon: 'mdi:shield-lock',
+        state: deviceSecurity,
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('device_security', prefs),
+      },
+      {
+        id: 'device_locked',
+        name: 'Device locked',
+        type: 'binary_sensor',
+        icon: 'mdi:lock',
+        state: deviceLocked,
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('device_locked', prefs),
       },
       {
         id: 'audio_sensor',
@@ -947,25 +1092,6 @@ export class HarmonySensorService {
       HarmonySensorService.volumeDescriptor('volume_ring', 'Volume level ringer', audio.StreamUsage.STREAM_USAGE_RINGTONE, prefs),
       HarmonySensorService.volumeDescriptor('volume_notification', 'Volume level notification', audio.StreamUsage.STREAM_USAGE_NOTIFICATION, prefs),
       HarmonySensorService.volumeDescriptor('volume_accessibility', 'Volume level accessibility', audio.StreamUsage.STREAM_USAGE_ACCESSIBILITY, prefs),
-      {
-        id: 'harmony_thermal_level',
-        name: 'HarmonyOS thermal level',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.thermalLevelValue(),
-        attributes: HarmonySensorService.thermalLevelAttributes(),
-        enabled: HarmonySensorService.isSensorEnabled('harmony_thermal_level', prefs),
-        deviceClass: 'enum',
-      },
-      {
-        id: 'harmony_vibrator_effect_support',
-        name: 'HarmonyOS vibrator effect support',
-        type: 'binary_sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.vibratorEffectSupported(),
-        attributes: HarmonySensorService.vibratorEffectAttributes(),
-        enabled: HarmonySensorService.isSensorEnabled('harmony_vibrator_effect_support', prefs),
-      },
       {
         id: 'harmony_operating_hand',
         name: 'HarmonyOS operating hand',
@@ -1024,16 +1150,6 @@ export class HarmonySensorService {
         deviceClass: 'connectivity',
       },
       {
-        id: 'display_state',
-        name: 'Display state',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: displaySnapshot.state,
-        attributes: HarmonySensorService.displayStateAttributes(),
-        enabled: HarmonySensorService.isSensorEnabled('display_state', prefs),
-        deviceClass: 'enum',
-      },
-      {
         id: 'screen_orientation',
         name: 'Screen orientation',
         type: 'sensor',
@@ -1057,37 +1173,6 @@ export class HarmonySensorService {
         stateClass: 'measurement',
       },
       {
-        id: 'screen_resolution',
-        name: 'Screen resolution',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.displayResolutionValue(displaySnapshot),
-        attributes: HarmonySensorService.displayResolutionAttributes(displaySnapshot),
-        enabled: HarmonySensorService.isSensorEnabled('screen_resolution', prefs),
-      },
-      {
-        id: 'display_refresh_rate',
-        name: 'Display refresh rate',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(displaySnapshot.refreshRate),
-        attributes: {},
-        enabled: HarmonySensorService.isSensorEnabled('display_refresh_rate', prefs),
-        unitOfMeasurement: 'Hz',
-        stateClass: 'measurement',
-      },
-      {
-        id: 'display_density',
-        name: 'Display density',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(displaySnapshot.densityDPI),
-        attributes: HarmonySensorService.displayDensityAttributes(displaySnapshot),
-        enabled: HarmonySensorService.isSensorEnabled('display_density', prefs),
-        unitOfMeasurement: 'dpi',
-        stateClass: 'measurement',
-      },
-      {
         id: 'screen_brightness',
         name: 'Screen brightness',
         type: 'sensor',
@@ -1099,11 +1184,22 @@ export class HarmonySensorService {
         stateClass: 'measurement',
       },
       {
+        id: 'screen_off_timeout',
+        name: 'Screen off timeout',
+        type: 'sensor',
+        icon: 'mdi:timer-off-outline',
+        state: HarmonySensorService.numberOrUnavailable(screenOffTimeout),
+        attributes: {},
+        enabled: HarmonySensorService.isSensorEnabled('screen_off_timeout', prefs),
+        unitOfMeasurement: 's',
+        stateClass: 'measurement',
+      },
+      {
         id: 'light_sensor',
         name: 'Light sensor',
         type: 'sensor',
         icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(hardwareSnapshot.light),
+        state: HarmonySensorService.numberOrUnavailable(HarmonySensorService.roundOptional(hardwareSnapshot.light, 100)),
         attributes: {
           color_temperature: hardwareSnapshot.lightColorTemperature,
           infrared_luminance: hardwareSnapshot.lightInfraredLuminance,
@@ -1115,105 +1211,17 @@ export class HarmonySensorService {
         stateClass: 'measurement',
       },
       {
-        id: 'pressure_sensor',
-        name: 'Pressure sensor',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(hardwareSnapshot.pressure),
-        attributes: {
-          sensor_updated_at: hardwareSnapshot.updatedAt
-        },
-        enabled: HarmonySensorService.isSensorEnabled('pressure_sensor', prefs),
-        deviceClass: 'atmospheric_pressure',
-        unitOfMeasurement: 'hPa',
-        stateClass: 'measurement',
-      },
-      {
         id: 'proximity_sensor',
         name: 'Proximity sensor',
         type: 'sensor',
         icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(hardwareSnapshot.proximity),
+        state: HarmonySensorService.numberOrUnavailable(hardwareSnapshot.proximityDistance),
         attributes: {
+          proximity_distance: hardwareSnapshot.proximityDistance,
           sensor_updated_at: hardwareSnapshot.updatedAt
         },
         enabled: HarmonySensorService.isSensorEnabled('proximity_sensor', prefs),
-      },
-      {
-        id: 'steps_sensor',
-        name: 'Steps sensor',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(hardwareSnapshot.steps),
-        attributes: {
-          step_detected: hardwareSnapshot.stepDetected,
-          sensor_updated_at: hardwareSnapshot.updatedAt
-        },
-        enabled: HarmonySensorService.isSensorEnabled('steps_sensor', prefs),
-        unitOfMeasurement: 'steps',
-        stateClass: 'total_increasing',
-      },
-      {
-        id: 'display_brightness_headroom',
-        name: 'Display brightness headroom',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(displaySnapshot.brightnessCurrentHeadroom),
-        attributes: HarmonySensorService.displayBrightnessAttributes(displaySnapshot),
-        enabled: HarmonySensorService.isSensorEnabled('display_brightness_headroom', prefs),
         stateClass: 'measurement',
-      },
-      {
-        id: 'harmony_screen_shape',
-        name: 'HarmonyOS screen shape',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: displaySnapshot.screenShape,
-        attributes: HarmonySensorService.screenShapeAttributes(),
-        enabled: HarmonySensorService.isSensorEnabled('harmony_screen_shape', prefs),
-        deviceClass: 'enum',
-      },
-      {
-        id: 'harmony_display_hdr_formats',
-        name: 'HarmonyOS display HDR formats',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: HarmonySensorService.numberOrUnavailable(HarmonySensorService.displayHdrFormatCount(displaySnapshot)),
-        attributes: {
-          hdr_formats: displaySnapshot.hdrFormats,
-          source_mode: displaySnapshot.sourceMode
-        },
-        enabled: HarmonySensorService.isSensorEnabled('harmony_display_hdr_formats', prefs),
-        stateClass: 'measurement',
-      },
-      {
-        id: 'harmony_foldable',
-        name: 'HarmonyOS foldable',
-        type: 'binary_sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: displaySnapshot.foldable,
-        attributes: {},
-        enabled: HarmonySensorService.isSensorEnabled('harmony_foldable', prefs),
-      },
-      {
-        id: 'harmony_fold_status',
-        name: 'HarmonyOS fold status',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: displaySnapshot.foldStatus,
-        attributes: HarmonySensorService.foldStatusAttributes(displaySnapshot),
-        enabled: HarmonySensorService.isSensorEnabled('harmony_fold_status', prefs),
-        deviceClass: 'enum',
-      },
-      {
-        id: 'harmony_fold_display_mode',
-        name: 'HarmonyOS fold display mode',
-        type: 'sensor',
-        icon: SENSOR_ICON_GENERIC,
-        state: displaySnapshot.foldDisplayMode,
-        attributes: HarmonySensorService.foldDisplayModeAttributes(displaySnapshot),
-        enabled: HarmonySensorService.isSensorEnabled('harmony_fold_display_mode', prefs),
-        deviceClass: 'enum',
       },
       {
         id: 'last_update_trigger',
@@ -1252,7 +1260,9 @@ export class HarmonySensorService {
         enabled: prefs.accurateLocationEnabled,
       }
     ];
-    return HarmonySensorEntityCategoryPolicy.apply(descriptors);
+    const categorized = HarmonySensorEntityCategoryPolicy.apply(descriptors);
+    await HarmonySensorService.rememberSensorStates(categorized, context);
+    return categorized;
   }
 
   private static locationAttributes(
@@ -1535,6 +1545,55 @@ export class HarmonySensorService {
     ].join('|');
   }
 
+  private static async rememberSensorStates(descriptors: SensorDescriptor[], context?: common.Context): Promise<void> {
+    const records: SensorStateRecord[] = [];
+    const disabledSensorIds: string[] = [];
+    for (let i = 0; i < descriptors.length; i++) {
+      const descriptor = descriptors[i];
+      if (descriptor.enabled) {
+        records.push(HarmonySensorService.sensorStateRecord(descriptor));
+      } else {
+        disabledSensorIds.push(descriptor.id);
+      }
+    }
+    await SensorStateStore.upsertRecords(context, records, disabledSensorIds);
+  }
+
+  private static sensorStateRecord(descriptor: SensorDescriptor): SensorStateRecord {
+    return {
+      sensorId: descriptor.id,
+      stateJson: JSON.stringify(HarmonySensorService.webhookState(descriptor.state)),
+      summary: HarmonySensorService.sensorStateSummary(descriptor),
+      unitOfMeasurement: descriptor.unitOfMeasurement ?? '',
+      deviceClass: descriptor.deviceClass ?? '',
+      icon: descriptor.icon,
+      attributesJson: JSON.stringify(descriptor.attributes),
+      updatedAt: Date.now()
+    };
+  }
+
+  private static sensorStateSummary(descriptor: SensorDescriptor): string {
+    const state = HarmonySensorService.webhookState(descriptor.state);
+    if (state === null) {
+      return Localization.t('common_unavailable');
+    }
+    if (typeof state === 'boolean') {
+      return state.toString();
+    }
+    if (typeof state === 'number') {
+      const unit = descriptor.unitOfMeasurement ?? '';
+      return unit.length > 0 ? `${state} ${unit}` : `${state}`;
+    }
+    const trimmed = state.trim();
+    if (trimmed.length === 0 || trimmed === SENSOR_TEXT_UNAVAILABLE) {
+      return Localization.t('common_unavailable');
+    }
+    if (trimmed === SENSOR_TEXT_UNKNOWN || trimmed === 'unknown') {
+      return Localization.t('state_unknown');
+    }
+    return trimmed;
+  }
+
   private static webhookState(state: string | number | boolean | null): string | number | boolean | null {
     if (typeof state === 'string' && state.trim().length === 0) {
       return null;
@@ -1546,24 +1605,18 @@ export class HarmonySensorService {
     const parts: string[] = [];
     HarmonySensorService.appendAttributeSignature(parts, 'accuracy', attributes.accuracy);
     HarmonySensorService.appendAttributeSignature(parts, 'administrative_area', attributes.administrative_area);
-    HarmonySensorService.appendAttributeSignature(parts, 'app_active', attributes.app_active);
-    HarmonySensorService.appendAttributeSignature(parts, 'app_memory_native_heap_allocated_size', attributes.app_memory_native_heap_allocated_size);
-    HarmonySensorService.appendAttributeSignature(parts, 'app_memory_native_heap_free_size', attributes.app_memory_native_heap_free_size);
-    HarmonySensorService.appendAttributeSignature(parts, 'app_memory_native_heap_size', attributes.app_memory_native_heap_size);
-    HarmonySensorService.appendAttributeSignature(parts, 'app_memory_private_dirty', attributes.app_memory_private_dirty);
-    HarmonySensorService.appendAttributeSignature(parts, 'app_memory_shared_dirty', attributes.app_memory_shared_dirty);
-    HarmonySensorService.appendAttributeSignature(parts, 'app_memory_vss', attributes.app_memory_vss);
     HarmonySensorService.appendAttributeSignature(parts, 'approximate_location', attributes.approximate_location);
     HarmonySensorService.appendAttributeSignature(parts, 'audio_scene', attributes.audio_scene);
     HarmonySensorService.appendAttributeSignature(parts, 'background_location', attributes.background_location);
-    HarmonySensorService.appendAttributeSignature(parts, 'battery_current', attributes.battery_current);
-    HarmonySensorService.appendAttributeSignature(parts, 'battery_voltage', attributes.battery_voltage);
-    HarmonySensorService.appendAttributeSignature(parts, 'brand', attributes.brand);
     HarmonySensorService.appendAttributeSignature(parts, 'bssid', attributes.bssid);
+    HarmonySensorService.appendAttributeSignature(parts, 'card_type', attributes.card_type);
+    HarmonySensorService.appendAttributeSignature(parts, 'connectde_not_paired_devices', attributes.connectde_not_paired_devices);
+    HarmonySensorService.appendAttributeSignature(parts, 'connectde_paired_devices', attributes.connectde_paired_devices);
     HarmonySensorService.appendAttributeSignature(parts, 'color_temperature', attributes.color_temperature);
     HarmonySensorService.appendAttributeSignature(parts, 'country_code', attributes.country_code);
     HarmonySensorService.appendAttributeSignature(parts, 'country_name', attributes.country_name);
     HarmonySensorService.appendAttributeSignature(parts, 'current_headroom', attributes.current_headroom);
+    HarmonySensorService.appendAttributeSignature(parts, 'default_voice_slot', attributes.default_voice_slot);
     HarmonySensorService.appendAttributeSignature(parts, 'display_available_height', attributes.display_available_height);
     HarmonySensorService.appendAttributeSignature(parts, 'display_available_width', attributes.display_available_width);
     HarmonySensorService.appendAttributeSignature(parts, 'display_density_pixels', attributes.display_density_pixels);
@@ -1582,53 +1635,61 @@ export class HarmonySensorService {
     HarmonySensorService.appendAttributeSignature(parts, 'frequency', attributes.frequency);
     HarmonySensorService.appendAttributeSignature(parts, 'geocoder_available', attributes.geocoder_available);
     HarmonySensorService.appendAttributeSignature(parts, 'gps_accuracy', attributes.gps_accuracy);
-    HarmonySensorService.appendAttributeSignature(parts, 'hd_haptic_supported', attributes.hd_haptic_supported);
+    HarmonySensorService.appendAttributeSignature(parts, 'has_sim', attributes.has_sim);
     HarmonySensorService.appendAttributeSignature(parts, 'hdr_formats', attributes.hdr_formats);
     HarmonySensorService.appendAttributeSignature(parts, 'hidden', attributes.hidden);
     HarmonySensorService.appendAttributeSignature(parts, 'infrared_luminance', attributes.infrared_luminance);
     HarmonySensorService.appendAttributeSignature(parts, 'ip_address', attributes.ip_address);
+    HarmonySensorService.appendAttributeSignature(parts, 'is_active', attributes.is_active);
+    HarmonySensorService.appendAttributeSignature(parts, 'app_version_code', attributes.app_version_code);
+    HarmonySensorService.appendAttributeSignature(parts, 'app_version_name', attributes.app_version_name);
+    HarmonySensorService.appendAttributeSignature(parts, 'current_time_zone', attributes.current_time_zone);
+    HarmonySensorService.appendAttributeSignature(parts, 'process_state', attributes.process_state);
     HarmonySensorService.appendAttributeSignature(parts, 'last_update_trigger', attributes.last_update_trigger);
     HarmonySensorService.appendAttributeSignature(parts, 'latitude', attributes.latitude);
     HarmonySensorService.appendAttributeSignature(parts, 'link_speed', attributes.link_speed);
-    HarmonySensorService.appendAttributeSignature(parts, 'local_vibrator_count', attributes.local_vibrator_count);
     HarmonySensorService.appendAttributeSignature(parts, 'locality', attributes.locality);
     HarmonySensorService.appendAttributeSignature(parts, 'location_sent', attributes.location_sent);
     HarmonySensorService.appendAttributeSignature(parts, 'longitude', attributes.longitude);
-    HarmonySensorService.appendAttributeSignature(parts, 'manufacturer', attributes.manufacturer);
-    HarmonySensorService.appendAttributeSignature(parts, 'market_name', attributes.market_name);
     HarmonySensorService.appendAttributeSignature(parts, 'max_headroom', attributes.max_headroom);
+    HarmonySensorService.appendAttributeSignature(parts, 'max_sim_count', attributes.max_sim_count);
     HarmonySensorService.appendAttributeSignature(parts, 'max_volume', attributes.max_volume);
     HarmonySensorService.appendAttributeSignature(parts, 'metered', attributes.metered);
     HarmonySensorService.appendAttributeSignature(parts, 'min_volume', attributes.min_volume);
     HarmonySensorService.appendAttributeSignature(parts, 'nfc_state', attributes.nfc_state);
+    HarmonySensorService.appendAttributeSignature(parts, 'operator_key', attributes.operator_key);
+    HarmonySensorService.appendAttributeSignature(parts, 'operator_name', attributes.operator_name);
+    HarmonySensorService.appendAttributeSignature(parts, 'operator_numeric', attributes.operator_numeric);
     HarmonySensorService.appendAttributeSignature(parts, 'options', attributes.options);
     HarmonySensorService.appendAttributeSignature(parts, 'os_full_name', attributes.os_full_name);
     HarmonySensorService.appendAttributeSignature(parts, 'output_device_count', attributes.output_device_count);
     HarmonySensorService.appendAttributeSignature(parts, 'output_device_types', attributes.output_device_types);
+    HarmonySensorService.appendAttributeSignature(parts, 'paired_devices', attributes.paired_devices);
     HarmonySensorService.appendAttributeSignature(parts, 'place_name', attributes.place_name);
     HarmonySensorService.appendAttributeSignature(parts, 'postal_code', attributes.postal_code);
     HarmonySensorService.appendAttributeSignature(parts, 'power_mode', attributes.power_mode);
     HarmonySensorService.appendAttributeSignature(parts, 'precise_location', attributes.precise_location);
     HarmonySensorService.appendAttributeSignature(parts, 'premises', attributes.premises);
-    HarmonySensorService.appendAttributeSignature(parts, 'product_model', attributes.product_model);
+    HarmonySensorService.appendAttributeSignature(parts, 'proximity_distance', attributes.proximity_distance);
     HarmonySensorService.appendAttributeSignature(parts, 'road_name', attributes.road_name);
     HarmonySensorService.appendAttributeSignature(parts, 'sdk_api_version', attributes.sdk_api_version);
     HarmonySensorService.appendAttributeSignature(parts, 'sdr_nits', attributes.sdr_nits);
     HarmonySensorService.appendAttributeSignature(parts, 'security_patch', attributes.security_patch);
     HarmonySensorService.appendAttributeSignature(parts, 'sensor_updated_at', attributes.sensor_updated_at);
     HarmonySensorService.appendAttributeSignature(parts, 'signal_level', attributes.signal_level);
+    HarmonySensorService.appendAttributeSignature(parts, 'sim_label_index', attributes.sim_label_index);
+    HarmonySensorService.appendAttributeSignature(parts, 'sim_label_type', attributes.sim_label_type);
+    HarmonySensorService.appendAttributeSignature(parts, 'sim_state', attributes.sim_state);
+    HarmonySensorService.appendAttributeSignature(parts, 'slot_id', attributes.slot_id);
     HarmonySensorService.appendAttributeSignature(parts, 'source_mode', attributes.source_mode);
-    HarmonySensorService.appendAttributeSignature(parts, 'step_detected', attributes.step_detected);
+    HarmonySensorService.appendAttributeSignature(parts, 'spn', attributes.spn);
     HarmonySensorService.appendAttributeSignature(parts, 'sub_administrative_area', attributes.sub_administrative_area);
     HarmonySensorService.appendAttributeSignature(parts, 'sub_locality', attributes.sub_locality);
     HarmonySensorService.appendAttributeSignature(parts, 'sub_road_name', attributes.sub_road_name);
-    HarmonySensorService.appendAttributeSignature(parts, 'supported_effects', attributes.supported_effects);
     HarmonySensorService.appendAttributeSignature(parts, 'timeStamp', attributes.timeStamp);
     HarmonySensorService.appendAttributeSignature(parts, 'total_size', attributes.total_size);
     HarmonySensorService.appendAttributeSignature(parts, 'used_percent', attributes.used_percent);
     HarmonySensorService.appendAttributeSignature(parts, 'used_size', attributes.used_size);
-    HarmonySensorService.appendAttributeSignature(parts, 'version_code', attributes.version_code);
-    HarmonySensorService.appendAttributeSignature(parts, 'vibrator_count', attributes.vibrator_count);
     HarmonySensorService.appendAttributeSignature(parts, 'volume_percent', attributes.volume_percent);
     return parts.join(',');
   }
@@ -1848,6 +1909,70 @@ export class HarmonySensorService {
     return `${a}.${b}.${c}.${d}`;
   }
 
+  private static ipv6AddressValue(): string {
+    try {
+      const netHandle = connection.getDefaultNetSync();
+      const properties = connection.getConnectionPropertiesSync(netHandle);
+      for (let i = 0; i < properties.linkAddresses.length; i++) {
+        const address = properties.linkAddresses[i].address;
+        if (address.family === 2 && address.address.indexOf(':') >= 0) {
+          return address.address;
+        }
+      }
+    } catch (_) {
+    }
+    return '';
+  }
+
+  private static async publicIpAddressValue(prefs: SensorPreferenceSnapshot): Promise<string> {
+    if (!HarmonySensorService.isSensorEnabled('public_ip_address', prefs)) {
+      return '';
+    }
+    const now = Date.now();
+    if (HarmonySensorService.publicIpAddressCache.length > 0 &&
+      now - HarmonySensorService.publicIpAddressCacheAt < 10 * 60 * 1000) {
+      return HarmonySensorService.publicIpAddressCache;
+    }
+    if (now < HarmonySensorService.publicIpAddressRetryAfter) {
+      return '';
+    }
+    try {
+      const response = await NetworkService.requestText('https://api.ipify.org', {
+        method: NetworkHttpMethod.GET,
+        connectTimeout: 5000,
+        readTimeout: 5000
+      });
+      if (!NetworkService.isSuccessStatus(response.responseCode)) {
+        HarmonySensorService.markPublicIpAddressRetry(now);
+        return '';
+      }
+      const value = HarmonySensorService.normalizedIpText(response.body);
+      if (value.length > 0) {
+        HarmonySensorService.publicIpAddressCache = value;
+        HarmonySensorService.publicIpAddressCacheAt = now;
+        HarmonySensorService.publicIpAddressRetryAfter = 0;
+      } else {
+        HarmonySensorService.markPublicIpAddressRetry(now);
+      }
+      return value;
+    } catch (_) {
+      HarmonySensorService.markPublicIpAddressRetry(now);
+      return '';
+    }
+  }
+
+  private static markPublicIpAddressRetry(now: number): void {
+    HarmonySensorService.publicIpAddressRetryAfter = now + 60 * 1000;
+  }
+
+  private static normalizedIpText(value: string): string {
+    const trimmed = value.trim();
+    if (/^[0-9A-Fa-f:.]+$/.test(trimmed) && (trimmed.indexOf('.') >= 0 || trimmed.indexOf(':') >= 0)) {
+      return trimmed;
+    }
+    return '';
+  }
+
   private static getStorageSnapshot(): HarmonyStorageSnapshot {
     try {
       const totalSize = Math.max(storageStatistics.getTotalSizeSync(), 0);
@@ -1940,29 +2065,6 @@ export class HarmonySensorService {
       unitOfMeasurement: '%',
       stateClass: 'measurement',
     };
-  }
-
-  private static appMemoryPss(): number | undefined {
-    return HarmonySensorService.bigIntToNumber((): bigint => hidebug.getPss());
-  }
-
-  private static appMemoryAttributes(): SensorAttributes {
-    return {
-      app_memory_vss: HarmonySensorService.bigIntToNumber((): bigint => hidebug.getVss()),
-      app_memory_native_heap_size: HarmonySensorService.bigIntToNumber((): bigint => hidebug.getNativeHeapSize()),
-      app_memory_native_heap_allocated_size: HarmonySensorService.bigIntToNumber((): bigint => hidebug.getNativeHeapAllocatedSize()),
-      app_memory_native_heap_free_size: HarmonySensorService.bigIntToNumber((): bigint => hidebug.getNativeHeapFreeSize()),
-      app_memory_shared_dirty: HarmonySensorService.bigIntToNumber((): bigint => hidebug.getSharedDirty()),
-      app_memory_private_dirty: HarmonySensorService.bigIntToNumber((): bigint => hidebug.getPrivateDirty())
-    };
-  }
-
-  private static bigIntToNumber(read: () => bigint): number | undefined {
-    try {
-      return Number(read());
-    } catch (_) {
-      return undefined;
-    }
   }
 
   private static audioVolumeValue(streamUsage: audio.StreamUsage): HarmonyAudioVolumeSnapshot {
@@ -2091,6 +2193,7 @@ export class HarmonySensorService {
       case batteryInfo.BatteryChargeState.ENABLE:
         return 'charging';
       case batteryInfo.BatteryChargeState.DISABLE:
+      case batteryInfo.BatteryChargeState.NONE:
         return 'not_charging';
       case batteryInfo.BatteryChargeState.FULL:
         return 'full';
@@ -2159,29 +2262,6 @@ export class HarmonySensorService {
     return Math.round((voltage * current / 1000) * 1000) / 1000;
   }
 
-  private static batteryCapacityLevelValue(): string {
-    switch (batteryInfo.batteryCapacityLevel) {
-      case batteryInfo.BatteryCapacityLevel.LEVEL_FULL:
-        return 'full';
-      case batteryInfo.BatteryCapacityLevel.LEVEL_HIGH:
-        return 'high';
-      case batteryInfo.BatteryCapacityLevel.LEVEL_NORMAL:
-        return 'normal';
-      case batteryInfo.BatteryCapacityLevel.LEVEL_LOW:
-        return 'low';
-      case batteryInfo.BatteryCapacityLevel.LEVEL_CRITICAL:
-        return 'critical';
-      default:
-        return SENSOR_TEXT_UNKNOWN;
-    }
-  }
-
-  private static batteryCapacityLevelAttributes(): SensorAttributes {
-    return {
-      options: ['full', 'high', 'normal', 'low', 'critical']
-    };
-  }
-
   private static bluetoothEnabled(): boolean {
     return HarmonySensorService.bluetoothStateValue() === 'on';
   }
@@ -2206,6 +2286,79 @@ export class HarmonySensorService {
       }
     } catch (_) {
       return SENSOR_TEXT_UNKNOWN;
+    }
+  }
+
+  private static bluetoothConnectionValues(prefs: SensorPreferenceSnapshot): BluetoothConnectionValues {
+    const empty: BluetoothConnectionValues = {
+      connectedNotPairedDevices: 0,
+      connectedPairedDevices: 0,
+      pairedDevices: 0
+    };
+    if (!HarmonySensorService.isSensorEnabled('bluetooth_connection', prefs) || !HarmonySensorService.bluetoothEnabled()) {
+      return empty;
+    }
+
+    const pairedDevices = HarmonySensorService.bluetoothPairedDevices();
+    const pairedSet = new Set<string>(pairedDevices);
+    const connectedSet = new Set<string>();
+    HarmonySensorService.addBluetoothDevices(connectedSet, HarmonySensorService.bluetoothBleConnectedDevices());
+    HarmonySensorService.addBluetoothDevices(connectedSet, HarmonySensorService.bluetoothProfileConnectedDevices((): string[] => {
+      return bluetoothA2dp.createA2dpSrcProfile().getConnectedDevices();
+    }));
+    HarmonySensorService.addBluetoothDevices(connectedSet, HarmonySensorService.bluetoothProfileConnectedDevices((): string[] => {
+      return bluetoothHfp.createHfpAgProfile().getConnectedDevices();
+    }));
+    HarmonySensorService.addBluetoothDevices(connectedSet, HarmonySensorService.bluetoothProfileConnectedDevices((): string[] => {
+      return bluetoothHid.createHidHostProfile().getConnectedDevices();
+    }));
+    HarmonySensorService.addBluetoothDevices(connectedSet, HarmonySensorService.bluetoothProfileConnectedDevices((): string[] => {
+      return bluetoothPan.createPanProfile().getConnectedDevices();
+    }));
+
+    let connectedPairedDevices = 0;
+    connectedSet.forEach((deviceId: string): void => {
+      if (pairedSet.has(deviceId)) {
+        connectedPairedDevices += 1;
+      }
+    });
+    return {
+      connectedNotPairedDevices: Math.max(connectedSet.size - connectedPairedDevices, 0),
+      connectedPairedDevices,
+      pairedDevices: pairedDevices.length
+    };
+  }
+
+  private static bluetoothPairedDevices(): string[] {
+    try {
+      return bluetoothConnection.getPairedDevices();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  private static bluetoothBleConnectedDevices(): string[] {
+    try {
+      return bluetoothBle.getConnectedBLEDevices();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  private static bluetoothProfileConnectedDevices(readValue: () => string[]): string[] {
+    try {
+      return readValue();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  private static addBluetoothDevices(target: Set<string>, devices: string[]): void {
+    for (let i = 0; i < devices.length; i++) {
+      const deviceId = devices[i].trim();
+      if (deviceId.length > 0) {
+        target.add(deviceId);
+      }
     }
   }
 
@@ -2334,93 +2487,6 @@ export class HarmonySensorService {
     }
   }
 
-  private static thermalLevelValue(): string {
-    try {
-      switch (thermal.getLevel()) {
-        case thermal.ThermalLevel.COOL:
-          return 'cool';
-        case thermal.ThermalLevel.NORMAL:
-          return 'normal';
-        case thermal.ThermalLevel.WARM:
-          return 'warm';
-        case thermal.ThermalLevel.HOT:
-          return 'hot';
-        case thermal.ThermalLevel.OVERHEATED:
-          return 'overheated';
-        case thermal.ThermalLevel.WARNING:
-          return 'warning';
-        case thermal.ThermalLevel.EMERGENCY:
-          return 'emergency';
-        case thermal.ThermalLevel.ESCAPE:
-          return 'escape';
-        default:
-          return SENSOR_TEXT_UNKNOWN;
-      }
-    } catch (_) {
-      return SENSOR_TEXT_UNKNOWN;
-    }
-  }
-
-  private static thermalLevelAttributes(): SensorAttributes {
-    return {
-      options: ['cool', 'normal', 'warm', 'hot', 'overheated', 'warning', 'emergency', 'escape']
-    };
-  }
-
-  private static vibratorEffectSupported(): boolean {
-    return HarmonySensorService.supportedVibratorEffects().length > 0;
-  }
-
-  private static vibratorEffectAttributes(): SensorAttributes {
-    const info = HarmonySensorService.vibratorInfo();
-    let localCount = 0;
-    let hdHapticSupported = false;
-    for (let i = 0; i < info.length; i++) {
-      if (info[i].isLocalVibrator) {
-        localCount += 1;
-      }
-      if (info[i].isHdHapticSupported) {
-        hdHapticSupported = true;
-      }
-    }
-    return {
-      vibrator_count: info.length,
-      local_vibrator_count: localCount,
-      hd_haptic_supported: hdHapticSupported,
-      supported_effects: HarmonySensorService.supportedVibratorEffects()
-    };
-  }
-
-  private static vibratorInfo(): vibrator.VibratorInfo[] {
-    try {
-      return vibrator.getVibratorInfoSync();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  private static supportedVibratorEffects(): string[] {
-    const candidates: string[] = [
-      vibrator.EffectId.EFFECT_CLOCK_TIMER,
-      vibrator.HapticFeedback.EFFECT_SOFT,
-      vibrator.HapticFeedback.EFFECT_HARD,
-      vibrator.HapticFeedback.EFFECT_SHARP,
-      vibrator.HapticFeedback.EFFECT_NOTICE_SUCCESS,
-      vibrator.HapticFeedback.EFFECT_NOTICE_FAILURE,
-      vibrator.HapticFeedback.EFFECT_NOTICE_WARNING
-    ];
-    const supported: string[] = [];
-    for (let i = 0; i < candidates.length; i++) {
-      try {
-        if (vibrator.isSupportEffectSync(candidates[i])) {
-          supported.push(candidates[i]);
-        }
-      } catch (_) {
-      }
-    }
-    return supported;
-  }
-
   private static async refreshGeocodedLocationIfNeeded(
     prefs: SensorPreferenceSnapshot,
     lastLocation: HarmonyLocationSnapshot | undefined
@@ -2525,46 +2591,19 @@ export class HarmonySensorService {
   }
 
   private static saveGeocodedLocation(value: GeocodedLocationValue): void {
-    const json = JSON.stringify(value);
-    if (!AppStorage.set<string>('sensorGeocodedLocationJson', json)) {
-      AppStorage.setOrCreate<string>('sensorGeocodedLocationJson', json);
-    }
+    SensorRuntimeValueStore.updateGeocoded(value);
   }
 
   private static geocodedLocationValue(): GeocodedLocationValue {
-    try {
-      const parsed = JSON.parse(AppStorage.get<string>('sensorGeocodedLocationJson') ?? '{}') as GeocodedLocationValue;
-      if (!parsed || typeof parsed !== 'object') {
-        return {};
-      }
-      return parsed;
-    } catch (_) {
-      return {};
-    }
+    return SensorRuntimeValueStore.geocoded();
   }
 
   private static hardwareSensorValues(): HardwareSensorValues {
-    try {
-      const parsed = JSON.parse(AppStorage.get<string>('sensorHardwareValuesJson') ?? '{}') as HardwareSensorValues;
-      if (!parsed || typeof parsed !== 'object') {
-        return {};
-      }
-      return parsed;
-    } catch (_) {
-      return {};
-    }
+    return SensorRuntimeValueStore.hardware();
   }
 
   private static multimodalSensorValues(): MultimodalSensorValues {
-    try {
-      const parsed = JSON.parse(AppStorage.get<string>('sensorMultimodalValuesJson') ?? '{}') as MultimodalSensorValues;
-      if (!parsed || typeof parsed !== 'object') {
-        return {};
-      }
-      return parsed;
-    } catch (_) {
-      return {};
-    }
+    return SensorRuntimeValueStore.multimodal();
   }
 
   private static operatingHandState(value: number | undefined): string {
@@ -2593,8 +2632,312 @@ export class HarmonySensorService {
     }
   }
 
+  private static async phoneStateValue(prefs: SensorPreferenceSnapshot): Promise<string> {
+    if (!HarmonySensorService.isSensorEnabled('phone_state', prefs)) {
+      return SENSOR_TEXT_UNAVAILABLE;
+    }
+    try {
+      return HarmonySensorService.callStateValue(await call.getCallState());
+    } catch (_) {
+      return SENSOR_TEXT_UNAVAILABLE;
+    }
+  }
+
+  private static async hasCallValue(prefs: SensorPreferenceSnapshot): Promise<boolean | null> {
+    if (!HarmonySensorService.isSensorEnabled('has_call', prefs)) {
+      return null;
+    }
+    try {
+      return await call.hasCall();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  private static voiceCapabilityValue(prefs: SensorPreferenceSnapshot): boolean | null {
+    if (!HarmonySensorService.isSensorEnabled('voice_capability', prefs)) {
+      return null;
+    }
+    try {
+      return call.hasVoiceCapability();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  private static async simSensorValue(slotId: number, prefs: SensorPreferenceSnapshot): Promise<SimSensorValue> {
+    const sensorId = slotId === 0 ? 'sim_1' : 'sim_2';
+    const baseAttributes: SensorAttributes = {
+      slot_id: slotId,
+      max_sim_count: HarmonySensorService.maxSimCount()
+    };
+    if (!HarmonySensorService.isSensorEnabled(sensorId, prefs)) {
+      return {
+        state: SENSOR_TEXT_UNAVAILABLE,
+        attributes: baseAttributes
+      };
+    }
+
+    const hasSim = await HarmonySensorService.readBoolean((): Promise<boolean> => sim.hasSimCard(slotId));
+    const isActive = await HarmonySensorService.readBoolean((): Promise<boolean> => sim.isSimActive(slotId));
+    const simState = HarmonySensorService.simStateValue(
+      await HarmonySensorService.readNumber((): Promise<number> => sim.getSimState(slotId))
+    );
+    const cardType = HarmonySensorService.cardTypeValue(
+      await HarmonySensorService.readNumber((): Promise<number> => sim.getCardType(slotId))
+    );
+    const countryCode = await HarmonySensorService.readString((): Promise<string> => sim.getISOCountryCodeForSim(slotId));
+    const operatorNumeric = await HarmonySensorService.readString((): Promise<string> => sim.getSimOperatorNumeric(slotId));
+    const spn = await HarmonySensorService.readString((): Promise<string> => sim.getSimSpn(slotId));
+    const operatorName = await HarmonySensorService.readString((): Promise<string> => sim.getOpName(slotId));
+    const operatorKey = await HarmonySensorService.readString((): Promise<string> => sim.getOpKey(slotId));
+    const defaultVoiceSlot = await HarmonySensorService.defaultVoiceSlotId() === slotId;
+    const simLabel = await HarmonySensorService.simLabelValue(slotId);
+    const state = HarmonySensorService.simDisplayState(operatorName, spn, simState, hasSim);
+
+    return {
+      state,
+      attributes: {
+        slot_id: slotId,
+        has_sim: hasSim,
+        is_active: isActive,
+        sim_state: simState,
+        card_type: cardType,
+        country_code: countryCode,
+        operator_numeric: operatorNumeric,
+        spn,
+        operator_name: operatorName,
+        operator_key: operatorKey,
+        sim_label_type: simLabel.simType,
+        sim_label_index: simLabel.index,
+        default_voice_slot: defaultVoiceSlot,
+        max_sim_count: baseAttributes.max_sim_count
+      }
+    };
+  }
+
+  private static callStateValue(value: call.CallState): string {
+    switch (value) {
+      case call.CallState.CALL_STATE_IDLE:
+        return 'idle';
+      case call.CallState.CALL_STATE_RINGING:
+        return 'ringing';
+      case call.CallState.CALL_STATE_OFFHOOK:
+        return 'offhook';
+      case call.CallState.CALL_STATE_ANSWERED:
+        return 'answered';
+      default:
+        return 'unknown';
+    }
+  }
+
+  private static phoneStateIcon(value: string): string {
+    if (value === 'ringing' || value === 'offhook' || value === 'answered') {
+      return 'mdi:phone-in-talk';
+    }
+    return 'mdi:phone';
+  }
+
+  private static simDisplayState(operatorName: string, spn: string, simState: string, hasSim: boolean | undefined): string {
+    // SPN from SIM usually contains the user-friendly carrier name
+    if (spn.length > 0) {
+      return spn;
+    }
+    if (operatorName.length > 0) {
+      return operatorName;
+    }
+    if (hasSim === false) {
+      return 'not_present';
+    }
+    return simState;
+  }
+
+  private static simStateValue(value: number | undefined): string {
+    switch (value) {
+      case sim.SimState.SIM_STATE_UNKNOWN:
+        return 'unknown';
+      case sim.SimState.SIM_STATE_NOT_PRESENT:
+        return 'not_present';
+      case sim.SimState.SIM_STATE_LOCKED:
+        return 'locked';
+      case sim.SimState.SIM_STATE_NOT_READY:
+        return 'not_ready';
+      case sim.SimState.SIM_STATE_READY:
+        return 'ready';
+      case sim.SimState.SIM_STATE_LOADED:
+        return 'loaded';
+      default:
+        return SENSOR_TEXT_UNKNOWN;
+    }
+  }
+
+  private static cardTypeValue(value: number | undefined): string {
+    switch (value) {
+      case sim.CardType.SINGLE_MODE_SIM_CARD:
+        return 'sim';
+      case sim.CardType.SINGLE_MODE_USIM_CARD:
+        return 'usim';
+      case sim.CardType.SINGLE_MODE_RUIM_CARD:
+        return 'ruim';
+      case sim.CardType.DUAL_MODE_CG_CARD:
+        return 'dual_mode_cg';
+      case sim.CardType.CT_NATIONAL_ROAMING_CARD:
+        return 'ct_national_roaming';
+      case sim.CardType.CU_DUAL_MODE_CARD:
+        return 'cu_dual_mode';
+      case sim.CardType.DUAL_MODE_TELECOM_LTE_CARD:
+        return 'dual_mode_telecom_lte';
+      case sim.CardType.DUAL_MODE_UG_CARD:
+        return 'dual_mode_ug';
+      case sim.CardType.SINGLE_MODE_ISIM_CARD:
+        return 'isim';
+      case sim.CardType.UNKNOWN_CARD:
+        return 'unknown';
+      default:
+        return SENSOR_TEXT_UNKNOWN;
+    }
+  }
+
+  private static async simLabelValue(slotId: number): Promise<SimLabelValue> {
+    try {
+      const label = await sim.getSimLabel(slotId);
+      return {
+        simType: label.simType === sim.SimType.ESIM ? 'esim' : 'psim',
+        index: label.index
+      };
+    } catch (_) {
+      return {
+        simType: SENSOR_TEXT_UNKNOWN,
+        index: undefined
+      };
+    }
+  }
+
+  private static maxSimCount(): number | undefined {
+    try {
+      return sim.getMaxSimCount();
+    } catch (_) {
+      return undefined;
+    }
+  }
+
+  private static async defaultVoiceSlotId(): Promise<number | undefined> {
+    try {
+      return await sim.getDefaultVoiceSlotId();
+    } catch (_) {
+      return undefined;
+    }
+  }
+
+  private static async readString(readValue: () => Promise<string>): Promise<string> {
+    try {
+      return (await readValue()).trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  private static async readBoolean(readValue: () => Promise<boolean>): Promise<boolean | undefined> {
+    try {
+      return await readValue();
+    } catch (_) {
+      return undefined;
+    }
+  }
+
+  private static async readNumber(readValue: () => Promise<number>): Promise<number | undefined> {
+    try {
+      return await readValue();
+    } catch (_) {
+      return undefined;
+    }
+  }
+
+  private static async mobileDataValues(prefs: SensorPreferenceSnapshot): Promise<MobileDataValues> {
+    const readEnabled = HarmonySensorService.isSensorEnabled('mobile_data', prefs);
+    const readRoaming = HarmonySensorService.isSensorEnabled('mobile_data_roaming', prefs);
+    if (!readEnabled && !readRoaming) {
+      return {};
+    }
+
+    const defaultSlotId = readRoaming ?
+      await HarmonySensorService.readNumber((): Promise<number> => cellularData.getDefaultCellularDataSlotId()) :
+      undefined;
+    const roamingEnabled = readRoaming && typeof defaultSlotId === 'number' && defaultSlotId >= 0 ?
+      await HarmonySensorService.readBoolean((): Promise<boolean> => cellularData.isCellularDataRoamingEnabled(defaultSlotId)) :
+      undefined;
+
+    return {
+      enabled: readEnabled ?
+        await HarmonySensorService.readBoolean((): Promise<boolean> => cellularData.isCellularDataEnabled()) :
+        undefined,
+      roamingEnabled,
+      defaultSlotId
+    };
+  }
+
   private static numberOrUnavailable(value: number | undefined): number | null {
     return typeof value === 'number' ? value : null;
+  }
+
+  private static booleanOrNull(value: boolean | undefined): boolean | null {
+    return typeof value === 'boolean' ? value : null;
+  }
+
+  private static async trafficStatsValues(prefs: SensorPreferenceSnapshot): Promise<TrafficStatsValues> {
+    const totalTx = await HarmonySensorService.trafficStatValue('total_tx_traffic', prefs, (): Promise<number> => {
+      return statistics.getAllTxBytes();
+    });
+    const totalRx = await HarmonySensorService.trafficStatValue('total_rx_traffic', prefs, (): Promise<number> => {
+      return statistics.getAllRxBytes();
+    });
+    const cellularTx = await HarmonySensorService.trafficStatValue('cellular_tx_traffic', prefs, (): Promise<number> => {
+      return statistics.getCellularTxBytes();
+    });
+    const cellularRx = await HarmonySensorService.trafficStatValue('cellular_rx_traffic', prefs, (): Promise<number> => {
+      return statistics.getCellularRxBytes();
+    });
+    return {
+      totalTx,
+      totalRx,
+      cellularTx,
+      cellularRx
+    };
+  }
+
+  private static async trafficStatValue(
+    sensorId: string,
+    prefs: SensorPreferenceSnapshot,
+    readValue: () => Promise<number>
+  ): Promise<number | undefined> {
+    if (!HarmonySensorService.isSensorEnabled(sensorId, prefs)) {
+      return undefined;
+    }
+    try {
+      return HarmonySensorService.bytesToGb(await readValue());
+    } catch (_) {
+      return undefined;
+    }
+  }
+
+  private static bytesToGb(value: number): number | undefined {
+    if (!Number.isFinite(value) || value < 0) {
+      return undefined;
+    }
+    return Math.round((value / 1073741824) * 1000) / 1000;
+  }
+
+  private static screenOffTimeoutValue(prefs: SensorPreferenceSnapshot, context?: common.Context): number | undefined {
+    if (!HarmonySensorService.isSensorEnabled('screen_off_timeout', prefs) || !context) {
+      return undefined;
+    }
+    try {
+      const value = Number(settings.getValueSync(context, settings.display.SCREEN_OFF_TIMEOUT, ''));
+      // System returns ms; convert to seconds
+      return Number.isFinite(value) ? Math.round(value / 1000) : undefined;
+    } catch (_) {
+      return undefined;
+    }
   }
 
   private static roundOptional(value: number | undefined, factor: number): number | undefined {
@@ -2660,6 +3003,28 @@ export class HarmonySensorService {
       }
     } catch (_) {
       return SENSOR_TEXT_UNAVAILABLE;
+    }
+  }
+
+  private static async screenLockSecureMode(prefs: SensorPreferenceSnapshot): Promise<boolean | null> {
+    if (!HarmonySensorService.isSensorEnabled('device_security', prefs)) {
+      return null;
+    }
+    try {
+      return await screenLock.isSecureMode();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  private static async screenLocked(prefs: SensorPreferenceSnapshot): Promise<boolean | null> {
+    if (!HarmonySensorService.isSensorEnabled('device_locked', prefs)) {
+      return null;
+    }
+    try {
+      return await screenLock.isScreenLocked();
+    } catch (_) {
+      return null;
     }
   }
 
@@ -2967,16 +3332,28 @@ export class HarmonySensorService {
     return trimmed.length > 0 ? trimmed : SENSOR_TEXT_UNAVAILABLE;
   }
 
-  private static productModelValue(): string {
-    const marketName = deviceInfo.marketName ? deviceInfo.marketName.trim() : '';
-    if (marketName.length > 0) {
-      return marketName;
+  private static async appMemorySize(prefs: SensorPreferenceSnapshot): Promise<number | undefined> {
+    if (!HarmonySensorService.isSensorEnabled('app_memory', prefs)) {
+      return undefined;
     }
-    const productAlias = deviceInfo.productModelAlias ? deviceInfo.productModelAlias.trim() : '';
-    if (productAlias.length > 0) {
-      return productAlias;
+    try {
+      // getPss() returns actual physical memory (PSS) in KB; convert to MB
+      const pssKb: bigint = hidebug.getPss();
+      return Number((Number(pssKb) / 1024).toFixed(1));
+    } catch (_) {
+      return undefined;
     }
-    return HarmonySensorService.nonEmptyText(deviceInfo.productModel ?? '');
+  }
+
+  private static async appProcessInformation(prefs: SensorPreferenceSnapshot): Promise<AppProcessSensorValue> {
+    if (!HarmonySensorService.isSensorEnabled('app_process_state', prefs)) {
+      return { state: SENSOR_TEXT_UNAVAILABLE, active: false };
+    }
+    const active = AppStorage.get<boolean>('appActive') ?? false;
+    return {
+      state: active ? 'foreground' : 'background',
+      active
+    };
   }
 
   private static powerIsActive(): boolean {
@@ -3020,12 +3397,44 @@ export class HarmonySensorService {
     }
   }
 
+  private static lastRebootTimeValue(): string {
+    try {
+      const bootTime = systemDateTime.getTime() - systemDateTime.getUptime(systemDateTime.TimeType.STARTUP);
+      if (!Number.isFinite(bootTime) || bootTime <= 0) {
+        return SENSOR_TEXT_UNAVAILABLE;
+      }
+      return HarmonySensorService.formatLocalMinute(new Date(bootTime));
+    } catch (_) {
+      return SENSOR_TEXT_UNAVAILABLE;
+    }
+  }
+
   private static currentTimeZoneValue(): string {
     try {
-      return Intl.DateTimeFormat().resolvedOptions().timeZone ?? SENSOR_TEXT_UNKNOWN;
+      return HarmonySensorService.nonEmptyText(systemDateTime.getTimezoneSync());
     } catch (_) {
-      return SENSOR_TEXT_UNKNOWN;
+      return SENSOR_TEXT_UNAVAILABLE;
     }
+  }
+
+  private static async doNotDisturbEnabled(prefs: SensorPreferenceSnapshot): Promise<boolean | null> {
+    if (!HarmonySensorService.isSensorEnabled('do_not_disturb_sensor', prefs)) {
+      return null;
+    }
+    try {
+      return await intelligentScene.isDoNotDisturbEnabled();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  private static formatLocalMinute(value: Date): string {
+    return `${value.getFullYear()}-${HarmonySensorService.padDatePart(value.getMonth() + 1)}-${HarmonySensorService.padDatePart(value.getDate())} ` +
+      `${HarmonySensorService.padDatePart(value.getHours())}:${HarmonySensorService.padDatePart(value.getMinutes())}`;
+  }
+
+  private static padDatePart(value: number): string {
+    return value < 10 ? `0${value}` : `${value}`;
   }
 
   private static containsText(values: string[], target: string): boolean {

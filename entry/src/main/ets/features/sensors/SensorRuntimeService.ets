@@ -47,7 +47,7 @@ export interface SensorRuntimeCallbacks {
   setLocationDiagnosticsJson: (value: string) => void;
   setLocationGeofenceStatus: (value: string) => void;
   setMessage: (value: string) => void;
-  bumpSwitchRevision: () => void;
+  refreshLiveRows: () => void;
   stringifyError: (err: Error | string | number | boolean | Object | ArrayBuffer) => string;
 }
 
@@ -70,6 +70,8 @@ export class SensorRuntimeService {
   private multimodalSensorSyncTimer: number = -1;
   private lastHardwareSensorSyncAt: number = 0;
   private lastMultimodalSensorSyncAt: number = 0;
+  private sensorStateRefreshing: boolean = false;
+  private sensorStateRefreshPending: boolean = false;
 
   static migratedFlags(): SensorRuntimeFlags {
     return {
@@ -135,7 +137,7 @@ export class SensorRuntimeService {
         if (!granted) {
           this.disableLocationFlags(callbacks);
           callbacks.setMessage(Localization.t('sensor_location_permission_denied'));
-          callbacks.bumpSwitchRevision();
+          callbacks.refreshLiveRows();
           onFinished?.();
           return;
         }
@@ -160,7 +162,7 @@ export class SensorRuntimeService {
       .catch((): void => {
         this.disableLocationFlags(callbacks);
         callbacks.setMessage(Localization.t('sensor_location_permission_failed'));
-        callbacks.bumpSwitchRevision();
+        callbacks.refreshLiveRows();
         onFinished?.();
       });
   }
@@ -180,7 +182,12 @@ export class SensorRuntimeService {
     }
   }
 
-  setLocationSharingMode(value: string, callbacks: SensorRuntimeCallbacks): void {
+  setLocationSharingMode(
+    value: string,
+    callbacks: SensorRuntimeCallbacks,
+    onChanged?: () => void,
+    onRejected?: () => void
+  ): void {
     if (value === 'never') {
       this.clearDeviceTrackerLocation('location_sharing_disabled', callbacks);
       const flags = callbacks.snapshot().flags;
@@ -198,11 +205,13 @@ export class SensorRuntimeService {
       });
       HaLocationRuntimeService.stop();
       this.stopLocationRuntimeIfUnused(callbacks);
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshLiveRows();
+      onChanged?.();
       this.syncPublicSensors('location_sent_mode_changed', callbacks);
       return;
     }
     if (value !== 'zone' && value !== 'exact') {
+      onRejected?.();
       return;
     }
     const permissionRequest = value === 'zone'
@@ -225,7 +234,8 @@ export class SensorRuntimeService {
             accurateLocationEnabled: false,
             directSensorIds: flags.directSensorIds
           });
-          callbacks.bumpSwitchRevision();
+          callbacks.refreshLiveRows();
+          onRejected?.();
           HaLocationRuntimeService.stop();
           this.stopLocationRuntimeIfUnused(callbacks);
           this.syncPublicSensors('location_sent_mode_changed', callbacks);
@@ -248,14 +258,19 @@ export class SensorRuntimeService {
         this.startLocationSensorsIfNeeded(callbacks);
         this.refreshLocationZones(false, callbacks);
         HaLocationRuntimeService.ensureRunning(callbacks.context(), 'location_sent_mode_changed');
-        this.syncCurrentLocation('location_sent_mode_changed', callbacks);
+        this.syncCurrentLocation('location_sent_mode_changed', callbacks, onChanged);
       });
   }
 
-  toggleBackgroundLocationSharing(callbacks: SensorRuntimeCallbacks): void {
+  toggleBackgroundLocationSharing(
+    callbacks: SensorRuntimeCallbacks,
+    desiredEnabled?: boolean,
+    onChanged?: () => void,
+    onRejected?: () => void
+  ): void {
     const snapshot = callbacks.snapshot();
     const flags = snapshot.flags;
-    const nextEnabled = !flags.locationBackgroundEnabled;
+    const nextEnabled = desiredEnabled ?? !flags.locationBackgroundEnabled;
     if (!nextEnabled) {
       callbacks.applyFlags({
         batterySOCEnabled: flags.batterySOCEnabled,
@@ -275,12 +290,14 @@ export class SensorRuntimeService {
         this.stopLocationGeofences(callbacks);
         HaLocationRuntimeService.stop();
       }
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshLiveRows();
+      onChanged?.();
       this.syncPublicSensors('sensor_preferences_changed', callbacks);
       return;
     }
     if (snapshot.locationSentMode !== 'exact' || !flags.accurateLocationEnabled) {
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshLiveRows();
+      onChanged?.();
       return;
     }
     this.backgroundLocationPermissionPending = true;
@@ -300,10 +317,16 @@ export class SensorRuntimeService {
             directSensorIds: current.directSensorIds
           });
           callbacks.setMessage(Localization.t('sensor_background_location_denied'));
-          callbacks.bumpSwitchRevision();
+          callbacks.refreshLiveRows();
+          onRejected?.();
           return;
         }
-        this.applyBackgroundLocationGranted(callbacks, 'sensor_preferences_changed');
+        this.applyBackgroundLocationGranted(callbacks, 'sensor_preferences_changed', onChanged);
+      })
+      .catch((): void => {
+        callbacks.setMessage(Localization.t('sensor_background_location_denied'));
+        callbacks.refreshLiveRows();
+        onRejected?.();
       });
   }
 
@@ -313,7 +336,7 @@ export class SensorRuntimeService {
     }
     this.backgroundLocationPermissionPending = false;
     if (!this.locationService.hasBackgroundLocationPermission()) {
-      callbacks.bumpSwitchRevision();
+      callbacks.refreshLiveRows();
       return;
     }
     this.applyBackgroundLocationGranted(callbacks, 'background_location_permission_return');
@@ -339,22 +362,27 @@ export class SensorRuntimeService {
     sensorId: string,
     enabled: boolean,
     callbacks: SensorRuntimeCallbacks,
-    onChanged: () => void
+    onChanged: () => void,
+    onRejected?: () => void
   ): void {
     if (!enabled) {
       if (this.setSensorEnabled(sensorId, false, callbacks)) {
         onChanged();
+      } else {
+        onRejected?.();
       }
       return;
     }
     if (sensorId === 'geocoded_location') {
-      this.enableGeocodedLocationSensor(callbacks, onChanged);
+      this.enableGeocodedLocationSensor(callbacks, onChanged, onRejected);
       return;
     }
     const permissions = this.requiredDirectSensorPermissions(sensorId);
     if (permissions.length === 0) {
       if (this.setSensorEnabled(sensorId, true, callbacks)) {
         onChanged();
+      } else {
+        onRejected?.();
       }
       return;
     }
@@ -362,16 +390,20 @@ export class SensorRuntimeService {
       .then((granted: boolean): void => {
         if (!granted) {
           callbacks.setMessage(Localization.t('sensor_permission_or_pending'));
-          callbacks.bumpSwitchRevision();
+          callbacks.refreshLiveRows();
+          onRejected?.();
           return;
         }
         if (this.setSensorEnabled(sensorId, true, callbacks)) {
           onChanged();
+        } else {
+          onRejected?.();
         }
       })
       .catch((): void => {
         callbacks.setMessage(Localization.t('sensor_permission_or_pending'));
-        callbacks.bumpSwitchRevision();
+        callbacks.refreshLiveRows();
+        onRejected?.();
       });
   }
 
@@ -439,6 +471,35 @@ export class SensorRuntimeService {
     }, delayMs);
   }
 
+  loadSensorStates(callbacks: SensorRuntimeCallbacks): Promise<void> {
+    return HarmonySensorService.loadSensorStates(callbacks.context());
+  }
+
+  refreshSensorStates(callbacks: SensorRuntimeCallbacks): void {
+    if (this.sensorStateRefreshing) {
+      this.sensorStateRefreshPending = true;
+      return;
+    }
+    const snapshot = callbacks.snapshot();
+    const prefs = SensorRuntimePresenter.preferences(snapshot.flags);
+    this.sensorStateRefreshing = true;
+    HarmonySensorService.refreshSensorStates(
+      prefs,
+      this.latestLocationSnapshot,
+      this.latestLocationEnabled,
+      SensorRuntimePresenter.locationSentMode(snapshot.locationSentMode),
+      callbacks.context()
+    ).catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+      callbacks.setMessage(callbacks.stringifyError(error));
+    }).finally((): void => {
+      this.sensorStateRefreshing = false;
+      if (this.sensorStateRefreshPending) {
+        this.sensorStateRefreshPending = false;
+        this.refreshSensorStates(callbacks);
+      }
+    });
+  }
+
   syncPublicSensors(reason: string, callbacks: SensorRuntimeCallbacks): void {
     const snapshot = callbacks.snapshot();
     if (!snapshot.registered) {
@@ -466,13 +527,21 @@ export class SensorRuntimeService {
     this.publicSensorSyncing = true;
     SensorRuntimeService.resolveAllowedBaseUrl(callbacks.context()).then((baseUrl: string) => {
       if (baseUrl.length === 0) {
-        const result: HarmonySensorSyncResult = {
-          registeredCount: 0,
-          updatedCount: 0,
-          locationUpdated: false,
-          locationSummary: 'blocked_by_connection_policy'
-        };
-        return Promise.resolve(result);
+        return HarmonySensorService.refreshSensorStates(
+          SensorRuntimePresenter.preferences(snapshot.flags),
+          this.latestLocationSnapshot,
+          this.latestLocationEnabled,
+          SensorRuntimePresenter.locationSentMode(snapshot.locationSentMode),
+          callbacks.context()
+        ).then((): HarmonySensorSyncResult => {
+          const result: HarmonySensorSyncResult = {
+            registeredCount: 0,
+            updatedCount: 0,
+            locationUpdated: false,
+            locationSummary: 'blocked_by_connection_policy'
+          };
+          return result;
+        });
       }
       return HarmonySensorService.syncPublicSensors(
         baseUrl,
@@ -484,7 +553,8 @@ export class SensorRuntimeService {
         this.currentLocationZoneName,
         SensorRuntimePresenter.locationSentMode(snapshot.locationSentMode),
         this.shouldSendLocationUpdate(reason),
-        reason
+        reason,
+        callbacks.context()
       );
     }).then((result): void => {
       if (LocationSensorCoordinator.shouldRecordDiagnostics(reason, result.locationSummary)) {
@@ -613,15 +683,21 @@ export class SensorRuntimeService {
     return SensorRuntimePresenter.enabledSensorCount(flags) > 0;
   }
 
-  private enableGeocodedLocationSensor(callbacks: SensorRuntimeCallbacks, onChanged: () => void): void {
+  private enableGeocodedLocationSensor(
+    callbacks: SensorRuntimeCallbacks,
+    onChanged: () => void,
+    onRejected?: () => void
+  ): void {
     this.locationService.requestApproximateLocationPermission(callbacks.context())
       .then((granted: boolean): void => {
         if (!granted) {
           callbacks.setMessage(Localization.t('sensor_location_permission_denied'));
-          callbacks.bumpSwitchRevision();
+          callbacks.refreshLiveRows();
+          onRejected?.();
           return;
         }
         if (!this.setSensorEnabled('geocoded_location', true, callbacks)) {
+          onRejected?.();
           return;
         }
         this.latestLocationEnabled = this.locationService.getLocationEnabled();
@@ -630,16 +706,14 @@ export class SensorRuntimeService {
       })
       .catch((): void => {
         callbacks.setMessage(Localization.t('sensor_location_permission_failed'));
-        callbacks.bumpSwitchRevision();
+        callbacks.refreshLiveRows();
+        onRejected?.();
       });
   }
 
   private requiredDirectSensorPermissions(sensorId: string): Permissions[] {
-    if (sensorId === 'bluetooth_state') {
+    if (sensorId === 'bluetooth_state' || sensorId === 'bluetooth_connection') {
       return ['ohos.permission.ACCESS_BLUETOOTH' as Permissions];
-    }
-    if (sensorId === 'steps_sensor') {
-      return ['ohos.permission.ACTIVITY_MOTION' as Permissions];
     }
     if (sensorId === 'harmony_operating_hand') {
       return ['ohos.permission.ACTIVITY_MOTION' as Permissions];
@@ -744,7 +818,7 @@ export class SensorRuntimeService {
     });
   }
 
-  private applyBackgroundLocationGranted(callbacks: SensorRuntimeCallbacks, reason: string): void {
+  private applyBackgroundLocationGranted(callbacks: SensorRuntimeCallbacks, reason: string, onChanged?: () => void): void {
     this.backgroundLocationPermissionPending = false;
     const current = callbacks.snapshot().flags;
     const sentMode = callbacks.snapshot().locationSentMode;
@@ -766,7 +840,8 @@ export class SensorRuntimeService {
     this.startLocationSensorsIfNeeded(callbacks);
     this.refreshLocationZones(false, callbacks);
     HaLocationRuntimeService.ensureRunning(callbacks.context(), reason);
-    callbacks.bumpSwitchRevision();
+    callbacks.refreshLiveRows();
+    onChanged?.();
     this.syncPublicSensors('sensor_preferences_changed', callbacks);
   }
 
@@ -786,12 +861,12 @@ export class SensorRuntimeService {
         if (snapshot) {
           this.handleLocationSnapshot(snapshot, reason, callbacks);
         }
-        callbacks.bumpSwitchRevision();
+        callbacks.refreshLiveRows();
         this.syncPublicSensors(reason, callbacks);
         onFinished?.();
       })
       .catch((): void => {
-        callbacks.bumpSwitchRevision();
+        callbacks.refreshLiveRows();
         this.syncPublicSensors(reason, callbacks);
         onFinished?.();
       });

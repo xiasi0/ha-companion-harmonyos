@@ -16,3 +16,10 @@ export enum SensorUpdateFrequency {
   FAST_WHILE_CHARGING = 'fast_charging',
   FAST_ALWAYS = 'fast_always'
 }
+
+export function normalizeSensorUpdateFrequency(value: string): string {
+  if (value === SensorUpdateFrequency.FAST_WHILE_CHARGING || value === SensorUpdateFrequency.FAST_ALWAYS) {
+    return value;
+  }
+  return SensorUpdateFrequency.NORMAL;
+}

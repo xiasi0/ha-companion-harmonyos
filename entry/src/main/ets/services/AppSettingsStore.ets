@@ -2,7 +2,7 @@
 // Values are scoped per active server when the setting is server-specific.
 import common from '@ohos.app.ability.common';
 import preferences from '@ohos.data.preferences';
-import { SensorUpdateFrequency } from '../features/sensors/SensorModels';
+import { normalizeSensorUpdateFrequency, SensorUpdateFrequency } from '../features/sensors/SensorModels';
 import type { SensorRuntimeFlags } from '../features/sensors/SensorRuntimePresenter';
 import { HomeNetworkService, HomeNetworkSettings } from './HomeNetworkService';
 import { AppSettingsKeys, AppSettingsScopedKeys } from './AppSettingsKeys';
@@ -77,6 +77,12 @@ export class AppSettingsStore {
   static async saveLocationSentMode(context: common.Context, value: string): Promise<void> {
     const pref = await AppSettingsStore.getPreferences(context);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_SENT_MODE, AppSettingsStore.normalizeLocationSentMode(value));
+    await AppSettingsStore.flush(pref);
+  }
+
+  static async saveSensorUpdateFrequency(context: common.Context, value: string): Promise<void> {
+    const pref = await AppSettingsStore.getPreferences(context);
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SENSOR_UPDATE_FREQUENCY, AppSettingsStore.normalizeSensorUpdateFrequency(value));
     await AppSettingsStore.flush(pref);
   }
 
@@ -196,7 +202,12 @@ export class AppSettingsStore {
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_DIAGNOSTICS_JSON, AppStorage.get<string>('locationDiagnosticsJson') ?? '');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_GEOFENCE_STATUS, AppStorage.get<string>('locationGeofenceStatus') ?? 'not_started');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SENSOR_DEFAULT_MIGRATION_VERSION, AppStorage.get<number>('sensorDefaultMigrationVersion') ?? 4);
-    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SENSOR_UPDATE_FREQUENCY, AppStorage.get<string>('sensorUpdateFrequency') ?? SensorUpdateFrequency.NORMAL);
+    await AppSettingsStore.putActiveValue(
+      context,
+      pref,
+      AppSettingsKeys.SENSOR_UPDATE_FREQUENCY,
+      AppSettingsStore.normalizeSensorUpdateFrequency(AppStorage.get<string>('sensorUpdateFrequency') ?? SensorUpdateFrequency.NORMAL)
+    );
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.FULL_SCREEN_ENABLED, AppStorage.get<boolean>('fullScreenEnabled') ?? false);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SCREEN_ORIENTATION, AppStorage.get<string>('screenOrientation') ?? 'system');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.KEEP_SCREEN_ON_ENABLED, AppStorage.get<boolean>('keepScreenOnEnabled') ?? false);
@@ -326,7 +337,9 @@ export class AppSettingsStore {
     );
     AppSettingsStore.setAppStorage<string>(
       'sensorUpdateFrequency',
-      AppSettingsValueCodec.stringField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.SENSOR_UPDATE_FREQUENCY, SensorUpdateFrequency.NORMAL))
+      AppSettingsStore.normalizeSensorUpdateFrequency(
+        AppSettingsValueCodec.stringField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.SENSOR_UPDATE_FREQUENCY, SensorUpdateFrequency.NORMAL))
+      )
     );
     AppSettingsStore.setAppStorage<boolean>(
       'fullScreenEnabled',
@@ -435,6 +448,13 @@ export class AppSettingsStore {
       return value;
     }
     return 'default';
+  }
+
+  static normalizeSensorUpdateFrequency(value: preferences.ValueType | string): string {
+    if (typeof value !== 'string') {
+      return SensorUpdateFrequency.NORMAL;
+    }
+    return normalizeSensorUpdateFrequency(value);
   }
 
   private static normalizeSecureConnectionChoice(value: preferences.ValueType | string): string {

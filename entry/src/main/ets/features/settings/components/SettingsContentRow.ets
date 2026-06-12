@@ -50,10 +50,9 @@ export struct SettingsContentRow {
       .alignItems(HorizontalAlign.Start)
 
       if (this.showArrow) {
-        Text('>')
+        SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(24)
-          .fontColor(HaTheme.textMuted(this.appResolvedDark))
-          .textAlign(TextAlign.Center)
+          .fontColor([HaTheme.textMuted(this.appResolvedDark)])
           .width(56)
           .height(56)
       }

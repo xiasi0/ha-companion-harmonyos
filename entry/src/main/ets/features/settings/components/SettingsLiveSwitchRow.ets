@@ -1,36 +1,14 @@
-import { SettingsCapability, SettingsItem, SettingsItemType } from '../../../models/SettingsItem';
+import { SettingsItem } from '../../../models/SettingsItem';
 import { HaColors } from '../../../shared/constants/HaStyle';
-import { Localization } from '../../../shared/i18n/Localization';
 import { HaTheme } from '../../../shared/theme/HaTheme';
+import { SettingsLiveRowState, SettingsLiveStateStore } from '../../../services/SettingsLiveStateStore';
 import { SettingsIcon } from './SettingsIcon';
 import { SettingsUiConfig } from './SettingsUiConfig';
 
 @Component
-export struct SettingsSwitchRow {
-  @Prop
-  isOn: boolean = false;
-  @Prop
-  icon: string = '';
-  @Prop
-  title: string = '';
-  @Prop
-  summary: string = '';
-  @Prop
-  item: SettingsItem = {
-    type: SettingsItemType.SWITCH,
-    icon: '',
-    title: '',
-    summary: '',
-    status: Localization.t('settings_switch_pending'),
-    body: '',
-    action: '',
-    actionId: '',
-    badge: '',
-    isOn: false,
-    capability: SettingsCapability.NONE
-  };
-  @Prop
-  active: boolean = false;
+export struct SettingsLiveSwitchRow {
+  @ObjectLink state: SettingsLiveRowState;
+  @Prop active: boolean = false;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   @State private isTouched: boolean = false;
   @State private lastToggleAt: number = 0;
@@ -54,18 +32,18 @@ export struct SettingsSwitchRow {
 
   build() {
     Row() {
-      SettingsIcon({ label: this.icon })
+      SettingsIcon({ label: this.state.icon })
 
       Column({ space: 2 }) {
-        Text(this.title)
+        Text(this.state.title)
           .fontSize(16)
           .fontColor(HaTheme.textPrimary(this.appResolvedDark))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
 
-        if (this.summary.length > 0) {
-          Text(this.summary)
+        if (this.state.summary.length > 0) {
+          Text(this.state.summary)
             .fontSize(14)
             .fontColor(HaTheme.textSecondary(this.appResolvedDark))
             .lineHeight(20)
@@ -76,7 +54,7 @@ export struct SettingsSwitchRow {
       }
       .layoutWeight(1)
 
-      Toggle({ type: ToggleType.Switch, isOn: this.isOn })
+      Toggle({ type: ToggleType.Switch, isOn: this.state.isOn })
         .width(36)
         .height(20)
         .selectedColor(HaColors.SETTINGS_SWITCH_THUMB_ON)
@@ -84,7 +62,7 @@ export struct SettingsSwitchRow {
           if (!this.acceptToggle()) {
             return;
           }
-          this.onOpen(this.item);
+          this.onOpen(SettingsLiveStateStore.toItem(this.state));
         })
     }
     .width('100%')

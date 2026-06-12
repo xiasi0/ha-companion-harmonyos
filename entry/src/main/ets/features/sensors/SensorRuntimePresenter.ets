@@ -119,7 +119,7 @@ export class SensorRuntimePresenter {
           icon: sensor.icon,
           enabled: HarmonySensorService.isSupportedPublicSensor(sensor.id) ?
             HarmonySensorService.isSensorEnabled(sensor.id, prefs) : false,
-          summary: HarmonySensorService.sensorSummary(sensor.id, prefs)
+          summary: sensor.summary
         };
         return mapped;
       });

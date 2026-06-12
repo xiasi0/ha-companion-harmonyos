@@ -41,9 +41,6 @@ export class AppStorageDefaults {
     AppStorage.setOrCreate<string>('locationGeofenceStatus', AppStorage.get<string>('locationGeofenceStatus') ?? 'not_started');
     AppStorage.setOrCreate<string>('lastUpdateTrigger', AppStorage.get<string>('lastUpdateTrigger') ?? 'unknown');
     AppStorage.setOrCreate<boolean>('appActive', AppStorage.get<boolean>('appActive') ?? false);
-    AppStorage.setOrCreate<string>('sensorHardwareValuesJson', AppStorage.get<string>('sensorHardwareValuesJson') ?? '{}');
-    AppStorage.setOrCreate<string>('sensorMultimodalValuesJson', AppStorage.get<string>('sensorMultimodalValuesJson') ?? '{}');
-    AppStorage.setOrCreate<string>('sensorGeocodedLocationJson', AppStorage.get<string>('sensorGeocodedLocationJson') ?? '{}');
     AppStorage.setOrCreate<number>('sensorDefaultMigrationVersion', AppStorage.get<number>('sensorDefaultMigrationVersion') ?? 0);
     AppStorage.setOrCreate<string>('sensorUpdateFrequency', AppStorage.get<string>('sensorUpdateFrequency') ?? SensorUpdateFrequency.NORMAL);
     AppStorage.setOrCreate<boolean>('fullScreenEnabled', AppStorage.get<boolean>('fullScreenEnabled') ?? false);

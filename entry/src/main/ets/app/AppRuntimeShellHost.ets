@@ -65,6 +65,7 @@ const EMPTY_ONBOARDING_ACTIONS: OnboardingRuntimeActions = {
 
 const EMPTY_SETTINGS_SNAPSHOT: SettingsRuntimeSnapshot = {
   route: 0,
+  refreshTick: 0,
   companionSections: [],
   serverSections: [],
   serverTitle: '',
@@ -72,7 +73,6 @@ const EMPTY_SETTINGS_SNAPSHOT: SettingsRuntimeSnapshot = {
   selectedKey: '',
   companionScrollOffset: 0,
   serverScrollOffset: 0,
-  switchRevision: 0,
   showChoiceDialog: false,
   choiceDialogKey: '',
   screenOrientation: 'system',
@@ -143,8 +143,7 @@ const EMPTY_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   profile: new EmptyDeviceProfileInfo(),
   sensorGroups: [],
   sensorUpdateFrequency: 'normal',
-  contentMaxWidth: 720,
-  switchRevision: 0
+  contentMaxWidth: 720
 };
 
 const EMPTY_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
@@ -155,7 +154,7 @@ const EMPTY_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSensorHelp: () => {},
   onSensorSearch: () => {},
   onSensorFilter: () => {},
-  onToggleSensor: () => {},
+  onToggleSensor: (_id: string, _enabled: boolean): void => {},
   onSelectSensorFrequency: () => {}
 };
 
@@ -271,7 +270,6 @@ export struct AppRuntimeShellHost {
       overlaySnapshot: this.overlaySnapshot,
       route: this.settingsSnapshot.route,
       detailKey: this.settingsSnapshot.detailKey,
-      switchRevision: this.settingsSnapshot.switchRevision,
       actions: this.settingsActions,
       overlayActions: this.overlayActions
     })

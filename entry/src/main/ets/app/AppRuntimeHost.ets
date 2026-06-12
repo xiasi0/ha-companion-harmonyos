@@ -26,6 +26,7 @@ import { SensorGroup, SensorUpdateFrequency } from '../features/sensors/SensorMo
 import { SensorRuntimeFlags } from '../features/sensors/SensorRuntimePresenter';
 import { SensorRuntimeService, SensorRuntimeSnapshot } from '../features/sensors/SensorRuntimeService';
 import { SensorRuntimeBridgeService } from '../features/sensors/SensorRuntimeBridgeService';
+import { SensorSettingsLiveStateStore } from '../services/SensorSettingsLiveStateStore';
 import { CardFormService } from '../features/cards/CardFormService';
 import { CardEntityDetailLaunchService } from '../features/cards/CardEntityDetailLaunchService';
 import { MobileAppRegistrationService } from '../features/registration/MobileAppRegistrationService';
@@ -41,6 +42,7 @@ import { AppSettingsStore } from '../services/AppSettingsStore';
 import { ExternalBusService } from '../services/ExternalBusService';
 import { HaConnectionPolicyService } from '../services/HaConnectionPolicyService';
 import { SystemEventService } from '../services/SystemEventService';
+import { HarmonySensorService } from '../services/HarmonySensorService';
 import {
   FrontendUrlResolution,
   HomeNetworkSettings,
@@ -51,9 +53,11 @@ import { NetworkService } from '../services/NetworkService';
 import { AppBackDispatcher } from './AppBackDispatcher';
 import { AppRoute } from './AppRoute';
 import { AppRoutePolicy } from './AppRoutePolicy';
+import { AppRuntimeOverlayActions, AppRuntimeOverlaySnapshot } from './AppRuntimeOverlayModels';
 import { AppRuntimeOverlayService } from './AppRuntimeOverlayService';
 import { AppWebRuntimeService } from './AppWebRuntimeService';
 import { AppSettingsRuntimeService } from './AppSettingsRuntimeService';
+import { SettingsRuntimeActions } from '../features/settings/SettingsRuntimeCoordinatorModels';
 import { AppOnboardingRuntimeService } from './AppOnboardingRuntimeService';
 import { AppRuntimeShellHost } from './AppRuntimeShellHost';
 import { AppRuntimeCallbackFactory } from './AppRuntimeCallbackFactory';
@@ -101,21 +105,21 @@ export struct AppRuntimeHost {
   @StorageLink('appLockHomeBypass') @Watch('onAppSettingChanged') appLockHomeBypass: boolean = false;
   @StorageLink('sessionTimeout') @Watch('onAppSettingChanged') sessionTimeout: string = '0';
   @StorageLink('websocketMode') @Watch('onAppSettingChanged') websocketMode: string = 'system';
-  @StorageLink('sensorBatterySOCEnabled') @Watch('onAppSettingChanged') sensorBatterySOCEnabled: boolean = false;
-  @StorageLink('sensorChargingStatusEnabled') @Watch('onAppSettingChanged') sensorChargingStatusEnabled: boolean = false;
-  @StorageLink('sensorPluggedTypeEnabled') @Watch('onAppSettingChanged') sensorPluggedTypeEnabled: boolean = false;
-  @StorageLink('sensorBearerTypesEnabled') @Watch('onAppSettingChanged') sensorBearerTypesEnabled: boolean = false;
-  @StorageLink('sensorLastUpdateTriggerEnabled') @Watch('onAppSettingChanged') sensorLastUpdateTriggerEnabled: boolean = false;
-  @StorageLink('sensorLocationEnabled') @Watch('onAppSettingChanged') sensorLocationEnabled: boolean = false;
-  @StorageLink('sensorZoneBackgroundEnabled') @Watch('onAppSettingChanged') sensorZoneBackgroundEnabled: boolean = false;
-  @StorageLink('sensorAccurateLocationEnabled') @Watch('onAppSettingChanged') sensorAccurateLocationEnabled: boolean = false;
+  @StorageLink('sensorBatterySOCEnabled') @Watch('onSensorPreferenceChanged') sensorBatterySOCEnabled: boolean = false;
+  @StorageLink('sensorChargingStatusEnabled') @Watch('onSensorPreferenceChanged') sensorChargingStatusEnabled: boolean = false;
+  @StorageLink('sensorPluggedTypeEnabled') @Watch('onSensorPreferenceChanged') sensorPluggedTypeEnabled: boolean = false;
+  @StorageLink('sensorBearerTypesEnabled') @Watch('onSensorPreferenceChanged') sensorBearerTypesEnabled: boolean = false;
+  @StorageLink('sensorLastUpdateTriggerEnabled') @Watch('onSensorPreferenceChanged') sensorLastUpdateTriggerEnabled: boolean = false;
+  @StorageLink('sensorLocationEnabled') @Watch('onSensorPreferenceChanged') sensorLocationEnabled: boolean = false;
+  @StorageLink('sensorZoneBackgroundEnabled') @Watch('onSensorPreferenceChanged') sensorZoneBackgroundEnabled: boolean = false;
+  @StorageLink('sensorAccurateLocationEnabled') @Watch('onSensorPreferenceChanged') sensorAccurateLocationEnabled: boolean = false;
   @StorageLink('sensorDirectEnabledJson') @Watch('onSensorDirectEnabledChanged') sensorDirectEnabledJson: string = '[]';
   @StorageLink('locationHistoryJson') locationHistoryJson: string = '[]';
-  @StorageLink('locationSentMode') @Watch('onAppSettingChanged') locationSentMode: string = 'never';
+  @StorageLink('locationSentMode') @Watch('onLocationSentModeChanged') locationSentMode: string = 'never';
   @StorageLink('locationDiagnosticsJson') locationDiagnosticsJson: string = '';
   @StorageLink('locationGeofenceStatus') locationGeofenceStatus: string = 'not_started';
   @StorageLink('sensorDefaultMigrationVersion') @Watch('onAppSettingChanged') sensorDefaultMigrationVersion: number = 0;
-  @StorageLink('sensorUpdateFrequency') @Watch('onAppSettingChanged') sensorUpdateFrequency: string = SensorUpdateFrequency.NORMAL;
+  @StorageLink('sensorUpdateFrequency') @Watch('onSensorUpdateFrequencyChanged') sensorUpdateFrequency: string = SensorUpdateFrequency.NORMAL;
   @StorageLink('fullScreenEnabled') @Watch('onAppSettingChanged') fullScreenEnabled: boolean = false;
   @StorageLink('screenOrientation') @Watch('onAppSettingChanged') screenOrientation: string = 'system';
   @StorageLink('keepScreenOnEnabled') @Watch('onAppSettingChanged') keepScreenOnEnabled: boolean = false;
@@ -208,9 +212,17 @@ export struct AppRuntimeHost {
   @State onboardingBackTarget: number = AppRoute.WELCOME;
   @State addingServerFromSettings: boolean = false;
   private homeNetworkRefreshSeq: number = 0;
+  private overlaySensorGroupsCacheKey: string = '';
+  private overlaySensorGroupsCache: SensorGroup[] = [];
+  private overlaySnapshotCacheKey: string = '';
+  private overlaySnapshotCache: AppRuntimeOverlaySnapshot | undefined = undefined;
+  private overlayActionsCache: AppRuntimeOverlayActions | undefined = undefined;
+  private settingsActionsCache: SettingsRuntimeActions | undefined = undefined;
+  private applyingSensorFlags: boolean = false;
+  private lastSensorPreferenceKey: string = '';
   @State viewportWidth: number = AppDeviceRuntimeService.defaultViewportWidth();
   @State viewportHeight: number = 0;
-  @State settingsRevision: number = 0;
+  @State settingsRefreshTick: number = 0;
   @State companionSettingsScrollOffset: number = 0;
   @State serverSettingsScrollOffset: number = 0;
   @State showCompanionChoiceDialog: boolean = false;
@@ -326,22 +338,73 @@ export struct AppRuntimeHost {
       return;
     }
     this.persistCurrentAppSettings();
-    this.bumpSettingsRevision();
+    this.refreshSettingsState();
     this.refreshHomeNetworkStatus();
     this.refreshPeriodicSensorTimer();
   }
 
   private onSensorDirectEnabledChanged(): void {
+    this.onSensorPreferenceChanged();
+  }
+
+  private onSensorPreferenceChanged(): void {
     if (this.restoringAppSettings) {
       return;
     }
+    if (this.applyingSensorFlags) {
+      return;
+    }
+    this.applySensorPreferenceEffects(SensorRuntimeBridgeService.flags(this));
+  }
+
+  private onLocationSentModeChanged(): void {
+    if (this.restoringAppSettings) {
+      return;
+    }
+    this.refreshSensorLiveRows();
     this.systemEventService.refreshSensorEventSubscriptions();
-    AppSettingsStore.saveSensorFlags(this.context(), SensorRuntimeBridgeService.flags(this)).catch((): void => {});
     this.refreshPeriodicSensorTimer();
   }
 
+  private onSensorUpdateFrequencyChanged(): void {
+    if (this.restoringAppSettings) {
+      return;
+    }
+    AppSettingsStore.saveSensorUpdateFrequency(this.context(), this.sensorUpdateFrequency).catch((): void => {});
+    this.refreshSettingsState();
+    this.refreshPeriodicSensorTimer();
+  }
+
+  private applySensorPreferenceEffects(flags: SensorRuntimeFlags): void {
+    const key = this.sensorPreferenceKey(flags);
+    if (this.lastSensorPreferenceKey === key) {
+      return;
+    }
+    this.lastSensorPreferenceKey = key;
+    if (!SensorSettingsLiveStateStore.hasPendingChecked()) {
+      this.refreshSensorLiveRows();
+    }
+    this.systemEventService.refreshSensorEventSubscriptions();
+    AppSettingsStore.saveSensorFlags(this.context(), flags).catch((): void => {});
+    this.refreshPeriodicSensorTimer();
+  }
+
+  private sensorPreferenceKey(flags: SensorRuntimeFlags): string {
+    return [
+      flags.batterySOCEnabled ? '1' : '0',
+      flags.chargingStatusEnabled ? '1' : '0',
+      flags.pluggedTypeEnabled ? '1' : '0',
+      flags.bearerTypesEnabled ? '1' : '0',
+      flags.lastUpdateTriggerEnabled ? '1' : '0',
+      flags.locationBackgroundEnabled ? '1' : '0',
+      flags.zoneBackgroundEnabled ? '1' : '0',
+      flags.accurateLocationEnabled ? '1' : '0',
+      flags.directSensorIds.join(',')
+    ].join('|');
+  }
+
   private onNotificationUnreadCountChanged(): void {
-    this.bumpSettingsRevision();
+    this.refreshSettingsState();
   }
 
   async restoreInstanceAppSettingsState(): Promise<void> {
@@ -510,6 +573,8 @@ export struct AppRuntimeHost {
     }
     this.firstAppearHandled = true;
     this.restoreInstanceAppSettingsState()
+      .then((): Promise<void> => this.loadSensorStates())
+      .then((): void => this.refreshSensorLiveRows())
       .then((): Promise<void> => this.refreshHomeNetworkStatusNow())
       .catch((): void => {})
       .finally((): void => {
@@ -964,7 +1029,7 @@ export struct AppRuntimeHost {
 
   shouldLockApp(): boolean { return AppLockRuntimeService.shouldLock(this.appLockEnabled, this.isSignedIn()); }
 
-  bumpSettingsRevision(): void { this.settingsRevision += 1; }
+  refreshSettingsState(): void { this.settingsRefreshTick += 1; }
 
   ignoreAppLockTransitions(durationMs: number = 8000): void { this.appLockIgnoreTransitionsUntil = Date.now() + durationMs; }
 
@@ -1432,7 +1497,7 @@ export struct AppRuntimeHost {
               this.selectedServerSettingsName = nextSelectedName;
               this.selectedServerSettingsInfo = nextSelectedInfo;
               this.selectedServerSettingsActive = nextSelectedActive;
-              this.bumpSettingsRevision();
+              this.refreshSettingsState();
             }
             return active;
           });
@@ -1656,12 +1721,12 @@ export struct AppRuntimeHost {
 
   openCompanionChoiceDialog(key: string): void {
     SettingsChoiceRuntimeService.openDialog(this, key);
-    this.bumpSettingsRevision();
+    this.refreshSettingsState();
   }
 
   closeCompanionChoiceDialog(): void {
     SettingsChoiceRuntimeService.closeDialog(this);
-    this.bumpSettingsRevision();
+    this.refreshSettingsState();
   }
 
   selectCompanionChoice(value: string): void { SettingsChoiceRuntimeService.selectCompanionChoice(this, AppRuntimeCallbackFactory.settingsChoice(this), value); }
@@ -1669,9 +1734,13 @@ export struct AppRuntimeHost {
   selectSettingsDetailChoice(key: string, value: string): void { SettingsChoiceRuntimeService.selectSettingsDetailChoice(this, AppRuntimeCallbackFactory.settingsChoice(this), key, value); }
 
   applySensorFlags(flags: SensorRuntimeFlags): void {
-    SensorRuntimeBridgeService.applyFlags(this, flags);
-    this.systemEventService.refreshSensorEventSubscriptions();
-    AppSettingsStore.saveSensorFlags(this.context(), flags).catch((): void => {});
+    this.applyingSensorFlags = true;
+    try {
+      SensorRuntimeBridgeService.applyFlags(this, flags);
+    } finally {
+      this.applyingSensorFlags = false;
+    }
+    this.applySensorPreferenceEffects(flags);
   }
 
   setLocationHistoryJsonValue(value: string): void {
@@ -1711,20 +1780,126 @@ export struct AppRuntimeHost {
 
   syncPublicSensors(reason: string): void { this.sensorRuntimeService.syncPublicSensors(reason, AppRuntimeCallbackFactory.sensors(this)); }
 
-  toggleSensor(sensorId: string): void {
-    SensorRuntimeBridgeService.toggleSensor(
+  private loadSensorStates(): Promise<void> {
+    return this.sensorRuntimeService.loadSensorStates(AppRuntimeCallbackFactory.sensors(this));
+  }
+
+  private refreshSensorStates(): void {
+    this.sensorRuntimeService.refreshSensorStates(AppRuntimeCallbackFactory.sensors(this));
+  }
+
+  refreshSensorLiveRows(): void {
+    SensorSettingsLiveStateStore.applySensorGroups(this.overlaySensorGroups());
+  }
+
+  toggleSensor(sensorId: string, enabled?: boolean): void {
+    const flags = SensorRuntimeBridgeService.flags(this);
+    let currentEnabled = false;
+    let nextEnabled = false;
+    if (HarmonySensorService.isSupportedPublicSensor(sensorId)) {
+      currentEnabled = this.sensorRuntimeService.isSensorEnabled(sensorId, flags);
+      nextEnabled = enabled ?? !currentEnabled;
+      SensorSettingsLiveStateStore.beginPendingChecked(sensorId, nextEnabled);
+    }
+    const handled = SensorRuntimeBridgeService.toggleSensor(
       this.sensorRuntimeService,
       this,
       sensorId,
+      enabled,
       AppRuntimeCallbackFactory.sensors(this),
       (): void => {
-        this.bumpSettingsRevision();
-        this.syncPublicSensors('sensor_preferences_changed');
+        setTimeout((): void => {
+          SensorSettingsLiveStateStore.commitPendingChecked(
+            sensorId,
+            this.sensorRuntimeService.isSensorEnabled(sensorId, SensorRuntimeBridgeService.flags(this))
+          );
+          this.refreshSensorLiveRows();
+          this.refreshSensorStates();
+          this.syncPublicSensors('sensor_preferences_changed');
+        }, 300);
+      },
+      (): void => {
+        SensorSettingsLiveStateStore.revertPendingChecked(sensorId, currentEnabled);
+        this.refreshSensorLiveRows();
       }
     );
+    if (!handled) {
+      SensorSettingsLiveStateStore.revertPendingChecked(sensorId, currentEnabled);
+    }
   }
 
-  overlaySensorGroups(): SensorGroup[] { return SensorRuntimeBridgeService.sensorGroups(this.sensorRuntimeService, this); }
+  overlaySensorGroups(): SensorGroup[] {
+    const cacheKey = this.overlaySensorGroupsKey();
+    if (this.overlaySensorGroupsCacheKey === cacheKey) {
+      return this.overlaySensorGroupsCache;
+    }
+    this.overlaySensorGroupsCacheKey = cacheKey;
+    this.overlaySensorGroupsCache = SensorRuntimeBridgeService.sensorGroups(this.sensorRuntimeService, this);
+    return this.overlaySensorGroupsCache;
+  }
+
+  private overlaySensorGroupsKey(): string {
+    const flags = SensorRuntimeBridgeService.flags(this);
+    return [
+      this.appLanguage,
+      flags.batterySOCEnabled ? '1' : '0',
+      flags.chargingStatusEnabled ? '1' : '0',
+      flags.pluggedTypeEnabled ? '1' : '0',
+      flags.bearerTypesEnabled ? '1' : '0',
+      flags.lastUpdateTriggerEnabled ? '1' : '0',
+      flags.locationBackgroundEnabled ? '1' : '0',
+      flags.zoneBackgroundEnabled ? '1' : '0',
+      flags.accurateLocationEnabled ? '1' : '0',
+      flags.directSensorIds.join(',')
+    ].join('|');
+  }
+
+  private overlaySnapshot(): AppRuntimeOverlaySnapshot {
+    const cacheKey = this.overlaySnapshotKey();
+    if (this.overlaySnapshotCache && this.overlaySnapshotCacheKey === cacheKey) {
+      return this.overlaySnapshotCache;
+    }
+    this.overlaySnapshotCacheKey = cacheKey;
+    this.overlaySnapshotCache = AppRuntimeOverlayService.snapshot(this);
+    return this.overlaySnapshotCache;
+  }
+
+  private overlaySnapshotKey(): string {
+    const profile = this.currentDeviceProfile();
+    const sensorGroups = this.overlaySensorGroups();
+    return [
+      this.step.toString(),
+      this.haBaseUrl,
+      this.haAccessToken,
+      this.haRefreshToken,
+      this.assistStartListeningSignal.toString(),
+      this.assistStartListeningRequested ? '1' : '0',
+      profile.widthVp.toString(),
+      profile.heightVp.toString(),
+      profile.formFactor.toString(),
+      profile.sizeClass.toString(),
+      profile.contentMaxWidth.toString(),
+      profile.settingsMaxWidth.toString(),
+      this.sensorUpdateFrequency,
+      this.settingsContentMaxWidth().toString(),
+      this.overlaySensorGroupsCacheKey,
+      sensorGroups.length.toString()
+    ].join('|');
+  }
+
+  private overlayActions(): AppRuntimeOverlayActions {
+    if (!this.overlayActionsCache) {
+      this.overlayActionsCache = AppRuntimeOverlayService.actions(this);
+    }
+    return this.overlayActionsCache;
+  }
+
+  private settingsActions(): SettingsRuntimeActions {
+    if (!this.settingsActionsCache) {
+      this.settingsActionsCache = AppSettingsRuntimeService.actions(this);
+    }
+    return this.settingsActionsCache;
+  }
 
   openAssistSettings(): void { this.step = 13; }
 
@@ -1748,6 +1923,9 @@ export struct AppRuntimeHost {
     if (actionId.startsWith('switch_server:')) {
       this.switchServer(actionId.substring('switch_server:'.length));
       return;
+    }
+    if (actionId === 'open_sensor_settings' || actionId === 'open_sensor_update_frequency') {
+      this.refreshSensorStates();
     }
     SettingsInteractionRuntimeService.handleSettingsAction(actionId, this, AppRuntimeCallbackFactory.settingsInteraction(this));
   }
@@ -1774,9 +1952,9 @@ export struct AppRuntimeHost {
       onboardingSnapshot: AppOnboardingRuntimeService.snapshot(this),
       onboardingActions: AppOnboardingRuntimeService.actions(this),
       settingsSnapshot: AppSettingsRuntimeService.snapshot(this),
-      settingsActions: AppSettingsRuntimeService.actions(this),
-      overlaySnapshot: AppRuntimeOverlayService.snapshot(this),
-      overlayActions: AppRuntimeOverlayService.actions(this),
+      settingsActions: this.settingsActions(),
+      overlaySnapshot: this.overlaySnapshot(),
+      overlayActions: this.overlayActions(),
       webSnapshot: AppWebRuntimeService.snapshot(this),
       webActions: AppWebRuntimeService.actions(this),
       webController: this.webCtrl,

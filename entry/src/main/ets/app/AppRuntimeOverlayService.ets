@@ -1,6 +1,6 @@
 import { DeviceProfileInfo } from '../shared/device/DeviceProfile';
 import { Localization } from '../shared/i18n/Localization';
-import { SensorGroup } from '../features/sensors/SensorModels';
+import { normalizeSensorUpdateFrequency, SensorGroup } from '../features/sensors/SensorModels';
 import { AppRoute } from './AppRoute';
 import { AppRuntimeOverlayActions, AppRuntimeOverlaySnapshot } from './AppRuntimeOverlayModels';
 
@@ -12,7 +12,6 @@ export interface AppRuntimeOverlayState {
   assistStartListeningSignal: number;
   assistStartListeningRequested: boolean;
   sensorUpdateFrequency: string;
-  settingsRevision: number;
 }
 
 export interface AppRuntimeOverlayTarget extends AppRuntimeOverlayState {
@@ -22,8 +21,7 @@ export interface AppRuntimeOverlayTarget extends AppRuntimeOverlayState {
   settingsContentMaxWidth(): number;
   overlaySensorGroups(): SensorGroup[];
   handleBackNavigation(): boolean;
-  toggleSensor(sensorId: string): void;
-  bumpSettingsRevision(): void;
+  toggleSensor(sensorId: string, enabled?: boolean): void;
 }
 
 export class AppRuntimeOverlayService {
@@ -39,8 +37,7 @@ export class AppRuntimeOverlayService {
       profile: profile,
       sensorGroups: target.overlaySensorGroups(),
       sensorUpdateFrequency: target.sensorUpdateFrequency,
-      contentMaxWidth: target.settingsContentMaxWidth(),
-      switchRevision: target.settingsRevision
+      contentMaxWidth: target.settingsContentMaxWidth()
     };
   }
 
@@ -67,10 +64,9 @@ export class AppRuntimeOverlayService {
       onSensorFilter: (): void => {
         target.message = Localization.t('sensor_filter');
       },
-      onToggleSensor: (id: string): void => target.toggleSensor(id),
+      onToggleSensor: (id: string, enabled: boolean): void => target.toggleSensor(id, enabled),
       onSelectSensorFrequency: (value: string): void => {
-        target.sensorUpdateFrequency = value;
-        target.bumpSettingsRevision();
+        target.sensorUpdateFrequency = normalizeSensorUpdateFrequency(value);
       }
     };
   }

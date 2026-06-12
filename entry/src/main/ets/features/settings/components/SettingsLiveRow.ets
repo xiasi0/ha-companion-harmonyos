@@ -1,27 +1,14 @@
-import { SettingsCapability, SettingsItem, SettingsItemType } from '../../../models/SettingsItem';
+import { SettingsItem, SettingsItemType } from '../../../models/SettingsItem';
 import { Localization } from '../../../shared/i18n/Localization';
 import { HaTheme } from '../../../shared/theme/HaTheme';
+import { SettingsLiveRowState, SettingsLiveStateStore } from '../../../services/SettingsLiveStateStore';
 import { SettingsIcon } from './SettingsIcon';
 import { SettingsUiConfig } from './SettingsUiConfig';
 
 @Component
-export struct SettingsRow {
-  @Prop
-  item: SettingsItem = {
-    type: SettingsItemType.DETAIL,
-    icon: '',
-    title: '',
-    summary: '',
-    status: '',
-    body: '',
-    action: '',
-    actionId: '',
-    badge: '',
-    isOn: false,
-    capability: SettingsCapability.NONE
-  };
-  @Prop
-  active: boolean = false;
+export struct SettingsLiveRow {
+  @ObjectLink state: SettingsLiveRowState;
+  @Prop active: boolean = false;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   @State private isTouched: boolean = false;
   onOpen: (item: SettingsItem) => void = () => {};
@@ -35,31 +22,31 @@ export struct SettingsRow {
   }
 
   private visibleStatus(): string {
-    return this.item.status === Localization.t('common_available') ? '' : this.item.status;
+    return this.state.status === Localization.t('common_available') ? '' : this.state.status;
   }
 
   private visibleBadge(): string {
-    return this.item.badge ?? '';
+    return this.state.badge ?? '';
   }
 
   private isInteractive(): boolean {
-    return this.item.type !== SettingsItemType.INFO && this.item.actionId.length > 0;
+    return this.state.type !== SettingsItemType.INFO && this.state.actionId.length > 0;
   }
 
   build() {
     Row() {
-      SettingsIcon({ label: this.item.icon })
+      SettingsIcon({ label: this.state.icon })
 
       Column({ space: 2 }) {
-        Text(this.item.title)
+        Text(this.state.title)
           .fontSize(16)
           .fontColor(HaTheme.textPrimary(this.appResolvedDark))
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
 
-        if (this.item.summary.length > 0) {
-          Text(this.item.summary)
+        if (this.state.summary.length > 0) {
+          Text(this.state.summary)
             .fontSize(14)
             .fontColor(HaTheme.textSecondary(this.appResolvedDark))
             .lineHeight(20)
@@ -124,10 +111,10 @@ export struct SettingsRow {
       if (!this.isInteractive()) {
         return;
       }
-      if (this.item.type === SettingsItemType.ACTION) {
-        this.onAction(this.item.actionId);
+      if (this.state.type === SettingsItemType.ACTION) {
+        this.onAction(this.state.actionId);
       } else {
-        this.onOpen(this.item);
+        this.onOpen(SettingsLiveStateStore.toItem(this.state));
       }
     })
   }

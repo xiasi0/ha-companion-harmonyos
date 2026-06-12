@@ -264,7 +264,8 @@ export class HaLocationRuntimeService {
         HaLocationRuntimeService.currentZoneName,
         SensorRuntimePresenter.locationSentMode(snapshot.locationSentMode),
         HaLocationRuntimeService.shouldSendLocationUpdate(reason),
-        reason
+        reason,
+        HaLocationRuntimeService.context
       );
     }).then((result): void => {
       if (LocationSensorCoordinator.shouldRecordDiagnostics(reason, result.locationSummary)) {
