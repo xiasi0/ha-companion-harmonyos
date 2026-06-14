@@ -1,4 +1,5 @@
 import { HaTheme } from '../../shared/theme/HaTheme';
+import { Localization } from '../../shared/i18n/Localization';
 import {
   SensorSettingsLiveGroupState,
   SensorSettingsLiveRowState,
@@ -6,9 +7,21 @@ import {
 } from '../../services/SensorSettingsLiveStateStore';
 import { SettingsBoundary } from '../settings/components/SettingsBoundary';
 import { SettingsCategory } from '../settings/components/SettingsCategory';
+import { SettingsSearchControl } from '../settings/components/SettingsSearchControl';
 import { SettingsUiConfig } from '../settings/components/SettingsUiConfig';
 import { SensorEntry, SensorGroup } from './SensorModels';
 import { SensorSettingsSwitchRow } from './SensorSettingsSwitchRow';
+
+enum SensorFilterMode {
+  ALL = 'all',
+  ENABLED = 'enabled',
+  DISABLED = 'disabled'
+}
+
+interface VisibleSensorGroup {
+  group: SensorSettingsLiveGroupState;
+  rows: SensorSettingsLiveRowState[];
+}
 
 @Component
 export struct SensorSettingsPage {
@@ -17,6 +30,9 @@ export struct SensorSettingsPage {
   @Prop contentMaxWidth: number = 720;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   @State private liveGroups: SensorSettingsLiveGroupState[] = [];
+  @State private filterMode: SensorFilterMode = SensorFilterMode.ALL;
+  @State private searchText: string = '';
+  @State private filterTrackWidth: number = 0;
   private settingsScroller: Scroller = new Scroller();
   onBack: () => void = () => {};
   onHelp: () => void = () => {};
@@ -96,6 +112,174 @@ export struct SensorSettingsPage {
     return 'sensor';
   }
 
+  private visibleRows(group: SensorSettingsLiveGroupState): SensorSettingsLiveRowState[] {
+    const rows: SensorSettingsLiveRowState[] = [];
+    for (let i = 0; i < group.rows.length; i++) {
+      const row = group.rows[i];
+      if (this.matchesFilter(row) && this.matchesSearch(row)) {
+        rows.push(row);
+      }
+    }
+    return rows;
+  }
+
+  private visibleGroups(): VisibleSensorGroup[] {
+    const groups: VisibleSensorGroup[] = [];
+    for (let i = 0; i < this.liveGroups.length; i++) {
+      const group = this.liveGroups[i];
+      const rows = this.visibleRows(group);
+      if (rows.length > 0) {
+        groups.push({ group, rows });
+      }
+    }
+    return groups;
+  }
+
+  private matchesFilter(row: SensorSettingsLiveRowState): boolean {
+    if (this.filterMode === SensorFilterMode.ENABLED) {
+      return row.checked;
+    }
+    if (this.filterMode === SensorFilterMode.DISABLED) {
+      return !row.checked;
+    }
+    return true;
+  }
+
+  private matchesSearch(row: SensorSettingsLiveRowState): boolean {
+    const query = this.searchText.trim().toLowerCase();
+    if (query.length === 0) {
+      return true;
+    }
+    return row.title.toLowerCase().includes(query) ||
+      row.summary.toLowerCase().includes(query) ||
+      row.id.toLowerCase().includes(query);
+  }
+
+  private selectFilter(mode: SensorFilterMode): void {
+    this.filterMode = mode;
+  }
+
+  private selectedFilterIndex(): number {
+    if (this.filterMode === SensorFilterMode.ENABLED) {
+      return 1;
+    }
+    if (this.filterMode === SensorFilterMode.DISABLED) {
+      return 2;
+    }
+    return 0;
+  }
+
+  private filterThumbWidth(): number {
+    if (this.filterTrackWidth <= 0) {
+      return 0;
+    }
+    return Math.max(this.filterTrackWidth - 6, 0) / 3;
+  }
+
+  private filterThumbOffset(): number {
+    return this.filterThumbWidth() * this.selectedFilterIndex();
+  }
+
+  private fixedControlsHeight(): number {
+    return 100;
+  }
+
+  private titleBarSpacerHeight(): number {
+    return 5;
+  }
+
+  private topContentSpacerHeight(): number {
+    return this.titleBarSpacerHeight() + this.fixedControlsHeight();
+  }
+
+  private updateFilterTrackWidth(width: Length): void {
+    if (typeof width === 'number') {
+      this.filterTrackWidth = width;
+    }
+  }
+
+  @Builder
+  private renderFilterThumb(): void {
+    Row()
+      .width(this.filterThumbWidth())
+      .height(42)
+      .borderRadius(21)
+      .backgroundColor(HaTheme.surface(this.appResolvedDark))
+      .border({ width: 1, color: HaTheme.surface(this.appResolvedDark) })
+      .shadow({ radius: 14, color: this.appResolvedDark ? '#66000000' : '#24000000', offsetX: 0, offsetY: 4 })
+      .translate({ x: this.filterThumbOffset(), y: 0 })
+      .animation({ duration: 220, curve: Curve.EaseOut })
+  }
+
+  @Builder
+  private renderFilterText(title: string, mode: SensorFilterMode): void {
+    Row() {
+      Text(title)
+        .fontSize(15)
+        .fontColor(HaTheme.textPrimary(this.appResolvedDark))
+        .fontWeight(this.filterMode === mode ? FontWeight.Medium : FontWeight.Regular)
+    }
+    .justifyContent(FlexAlign.Center)
+    .layoutWeight(1)
+    .height(42)
+    .onClick(() => {
+      this.selectFilter(mode);
+    })
+  }
+
+  @Builder
+  private renderFilterControl(): void {
+    Stack({ alignContent: Alignment.Start }) {
+      this.renderFilterThumb()
+
+      Row() {
+        this.renderFilterText(Localization.t('sensor_filter_all'), SensorFilterMode.ALL)
+        this.renderFilterText(Localization.t('sensor_filter_enabled'), SensorFilterMode.ENABLED)
+        this.renderFilterText(Localization.t('sensor_filter_disabled'), SensorFilterMode.DISABLED)
+      }
+      .width('100%')
+      .height(42)
+    }
+    .onAreaChange((oldArea: Area, newArea: Area) => {
+      this.updateFilterTrackWidth(newArea.width);
+    })
+    .width('100%')
+    .height(48)
+    .padding({ left: 3, right: 3, top: 3, bottom: 3 })
+    .borderRadius(SettingsUiConfig.groupRadius)
+    .backgroundColor(HaTheme.surface(this.appResolvedDark))
+    .shadow(SettingsUiConfig.groupShadow())
+  }
+
+  @Builder
+  private renderSearchControl(): void {
+    SettingsSearchControl({
+      text: this.searchText,
+      placeholder: Localization.t('sensor_search_placeholder'),
+      onChange: (value: string): void => {
+        this.searchText = value;
+      }
+    })
+  }
+
+  @Builder
+  private renderFixedControls(): void {
+    Column({ space: SettingsUiConfig.listSpace }) {
+      this.renderFilterControl()
+      this.renderSearchControl()
+    }
+    .width('100%')
+    .height(this.topContentSpacerHeight())
+    .padding({
+      left: SettingsUiConfig.listPadding().left,
+      right: SettingsUiConfig.listPadding().right,
+      top: this.titleBarSpacerHeight(),
+      bottom: 0
+    })
+    .backgroundColor(Color.Transparent)
+    .zIndex(1)
+  }
+
   @Builder
   private renderSensor(state: SensorSettingsLiveRowState): void {
     SensorSettingsSwitchRow({
@@ -105,11 +289,11 @@ export struct SensorSettingsPage {
   }
 
   @Builder
-  private renderSensorGroup(group: SensorSettingsLiveGroupState): void {
+  private renderSensorGroup(rows: SensorSettingsLiveRowState[]): void {
     Column() {
-      ForEach(group.rows, (state: SensorSettingsLiveRowState, sensorIndex?: number) => {
+      ForEach(rows, (state: SensorSettingsLiveRowState, sensorIndex?: number) => {
         this.renderSensor(state);
-        if ((sensorIndex ?? 0) < group.rows.length - 1) {
+        if ((sensorIndex ?? 0) < rows.length - 1) {
           SettingsBoundary()
         }
       }, (state: SensorSettingsLiveRowState) => state.id)
@@ -125,21 +309,25 @@ export struct SensorSettingsPage {
   private renderList(): void {
     Stack({ alignContent: Alignment.End }) {
       List({ scroller: this.settingsScroller, space: SettingsUiConfig.listSpace }) {
-        ForEach(this.liveGroups, (group: SensorSettingsLiveGroupState) => {
-          if (group.rows.length > 0) {
-            if (group.title.trim().length > 0) {
-              ListItem() {
-                SettingsCategory({ title: group.title, showBackground: false })
-              }
-              .width('100%')
-            }
+        ListItem() {
+          Row()
+        }
+        .width('100%')
+        .height(this.topContentSpacerHeight())
 
+        ForEach(this.visibleGroups(), (visibleGroup: VisibleSensorGroup) => {
+          if (visibleGroup.group.title.trim().length > 0) {
             ListItem() {
-              this.renderSensorGroup(group)
+              SettingsCategory({ title: visibleGroup.group.title, showBackground: false })
             }
             .width('100%')
           }
-        }, (group: SensorSettingsLiveGroupState) => group.key)
+
+          ListItem() {
+            this.renderSensorGroup(visibleGroup.rows)
+          }
+          .width('100%')
+        }, (visibleGroup: VisibleSensorGroup) => visibleGroup.group.key)
       }
       .padding(SettingsUiConfig.listPadding())
       .width('100%')
@@ -167,8 +355,9 @@ export struct SensorSettingsPage {
 
   build() {
     Column() {
-      Column() {
+      Stack({ alignContent: Alignment.Top }) {
         this.renderList()
+        this.renderFixedControls()
       }
       .width('100%')
       .constraintSize({ maxWidth: this.contentMaxWidth })

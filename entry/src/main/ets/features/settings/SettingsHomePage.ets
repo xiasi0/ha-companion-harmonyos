@@ -3,7 +3,7 @@ import { SettingsCategory } from './components/SettingsCategory';
 import { SettingsBoundary } from './components/SettingsBoundary';
 import { SettingsLiveRow } from './components/SettingsLiveRow';
 import { SettingsLiveSwitchRow } from './components/SettingsLiveSwitchRow';
-import { SettingsTextInput } from './components/SettingsTextInput';
+import { SettingsSearchControl } from './components/SettingsSearchControl';
 import { SettingsUiConfig } from './components/SettingsUiConfig';
 import { HaTheme } from '../../shared/theme/HaTheme';
 import { Localization } from '../../shared/i18n/Localization';
@@ -154,14 +154,40 @@ export struct SettingsHomePage {
 
   @Builder
   private renderSearchControl(): void {
-    SettingsTextInput({
+    SettingsSearchControl({
       text: this.searchText,
       placeholder: this.searchPlaceholder,
-      heightValue: 44,
-      radiusValue: 22,
-      horizontalPadding: 16,
       onChange: this.onSearchChange
     })
+  }
+
+  private searchControlHeight(): number {
+    return 48;
+  }
+
+  private searchControlTopOffset(): number {
+    return 5;
+  }
+
+  private searchOverlayHeight(): number {
+    return this.searchControlTopOffset() + this.searchControlHeight();
+  }
+
+  @Builder
+  private renderFixedSearchControl(): void {
+    Column() {
+      this.renderSearchControl()
+    }
+    .width('100%')
+    .height(this.searchOverlayHeight())
+    .padding({
+      left: SettingsUiConfig.listPadding().left,
+      right: SettingsUiConfig.listPadding().right,
+      top: this.searchControlTopOffset(),
+      bottom: 0
+    })
+    .position({ x: 0, y: 0 })
+    .zIndex(1)
   }
 
   @Builder
@@ -170,9 +196,10 @@ export struct SettingsHomePage {
       List({ scroller: this.settingsScroller, space: SettingsUiConfig.listSpace }) {
         if (this.showSearch) {
           ListItem() {
-            this.renderSearchControl()
+            Row()
           }
           .width('100%')
+          .height(this.searchOverlayHeight())
         }
 
         ForEach(this.liveGroups, (section: SettingsLiveGroupState) => {
@@ -209,6 +236,10 @@ export struct SettingsHomePage {
         .width(9)
         .height('100%')
         .backgroundColor(Color.Transparent)
+
+      if (this.showSearch) {
+        this.renderFixedSearchControl()
+      }
     }
     .layoutWeight(1)
     .width('100%')
