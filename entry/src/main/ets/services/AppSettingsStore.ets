@@ -18,6 +18,7 @@ export interface ServerConnectionPolicySettings {
 }
 
 export class AppSettingsStore {
+  private static readonly MISSING_HOME_WIFI_SSIDS_JSON = '__missing_home_wifi_ssids_json__';
 
   static async loadWebsocketMode(context: common.Context): Promise<string> {
     const pref = await AppSettingsStore.getPreferences(context);
@@ -116,6 +117,7 @@ export class AppSettingsStore {
       prioritizeInternal
     );
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.HOME_WIFI_SSIDS_JSON, JSON.stringify(settings.wifiSsids));
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.HOME_NETWORK_NAME, '');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.PRIORITIZE_INTERNAL, settings.prioritizeInternal);
     await AppSettingsStore.flush(pref);
   }
@@ -150,18 +152,25 @@ export class AppSettingsStore {
     pref: preferences.Preferences,
     serverId: string
   ): Promise<HomeNetworkSettings> {
-    const rawWifiSsids = AppSettingsValueCodec.stringArrayField(
-      await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.HOME_WIFI_SSIDS_JSON, '[]')
+    const rawWifiSsidsValue = await AppSettingsStore.getValue(
+      pref,
+      serverId,
+      AppSettingsKeys.HOME_WIFI_SSIDS_JSON,
+      AppSettingsStore.MISSING_HOME_WIFI_SSIDS_JSON
     );
+    const rawWifiSsids = AppSettingsValueCodec.stringArrayField(
+      rawWifiSsidsValue
+    );
+    const shouldUseLegacyHomeNetworkName = rawWifiSsidsValue === AppSettingsStore.MISSING_HOME_WIFI_SSIDS_JSON;
     const legacyHomeNetworkName = AppSettingsValueCodec.stringField(
       await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.HOME_NETWORK_NAME, '')
     );
     const settings = HomeNetworkService.settingsFromStored(
       rawWifiSsids,
-      legacyHomeNetworkName,
+      shouldUseLegacyHomeNetworkName ? legacyHomeNetworkName : '',
       AppSettingsValueCodec.booleanField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.PRIORITIZE_INTERNAL, false))
     );
-    if (rawWifiSsids.length === 0 && settings.wifiSsids.length > 0) {
+    if (shouldUseLegacyHomeNetworkName && rawWifiSsids.length === 0 && settings.wifiSsids.length > 0) {
       await AppSettingsStore.putValue(pref, AppSettingsStore.valueKey(serverId, AppSettingsKeys.HOME_WIFI_SSIDS_JSON), JSON.stringify(settings.wifiSsids));
       await AppSettingsStore.flush(pref);
     }
@@ -174,7 +183,7 @@ export class AppSettingsStore {
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SERVER_EXTERNAL_URL, AppStorage.get<string>('serverExternalUrl') ?? '');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SERVER_INTERNAL_URL, AppStorage.get<string>('serverInternalUrl') ?? '');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SECURE_CONNECTION_CHOICE, AppStorage.get<string>('secureConnectionChoice') ?? '');
-    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.HOME_NETWORK_NAME, AppStorage.get<string>('homeNetworkName') ?? '');
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.HOME_NETWORK_NAME, '');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.TRUST_SERVER, AppStorage.get<boolean>('trustServer') ?? false);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.APP_LOCK_ENABLED, AppStorage.get<boolean>('appLockEnabled') ?? false);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.APP_LOCK_HOME_BYPASS, AppStorage.get<boolean>('appLockHomeBypass') ?? false);

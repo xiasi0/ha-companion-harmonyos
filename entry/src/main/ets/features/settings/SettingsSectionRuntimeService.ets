@@ -39,7 +39,6 @@ export interface ServerSettingsSectionInput {
   serverExternalUrl: string;
   haBaseUrl: string;
   homeWifiSsids: string[];
-  homeNetworkName: string;
   serverInternalUrl: string;
   secureConnectionChoice: string;
   trustServer: boolean;
@@ -128,7 +127,6 @@ export class SettingsSectionRuntimeService {
       serverExternalUrl: selectedInfo ? selectedInfo.baseUrl : state.serverExternalUrl,
       haBaseUrl: selectedInfo ? selectedInfo.baseUrl : state.haBaseUrl,
       homeWifiSsids: state.homeWifiSsids,
-      homeNetworkName: state.homeNetworkName,
       serverInternalUrl: state.serverInternalUrl,
       secureConnectionChoice: state.secureConnectionChoice,
       trustServer: state.trustServer,
@@ -167,10 +165,7 @@ export class SettingsSectionRuntimeService {
       serverName: SettingsSummaryService.serverDisplayName(input.serverNameOverride, input.configSummary),
       deviceName: input.deviceName,
       effectiveExternalUrl: SettingsSummaryService.effectiveExternalUrl(input.serverExternalUrl, input.haBaseUrl),
-      homeNetworkSummary: SettingsSummaryService.homeNetworkSummary(
-        input.homeWifiSsids,
-        input.homeNetworkName
-      ),
+      homeNetworkSummary: SettingsSummaryService.homeNetworkSummary(input.homeWifiSsids),
       internalConnectionSummary: SettingsSummaryService.internalConnectionSummary(input.serverInternalUrl),
       securityLevelSummary: SettingsSummaryService.securityLevelSummary(input.secureConnectionChoice),
       trustServer: input.trustServer,

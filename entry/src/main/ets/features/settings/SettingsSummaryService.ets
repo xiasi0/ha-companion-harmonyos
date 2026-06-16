@@ -20,20 +20,16 @@ export class SettingsSummaryService {
     return SettingsSummaryService.normalizeBaseUrl(baseUrl);
   }
 
-  static homeNetworkSummary(
-    homeWifiSsids: string[],
-    homeNetworkName: string
-  ): string {
-    const parts: string[] = [];
-    let i = 0;
-    while (i < homeWifiSsids.length) {
-      parts.push(homeWifiSsids[i]);
-      i += 1;
+  static homeNetworkSummary(homeWifiSsids: string[]): string {
+    let i = homeWifiSsids.length - 1;
+    while (i >= 0) {
+      const value = homeWifiSsids[i].trim();
+      if (value.length > 0) {
+        return value;
+      }
+      i -= 1;
     }
-    if (parts.length > 0) {
-      return parts.join(', ');
-    }
-    return homeNetworkName.trim().length > 0 ? homeNetworkName.trim() : Localization.t('common_not_set');
+    return Localization.t('common_not_set');
   }
 
   static internalConnectionSummary(serverInternalUrl: string): string {
