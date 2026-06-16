@@ -54,12 +54,12 @@ export struct ServerHomeNetworkPage {
       Button() {
         SymbolGlyph($r('sys.symbol.plus'))
           .fontSize(22)
-          .fontColor([this.canAddSsid() ? HaColors.ON_PRIMARY : HaTheme.textMuted(this.appResolvedDark)])
+          .fontColor([this.canAddSsid() ? HaColors.ON_PRIMARY : SettingsUiConfig.cardButtonForeground(this.appResolvedDark)])
       }
-        .width(48)
-        .height(48)
-        .backgroundColor(this.canAddSsid() ? HaColors.SETTINGS_ACCENT : HaTheme.surfaceStrong(this.appResolvedDark))
-        .borderRadius(24)
+        .width(SettingsUiConfig.cardButtonSize)
+        .height(SettingsUiConfig.cardButtonSize)
+        .backgroundColor(this.canAddSsid() ? HaColors.SETTINGS_ACCENT : SettingsUiConfig.cardButtonBackground(this.appResolvedDark))
+        .borderRadius(SettingsUiConfig.cardButtonRadius)
         .stateEffect(this.canAddSsid())
         .onClick(() => {
           if (this.canAddSsid()) {
@@ -88,10 +88,10 @@ export struct ServerHomeNetworkPage {
           .fontSize(22)
           .fontColor([HaColors.ERROR])
       }
-        .width(48)
-        .height(48)
-        .backgroundColor(SettingsUiConfig.transparentBackground)
-        .borderRadius(24)
+        .width(SettingsUiConfig.cardButtonSize)
+        .height(SettingsUiConfig.cardButtonSize)
+        .backgroundColor(SettingsUiConfig.cardButtonBackground(this.appResolvedDark))
+        .borderRadius(SettingsUiConfig.cardButtonRadius)
         .stateEffect(true)
         .onClick(() => {
           this.onRemoveSsid(value);

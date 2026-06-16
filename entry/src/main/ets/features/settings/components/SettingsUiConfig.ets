@@ -1,21 +1,15 @@
 import {
   HdsNavigationBackButtonItemOptions,
-  HdsNavigationBackgroundStyle,
-  HdsNavigationIconItemStyle,
   HdsNavigationMenuContentOptions,
   HdsNavigationMenuItemOptions,
   HdsNavigationTitle,
   HdsNavigationTitleBarOptions,
-  HdsNavigationTitleBarStyle,
-  HdsNavigationTitleStyle,
-  HdsTitleBarContentStyle,
   IconStyleMode,
   ScrollEffectOptions,
   ScrollEffectType,
   TitleBarContentOptions,
   TitleBarStyleOptions
 } from '@kit.UIDesignKit';
-import { LengthMetrics } from '@kit.ArkUI';
 import { SymbolGlyphModifier } from '@ohos.arkui.modifier';
 import { HaColors } from '../../../shared/constants/HaStyle';
 import { HaTheme } from '../../../shared/theme/HaTheme';
@@ -44,8 +38,6 @@ export interface SettingsTitleBarMenuAction {
 export class SettingsUiConfig {
   static readonly contentMaxWidth: number = 720;
   static readonly listSpace: number = 4;
-  static readonly titleBarBlurStartVp: number = 0;
-  static readonly titleBarBlurEndVp: number = 20;
   static readonly titleBarBackground: string = HaColors.SURFACE;
   static readonly pageBackground: string = HaColors.SETTINGS_PAGE_BACKGROUND;
   static readonly transparentBackground: string = HaColors.TRANSPARENT;
@@ -54,6 +46,8 @@ export class SettingsUiConfig {
   static readonly groupPadding: number = 4;
   static readonly rowMinHeight: number = 72;
   static readonly rowRadius: number = 24;
+  static readonly cardButtonSize: number = 48;
+  static readonly cardButtonRadius: number = 24;
   static readonly iconReservedWidth: number = 56;
   static readonly dividerInsetLeft: number = 68;
   static readonly dividerInsetRight: number = 12;
@@ -98,77 +92,40 @@ export class SettingsUiConfig {
     return isDark ? HaColors.SETTINGS_PRESSED_BACKGROUND_DARK : HaColors.SETTINGS_PRESSED_BACKGROUND;
   }
 
+  static cardButtonBackground(isDark: boolean): string {
+    return HaTheme.surface(isDark);
+  }
+
+  static cardButtonForeground(isDark: boolean): string {
+    return HaTheme.textPrimary(isDark);
+  }
+
   static scrollBarState(): BarState {
     return BarState.Auto;
   }
 
-  private static titleBarBackgroundColor(isDark: boolean): string {
-    return isDark ? HaTheme.background(true) : SettingsUiConfig.titleBarBackground;
-  }
-
-  private static titleBarQuestionAction(): SettingsTitleBarMenuAction {
-    const icon = new SymbolGlyphModifier($r('sys.symbol.questionmark_circle'));
-    icon.fontSize(24);
+  private static titleBarQuestionAction(onHelp?: () => void): SettingsTitleBarMenuAction {
     return {
-      icon,
+      icon: $r('sys.symbol.questionmark_circle'),
       label: '?',
-      action: (): void => {},
-      isEnabled: false
+      action: onHelp ?? ((): void => {}),
+      isEnabled: onHelp !== undefined
     };
   }
 
   private static titleBarBackIcon(onBack?: () => void): HdsNavigationBackButtonItemOptions {
-    const icon = new SymbolGlyphModifier($r('sys.symbol.arrow_left'));
-    icon.fontSize(24);
     return {
-      icon,
       action: onBack
     };
   }
 
-  private static titleBarStyle(isDark: boolean, hasMenu: boolean): TitleBarStyleOptions {
-    const backgroundColor = SettingsUiConfig.titleBarBackgroundColor(isDark);
-    const titleColor = HaTheme.textPrimary(isDark);
-    const subTitleColor = HaTheme.textSecondary(isDark);
-    const iconBackgroundColor = HaTheme.surfaceStrong(isDark);
-    const iconColor = HaTheme.textPrimary(isDark);
-    const titleStyle: HdsNavigationTitleStyle = {
-      mainTitleColor: titleColor,
-      subTitleColor: subTitleColor
-    };
-    const backIconStyle: HdsNavigationIconItemStyle = {
-      backgroundColor: iconBackgroundColor,
-      iconColor: iconColor
-    };
-    const menuStyle: HdsNavigationIconItemStyle = {
-      backgroundColor: iconBackgroundColor,
-      iconColor: iconColor
-    };
-    const contentStyle: HdsTitleBarContentStyle = hasMenu ? {
-      titleStyle: titleStyle,
-      menuStyle: menuStyle,
-      backIconStyle: backIconStyle
-    } : {
-      titleStyle: titleStyle,
-      backIconStyle: backIconStyle
-    };
-    const backgroundStyle: HdsNavigationBackgroundStyle = {
-      backgroundColor: backgroundColor
-    };
+  private static titleBarStyle(): TitleBarStyleOptions {
     const scrollEffectOpts: ScrollEffectOptions = {
       enableScrollEffect: true,
-      scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
-      blurEffectiveStartOffset: LengthMetrics.vp(SettingsUiConfig.titleBarBlurStartVp),
-      blurEffectiveEndOffset: LengthMetrics.vp(SettingsUiConfig.titleBarBlurEndVp)
-    };
-    const titleBarStateStyle: HdsNavigationTitleBarStyle = {
-      backgroundStyle: backgroundStyle,
-      contentStyle: contentStyle
+      scrollEffectType: ScrollEffectType.GRADIENT_BLUR
     };
     return {
-      scrollEffectOpts: scrollEffectOpts,
-      originalStyle: titleBarStateStyle,
-      scrollEffectStyle: titleBarStateStyle
+      scrollEffectOpts: scrollEffectOpts
     };
   }
 
@@ -199,14 +156,12 @@ export class SettingsUiConfig {
   }
 
   private static titleBarOptions(
-    isDark: boolean,
-    content: TitleBarContentOptions,
-    hasMenu: boolean
+    content: TitleBarContentOptions
   ): HdsNavigationTitleBarOptions {
     return {
       avoidLayoutSafeArea: true,
       enableComponentSafeArea: true,
-      style: SettingsUiConfig.titleBarStyle(isDark, hasMenu),
+      style: SettingsUiConfig.titleBarStyle(),
       content: content
     };
   }
@@ -218,8 +173,8 @@ export class SettingsUiConfig {
     onHelp?: () => void,
     menuAction?: SettingsTitleBarMenuAction
   ): HdsNavigationTitleBarOptions {
-    const questionAction = SettingsUiConfig.titleBarQuestionAction();
     if (menuAction) {
+      const questionAction = SettingsUiConfig.titleBarQuestionAction(onHelp);
       const content: TitleBarContentOptions = {
         title: SettingsUiConfig.titleBarTitle(title),
         backIcon: SettingsUiConfig.titleBarBackIcon(onBack),
@@ -228,14 +183,14 @@ export class SettingsUiConfig {
           SettingsUiConfig.titleBarMenuValue(questionAction)
         ], 2)
       };
-      return SettingsUiConfig.titleBarOptions(isDark, content, true);
+      return SettingsUiConfig.titleBarOptions(content);
     }
     const content: TitleBarContentOptions = {
       title: SettingsUiConfig.titleBarTitle(title),
       backIcon: SettingsUiConfig.titleBarBackIcon(onBack),
-      menu: SettingsUiConfig.titleBarMenu([SettingsUiConfig.titleBarMenuValue(questionAction)], 1)
+      menu: SettingsUiConfig.titleBarMenu([SettingsUiConfig.titleBarMenuValue(SettingsUiConfig.titleBarQuestionAction(onHelp))], 1)
     };
-    return SettingsUiConfig.titleBarOptions(isDark, content, true);
+    return SettingsUiConfig.titleBarOptions(content);
   }
 
   static rootTitleBar(title: string, onBack?: () => void, isDark: boolean = false): HdsNavigationTitleBarOptions {
@@ -243,7 +198,7 @@ export class SettingsUiConfig {
       title: SettingsUiConfig.titleBarTitle(title),
       backIcon: SettingsUiConfig.titleBarBackIcon(onBack)
     };
-    return SettingsUiConfig.titleBarOptions(isDark, content, false);
+    return SettingsUiConfig.titleBarOptions(content);
   }
 
 }
