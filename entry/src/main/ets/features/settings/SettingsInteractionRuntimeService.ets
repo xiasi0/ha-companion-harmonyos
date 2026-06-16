@@ -260,20 +260,14 @@ export class SettingsInteractionRuntimeService {
     }
     if (state.homeWifiSsids.indexOf(value) < 0) {
       state.homeWifiSsids.push(value);
-      state.homeNetworkName = SettingsSummaryService.homeNetworkSummary(
-        state.homeWifiSsids,
-        state.homeNetworkName
-      );
+      state.homeNetworkName = '';
     }
     state.homeSsidInput = '';
   }
 
   static removeHomeWifiSsid(value: string, state: SettingsInteractionState): void {
     state.homeWifiSsids = state.homeWifiSsids.filter((item: string): boolean => item !== value);
-    state.homeNetworkName = SettingsSummaryService.homeNetworkSummary(
-      state.homeWifiSsids,
-      state.homeNetworkName
-    );
+    state.homeNetworkName = '';
   }
 
   static saveServerSettingDetail(
