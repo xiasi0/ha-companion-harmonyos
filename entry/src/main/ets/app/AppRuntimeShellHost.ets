@@ -78,7 +78,7 @@ const EMPTY_SETTINGS_SNAPSHOT: SettingsRuntimeSnapshot = {
   screenOrientation: 'system',
   pageZoomLevel: '100',
   appLanguage: 'default',
-  appTheme: 'light',
+  appTheme: 'system',
   secureConnectionChoice: '',
   websocketMode: 'system',
   serviceCardUpdateFrequency: 'default',
@@ -173,7 +173,7 @@ const EMPTY_WEB_SNAPSHOT: AppWebRuntimeSnapshot = {
   pageZoomLevel: '100',
   pinchToZoomEnabled: false,
   autoPlayVideoEnabled: false,
-  appTheme: 'light',
+  appTheme: 'system',
   dark: false
 };
 

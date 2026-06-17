@@ -225,7 +225,7 @@ export class AppSettingsStore {
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.AUTO_PLAY_VIDEO_ENABLED, AppStorage.get<boolean>('autoPlayVideoEnabled') ?? false);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.ALWAYS_SHOW_FIRST_VIEW, AppStorage.get<boolean>('alwaysShowFirstViewOnAppStartEnabled') ?? false);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.APP_LANGUAGE, AppStorage.get<string>('appLanguage') ?? 'default');
-    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.APP_THEME, AppStorage.get<string>('appTheme') ?? 'light');
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.APP_THEME, AppStorage.get<string>('appTheme') ?? 'system');
     const serviceCardUpdateFrequency = AppSettingsStore.normalizeServiceCardUpdateFrequency(
       AppStorage.get<string>('serviceCardUpdateFrequency') ?? 'default',
       websocketMode
@@ -384,7 +384,7 @@ export class AppSettingsStore {
     );
     AppSettingsStore.setAppStorage<string>(
       'appTheme',
-      AppSettingsValueCodec.stringField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.APP_THEME, 'light'))
+      AppSettingsValueCodec.stringField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.APP_THEME, 'system'))
     );
     const storedServiceCardUpdateFrequency = await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.SERVICE_CARD_UPDATE_FREQUENCY, 'default');
     const serviceCardUpdateFrequency = AppSettingsStore.normalizeServiceCardUpdateFrequency(storedServiceCardUpdateFrequency, websocketMode);

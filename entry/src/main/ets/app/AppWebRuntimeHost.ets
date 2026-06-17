@@ -24,7 +24,7 @@ export struct AppWebRuntimeHost {
   @Prop pageZoomLevel: string = '100';
   @Prop pinchToZoomEnabled: boolean = false;
   @Prop autoPlayVideoEnabled: boolean = false;
-  @Prop appTheme: string = 'light';
+  @Prop appTheme: string = 'system';
   @Prop dark: boolean = false;
 
   controller: web_webview.WebviewController = new web_webview.WebviewController();

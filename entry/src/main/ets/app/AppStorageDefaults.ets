@@ -51,7 +51,7 @@ export class AppStorageDefaults {
     AppStorage.setOrCreate<boolean>('autoPlayVideoEnabled', AppStorage.get<boolean>('autoPlayVideoEnabled') ?? false);
     AppStorage.setOrCreate<boolean>('alwaysShowFirstViewOnAppStartEnabled', AppStorage.get<boolean>('alwaysShowFirstViewOnAppStartEnabled') ?? false);
     AppStorage.setOrCreate<string>('appLanguage', AppStorage.get<string>('appLanguage') ?? 'default');
-    AppStorage.setOrCreate<string>('appTheme', AppStorage.get<string>('appTheme') ?? 'light');
+    AppStorage.setOrCreate<string>('appTheme', AppStorage.get<string>('appTheme') ?? 'system');
     AppStorage.setOrCreate<string>('serviceCardUpdateFrequency', AppStorage.get<string>('serviceCardUpdateFrequency') ?? 'default');
     AppStorage.setOrCreate<boolean>('appResolvedDark', AppStorage.get<boolean>('appResolvedDark') ?? false);
     AppStorage.setOrCreate<number>('appConfigTick', AppStorage.get<number>('appConfigTick') ?? 0);
