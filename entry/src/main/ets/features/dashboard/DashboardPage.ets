@@ -25,7 +25,7 @@ export struct DashboardPage {
   @Prop
   autoPlayVideoEnabled: boolean = false;
   @Prop
-  appTheme: string = 'light';
+  appTheme: string = 'system';
   @Prop
   isDarkTheme: boolean = false;
   controller: web_webview.WebviewController = new web_webview.WebviewController();

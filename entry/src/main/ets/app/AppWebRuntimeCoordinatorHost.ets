@@ -19,7 +19,7 @@ const DEFAULT_WEB_RUNTIME_SNAPSHOT: AppWebRuntimeSnapshot = {
   pageZoomLevel: '100',
   pinchToZoomEnabled: false,
   autoPlayVideoEnabled: false,
-  appTheme: 'light',
+  appTheme: 'system',
   dark: false
 };
 

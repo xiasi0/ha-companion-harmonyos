@@ -26,7 +26,7 @@ export struct SettingsDetailHost {
   @Prop screenOrientation: string = 'system';
   @Prop pageZoomLevel: string = '100';
   @Prop appLanguage: string = 'default';
-  @Prop appTheme: string = 'light';
+  @Prop appTheme: string = 'system';
   @Prop serviceCardUpdateFrequency: string = 'default';
   onBackToServer: () => void = () => {};
   onBackToCompanion: () => void = () => {};

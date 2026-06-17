@@ -128,7 +128,7 @@ export struct AppRuntimeHost {
   @StorageLink('autoPlayVideoEnabled') @Watch('onAppSettingChanged') autoPlayVideoEnabled: boolean = false;
   @StorageLink('alwaysShowFirstViewOnAppStartEnabled') @Watch('onAppSettingChanged') alwaysShowFirstViewOnAppStartEnabled: boolean = false;
   @StorageLink('appLanguage') @Watch('onAppSettingChanged') appLanguage: string = 'default';
-  @StorageLink('appTheme') @Watch('onAppSettingChanged') appTheme: string = 'light';
+  @StorageLink('appTheme') @Watch('onAppSettingChanged') appTheme: string = 'system';
   @StorageLink('serviceCardUpdateFrequency') @Watch('onAppSettingChanged') serviceCardUpdateFrequency: string = 'default';
   @StorageLink('notificationUnreadCount') @Watch('onNotificationUnreadCountChanged') notificationUnreadCount: number = 0;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;

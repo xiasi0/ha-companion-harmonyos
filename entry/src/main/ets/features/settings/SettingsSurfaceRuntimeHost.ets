@@ -20,7 +20,7 @@ export struct CompanionSettingsSurfaceHost {
   @Prop screenOrientation: string = 'system';
   @Prop pageZoomLevel: string = '100';
   @Prop appLanguage: string = 'default';
-  @Prop appTheme: string = 'light';
+  @Prop appTheme: string = 'system';
   @Prop secureConnectionChoice: string = '';
   @Prop websocketMode: string = 'system';
   @Prop serviceCardUpdateFrequency: string = 'default';
@@ -136,7 +136,7 @@ export struct ServerSettingsSurfaceHost {
       screenOrientation: 'system',
       pageZoomLevel: '100',
       appLanguage: 'default',
-      appTheme: 'light',
+      appTheme: 'system',
       secureConnectionChoice: this.secureConnectionChoice,
       websocketMode: 'system',
       serviceCardUpdateFrequency: 'default',
@@ -180,7 +180,7 @@ export struct SettingsDetailSurfaceHost {
   @Prop screenOrientation: string = 'system';
   @Prop pageZoomLevel: string = '100';
   @Prop appLanguage: string = 'default';
-  @Prop appTheme: string = 'light';
+  @Prop appTheme: string = 'system';
   @Prop serviceCardUpdateFrequency: string = 'default';
 
   gestureActionValue: (key: string) => string = () => '';
