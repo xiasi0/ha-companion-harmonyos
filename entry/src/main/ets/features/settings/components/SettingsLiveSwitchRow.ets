@@ -32,7 +32,10 @@ export struct SettingsLiveSwitchRow {
 
   build() {
     Row() {
-      SettingsIcon({ label: this.state.icon })
+      SettingsIcon({
+        label: this.state.icon,
+        color: this.state.isOn ? HaColors.SETTINGS_ACCENT : HaTheme.textSecondary(this.appResolvedDark)
+      })
 
       Column({ space: 2 }) {
         Text(this.state.title)

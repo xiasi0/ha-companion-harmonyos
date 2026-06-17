@@ -41,7 +41,10 @@ export struct SensorSettingsSwitchRow {
 
   build() {
     Row() {
-      SettingsIcon({ label: this.state.icon })
+      SettingsIcon({
+        label: this.state.icon,
+        color: this.state.checked ? HaColors.SETTINGS_ACCENT : HaTheme.textSecondary(this.appResolvedDark)
+      })
 
       Column({ space: 2 }) {
         Text(this.state.title)
