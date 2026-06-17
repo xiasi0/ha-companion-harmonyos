@@ -4,6 +4,7 @@ import {
   HdsNavigationMenuItemOptions,
   HdsNavigationTitle,
   HdsNavigationTitleBarOptions,
+  hdsMaterial,
   IconStyleMode,
   ScrollEffectOptions,
   ScrollEffectType,
@@ -109,7 +110,7 @@ export class SettingsUiConfig {
       icon: $r('sys.symbol.questionmark_circle'),
       label: '?',
       action: onHelp ?? ((): void => {}),
-      isEnabled: onHelp !== undefined
+      isEnabled: true
     };
   }
 
@@ -125,7 +126,11 @@ export class SettingsUiConfig {
       scrollEffectType: ScrollEffectType.GRADIENT_BLUR
     };
     return {
-      scrollEffectOpts: scrollEffectOpts
+      scrollEffectOpts: scrollEffectOpts,
+      systemMaterialEffect: {
+        materialType: hdsMaterial.MaterialType.IMMERSIVE,
+        materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE
+      }
     };
   }
 
