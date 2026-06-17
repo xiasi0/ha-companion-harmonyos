@@ -1,8 +1,8 @@
 import { HaColors } from '../constants/HaStyle';
 
 export class HaTheme {
-  static readonly DARK_BACKGROUND: string = '#000000';
-  static readonly DARK_SURFACE: string = '#121212';
+  static readonly DARK_BACKGROUND: string = '#111111';
+  static readonly DARK_SURFACE: string = '#1C1C1C';
   static readonly DARK_SURFACE_MUTED: string = '#1B1B1B';
   static readonly DARK_SURFACE_STRONG: string = '#202124';
   static readonly DARK_TEXT_PRIMARY: string = '#F5F7F8';
