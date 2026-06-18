@@ -26,7 +26,7 @@ export struct SettingsTextEditSystemDialog {
           .onChange((value: string) => {
             this.onChange(value);
           })
-          .type(this.unit.length > 0 ? InputType.Number : InputType.Normal)
+          .type(this.unit === Localization.t('unit_seconds') ? InputType.Number : InputType.Normal)
           .height(SettingsDialogUiConfig.dialogInputHeight)
           .fontSize(16)
           .backgroundColor(HaColors.SURFACE)

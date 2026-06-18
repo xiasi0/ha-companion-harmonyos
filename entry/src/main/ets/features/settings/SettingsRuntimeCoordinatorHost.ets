@@ -49,6 +49,9 @@ const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
   secureConnectionChoice: '',
   websocketMode: 'system',
   serviceCardUpdateFrequency: 'default',
+  assistWakeDetectionEnabled: true,
+  assistWakeWord: 'wake_word_1',
+  assistProbabilityCutoff: '',
   dark: false,
   showDeleteServerDialog: false,
   deletingServer: false,
@@ -87,6 +90,8 @@ const DEFAULT_SETTINGS_RUNTIME_ACTIONS: SettingsRuntimeActions = {
   onCancelEdit: () => {},
   onSaveEdit: () => {},
   onSetDetailHeader: () => {},
+  onToggleAssistWakeDetection: () => {},
+  onOpenAssistProbabilityCutoff: () => {},
   onOpenDashboard: () => {},
   onSsidInputChange: () => {},
   onAddSsid: () => {},
@@ -224,6 +229,9 @@ export struct SettingsRuntimeCoordinatorHost {
       left.secureConnectionChoice === right.secureConnectionChoice &&
       left.websocketMode === right.websocketMode &&
       left.serviceCardUpdateFrequency === right.serviceCardUpdateFrequency &&
+      left.assistWakeDetectionEnabled === right.assistWakeDetectionEnabled &&
+      left.assistWakeWord === right.assistWakeWord &&
+      left.assistProbabilityCutoff === right.assistProbabilityCutoff &&
       left.dark === right.dark &&
       left.showDeleteServerDialog === right.showDeleteServerDialog &&
       left.deletingServer === right.deletingServer &&
@@ -436,6 +444,9 @@ export struct SettingsRuntimeCoordinatorHost {
       secureConnectionChoice: this.snapshot.secureConnectionChoice,
       websocketMode: this.snapshot.websocketMode,
       serviceCardUpdateFrequency: this.snapshot.serviceCardUpdateFrequency,
+      assistWakeDetectionEnabled: this.snapshot.assistWakeDetectionEnabled,
+      assistWakeWord: this.snapshot.assistWakeWord,
+      assistProbabilityCutoff: this.snapshot.assistProbabilityCutoff,
       dark: this.snapshot.dark,
       onBack: this.actions.onBackToHaSettings,
       onOpen: (item: SettingsItem): void => this.openSettingsItem(item),

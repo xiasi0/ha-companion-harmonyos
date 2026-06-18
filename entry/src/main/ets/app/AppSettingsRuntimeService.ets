@@ -26,6 +26,9 @@ export interface AppSettingsRuntimeTarget extends SettingsSectionRuntimeState, G
   appTheme: string;
   secureConnectionChoice: string;
   serviceCardUpdateFrequency: string;
+  assistWakeDetectionEnabled: boolean;
+  assistWakeWord: string;
+  assistProbabilityCutoff: string;
   notificationUnreadCount: number;
   settingsRefreshTick: number;
   appResolvedDark: boolean;
@@ -93,6 +96,9 @@ export class AppSettingsRuntimeService {
     if (detailKey === 'display_theme') {
       return 'open_display_theme';
     }
+    if (detailKey === 'assist_voice') {
+      return 'assist_voice';
+    }
     return detailKey;
   }
 
@@ -119,13 +125,16 @@ export class AppSettingsRuntimeService {
       secureConnectionChoice: target.secureConnectionChoice,
       websocketMode: target.websocketMode,
       serviceCardUpdateFrequency: target.serviceCardUpdateFrequency,
+      assistWakeDetectionEnabled: target.assistWakeDetectionEnabled,
+      assistWakeWord: target.assistWakeWord,
+      assistProbabilityCutoff: target.assistProbabilityCutoff,
       dark: target.appResolvedDark,
       showDeleteServerDialog: target.showDeleteServerDialog,
       deletingServer: target.deletingServer,
       showEditDialog: target.showServerEditDialog,
       editTitle: target.serverEditTitle,
       editValue: target.serverEditValue,
-      editUnit: target.serverEditKey === 'server_session_timeout' ? Localization.t('unit_seconds') : '',
+      editUnit: AppSettingsRuntimeService.editUnit(target.serverEditKey),
       detailKey: target.settingsDetailKey,
       detailTitle: target.settingsDetailTitle,
       detailSummary: target.settingsDetailSummary,
@@ -189,6 +198,16 @@ export class AppSettingsRuntimeService {
       onSetDetailHeader: (key: string, title: string): void => {
         target.settingsDetailKey = key;
         target.settingsDetailTitle = title;
+      },
+      onToggleAssistWakeDetection: (value: boolean): void => {
+        target.assistWakeDetectionEnabled = value;
+        target.refreshSettingsState();
+      },
+      onOpenAssistProbabilityCutoff: (): void => {
+        target.serverEditKey = 'assist_probability_cutoff';
+        target.serverEditTitle = Localization.t('assist_probability_cutoff');
+        target.serverEditValue = target.assistProbabilityCutoff;
+        target.showServerEditDialog = true;
       },
       onOpenDashboard: (): void => target.returnToDashboardFromSettings(),
       onSsidInputChange: (value: string): void => {
@@ -257,5 +276,12 @@ export class AppSettingsRuntimeService {
         target.message = 'https://companion.home-assistant.io/docs/notifications/notification-local';
       }
     };
+  }
+
+  private static editUnit(key: string): string {
+    if (key === 'server_session_timeout') {
+      return Localization.t('unit_seconds');
+    }
+    return '';
   }
 }

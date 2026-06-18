@@ -13,6 +13,7 @@ export interface SettingsChoiceRuntimeState {
   secureConnectionChoice: string;
   websocketMode: string;
   serviceCardUpdateFrequency: string;
+  assistWakeWord: string;
   appConfigTick: number;
   step: number;
 }
@@ -73,7 +74,7 @@ export class SettingsChoiceRuntimeService {
     value: string
   ): void {
     if (SettingsChoiceRuntimeService.applyDisplayChoice(state, callbacks, key, value)) {
-      state.step = AppRoute.COMPANION_SETTINGS;
+      state.step = key === 'assist_voice' ? AppRoute.SETTINGS_DETAIL : AppRoute.COMPANION_SETTINGS;
     }
   }
 
@@ -122,6 +123,11 @@ export class SettingsChoiceRuntimeService {
       callbacks.refreshSettingsState();
       return true;
     }
+    if (key === 'assist_voice') {
+      state.assistWakeWord = SettingsChoiceRuntimeService.normalizeAssistWakeWord(value);
+      callbacks.refreshSettingsState();
+      return true;
+    }
     return false;
   }
 
@@ -140,5 +146,12 @@ export class SettingsChoiceRuntimeService {
       return value;
     }
     return 'default';
+  }
+
+  private static normalizeAssistWakeWord(value: string): string {
+    if (value === 'wake_word_2' || value === 'wake_word_3') {
+      return value;
+    }
+    return 'wake_word_1';
   }
 }

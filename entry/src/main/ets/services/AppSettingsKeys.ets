@@ -37,6 +37,9 @@ export interface AppSettingsKeySet {
   APP_LANGUAGE: string;
   APP_THEME: string;
   SERVICE_CARD_UPDATE_FREQUENCY: string;
+  ASSIST_WAKE_DETECTION_ENABLED: string;
+  ASSIST_WAKE_WORD: string;
+  ASSIST_PROBABILITY_CUTOFF: string;
   GESTURE_SWIPE_LEFT_TWO: string;
   GESTURE_SWIPE_LEFT_THREE: string;
   GESTURE_SWIPE_RIGHT_TWO: string;
@@ -86,6 +89,9 @@ export const AppSettingsKeys: AppSettingsKeySet = {
   APP_LANGUAGE: 'app_language',
   APP_THEME: 'app_theme',
   SERVICE_CARD_UPDATE_FREQUENCY: 'service_card_update_frequency',
+  ASSIST_WAKE_DETECTION_ENABLED: 'assist_wake_detection_enabled',
+  ASSIST_WAKE_WORD: 'assist_wake_word',
+  ASSIST_PROBABILITY_CUTOFF: 'assist_probability_cutoff',
   GESTURE_SWIPE_LEFT_TWO: 'gesture_swipe_left_two',
   GESTURE_SWIPE_LEFT_THREE: 'gesture_swipe_left_three',
   GESTURE_SWIPE_RIGHT_TWO: 'gesture_swipe_right_two',
@@ -134,6 +140,9 @@ export const AppSettingsScopedKeys: string[] = [
   AppSettingsKeys.APP_LANGUAGE,
   AppSettingsKeys.APP_THEME,
   AppSettingsKeys.SERVICE_CARD_UPDATE_FREQUENCY,
+  AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED,
+  AppSettingsKeys.ASSIST_WAKE_WORD,
+  AppSettingsKeys.ASSIST_PROBABILITY_CUTOFF,
   AppSettingsKeys.GESTURE_SWIPE_LEFT_TWO,
   AppSettingsKeys.GESTURE_SWIPE_LEFT_THREE,
   AppSettingsKeys.GESTURE_SWIPE_RIGHT_TWO,

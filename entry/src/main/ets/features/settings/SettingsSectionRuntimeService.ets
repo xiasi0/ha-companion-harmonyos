@@ -19,6 +19,8 @@ export interface CompanionSettingsSectionInput {
   autoPlayVideoEnabled: boolean;
   alwaysShowFirstViewOnAppStartEnabled: boolean;
   serviceCardUpdateFrequency: string;
+  assistWakeDetectionEnabled: boolean;
+  assistWakeWord: string;
   appLanguage: string;
   appTheme: string;
   notificationUnreadCount: number;
@@ -62,6 +64,8 @@ export interface SettingsSectionRuntimeState {
   autoPlayVideoEnabled: boolean;
   alwaysShowFirstViewOnAppStartEnabled: boolean;
   serviceCardUpdateFrequency: string;
+  assistWakeDetectionEnabled: boolean;
+  assistWakeWord: string;
   appLanguage: string;
   appTheme: string;
   serverOptions: ServerOption[];
@@ -103,6 +107,8 @@ export class SettingsSectionRuntimeService {
       autoPlayVideoEnabled: state.autoPlayVideoEnabled,
       alwaysShowFirstViewOnAppStartEnabled: state.alwaysShowFirstViewOnAppStartEnabled,
       serviceCardUpdateFrequency: state.serviceCardUpdateFrequency,
+      assistWakeDetectionEnabled: state.assistWakeDetectionEnabled,
+      assistWakeWord: state.assistWakeWord,
       appLanguage: state.appLanguage,
       appTheme: state.appTheme,
       notificationUnreadCount: state.notificationUnreadCount
@@ -153,6 +159,8 @@ export class SettingsSectionRuntimeService {
       autoPlayVideoEnabled: input.autoPlayVideoEnabled,
       alwaysShowFirstViewOnAppStartEnabled: input.alwaysShowFirstViewOnAppStartEnabled,
       serviceCardUpdateFrequency: input.serviceCardUpdateFrequency,
+      assistWakeDetectionEnabled: input.assistWakeDetectionEnabled,
+      assistWakeWord: input.assistWakeWord,
       appLanguage: input.appLanguage,
       appTheme: input.appTheme,
       notificationUnreadCount: input.notificationUnreadCount

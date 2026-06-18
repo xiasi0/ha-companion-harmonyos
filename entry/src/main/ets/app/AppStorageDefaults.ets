@@ -53,6 +53,9 @@ export class AppStorageDefaults {
     AppStorage.setOrCreate<string>('appLanguage', AppStorage.get<string>('appLanguage') ?? 'default');
     AppStorage.setOrCreate<string>('appTheme', AppStorage.get<string>('appTheme') ?? 'system');
     AppStorage.setOrCreate<string>('serviceCardUpdateFrequency', AppStorage.get<string>('serviceCardUpdateFrequency') ?? 'default');
+    AppStorage.setOrCreate<boolean>('assistWakeDetectionEnabled', AppStorage.get<boolean>('assistWakeDetectionEnabled') ?? true);
+    AppStorage.setOrCreate<string>('assistWakeWord', AppStorage.get<string>('assistWakeWord') ?? 'wake_word_1');
+    AppStorage.setOrCreate<string>('assistProbabilityCutoff', AppStorage.get<string>('assistProbabilityCutoff') ?? '');
     AppStorage.setOrCreate<boolean>('appResolvedDark', AppStorage.get<boolean>('appResolvedDark') ?? false);
     AppStorage.setOrCreate<number>('appConfigTick', AppStorage.get<number>('appConfigTick') ?? 0);
     AppStorage.setOrCreate<number>('notificationUnreadCount', AppStorage.get<number>('notificationUnreadCount') ?? 0);

@@ -1,4 +1,5 @@
 import { SettingsDetailPage } from './SettingsDetailPage';
+import { AssistVoiceSettingsPage } from './AssistVoiceSettingsPage';
 import { CompanionSettingChoicePage } from './CompanionSettingChoicePage';
 import { CompanionSettingsData, GestureSettingGroup } from './CompanionSettingsData';
 import { GestureSettingsPage } from './GestureSettingsPage';
@@ -28,6 +29,9 @@ export struct SettingsDetailHost {
   @Prop appLanguage: string = 'default';
   @Prop appTheme: string = 'system';
   @Prop serviceCardUpdateFrequency: string = 'default';
+  @Prop assistWakeDetectionEnabled: boolean = true;
+  @Prop assistWakeWord: string = 'wake_word_1';
+  @Prop assistProbabilityCutoff: string = '';
   onBackToServer: () => void = () => {};
   onBackToCompanion: () => void = () => {};
   onBackToGestures: () => void = () => {};
@@ -37,6 +41,8 @@ export struct SettingsDetailHost {
   onRemoveSsid: (value: string) => void = () => {};
   onPrioritizeChange: (value: boolean) => void = () => {};
   onOpenGesture: (key: string) => void = () => {};
+  onToggleAssistWakeDetection: (value: boolean) => void = () => {};
+  onOpenAssistProbabilityCutoff: () => void = () => {};
   onSelectGestureAction: (key: string, value: string) => void = () => {};
   onSelectChoice: (key: string, value: string) => void = () => {};
   onTextChange: (value: string) => void = () => {};
@@ -143,6 +149,21 @@ export struct SettingsDetailHost {
         onSelect: (value: string): void => {
           this.onSelectChoice(this.detailKey, value);
         },
+        onSwipeBack: this.onSwipeBack
+      })
+    } else if (this.detailKey === 'assist_voice') {
+      AssistVoiceSettingsPage({
+        groups: CompanionSettingsData.assistWakeWordOptions(),
+        selectedWakeWord: this.assistWakeWord,
+        wakeDetectionEnabled: this.assistWakeDetectionEnabled,
+        probabilityCutoffSummary: CompanionSettingsData.assistProbabilityCutoffSummary(this.assistProbabilityCutoff),
+        contentMaxWidth: this.contentMaxWidth,
+        onBack: this.onBackToCompanion,
+        onSelectWakeWord: (value: string): void => {
+          this.onSelectChoice('assist_voice', value);
+        },
+        onWakeDetectionChange: this.onToggleAssistWakeDetection,
+        onOpenProbabilityCutoff: this.onOpenAssistProbabilityCutoff,
         onSwipeBack: this.onSwipeBack
       })
     } else if (this.detailKey.startsWith('server_')) {

@@ -130,6 +130,9 @@ export struct AppRuntimeHost {
   @StorageLink('appLanguage') @Watch('onAppSettingChanged') appLanguage: string = 'default';
   @StorageLink('appTheme') @Watch('onAppSettingChanged') appTheme: string = 'system';
   @StorageLink('serviceCardUpdateFrequency') @Watch('onAppSettingChanged') serviceCardUpdateFrequency: string = 'default';
+  @StorageLink('assistWakeDetectionEnabled') @Watch('onAppSettingChanged') assistWakeDetectionEnabled: boolean = true;
+  @StorageLink('assistWakeWord') @Watch('onAppSettingChanged') assistWakeWord: string = 'wake_word_1';
+  @StorageLink('assistProbabilityCutoff') @Watch('onAppSettingChanged') assistProbabilityCutoff: string = '';
   @StorageLink('notificationUnreadCount') @Watch('onNotificationUnreadCountChanged') notificationUnreadCount: number = 0;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   @StorageLink('gestureSwipeLeftTwoAction') @Watch('onAppSettingChanged') gestureSwipeLeftTwoAction: string = 'none';
