@@ -59,6 +59,9 @@ const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
   secureConnectionChoice: '',
   websocketMode: 'system',
   serviceCardUpdateFrequency: 'default',
+  assistWakeDetectionEnabled: true,
+  assistWakeWord: 'wake_word_1',
+  assistProbabilityCutoff: '',
   dark: false,
   showDeleteServerDialog: false,
   deletingServer: false,
@@ -97,6 +100,8 @@ const DEFAULT_SETTINGS_RUNTIME_ACTIONS: SettingsRuntimeActions = {
   onCancelEdit: () => {},
   onSaveEdit: () => {},
   onSetDetailHeader: () => {},
+  onToggleAssistWakeDetection: () => {},
+  onOpenAssistProbabilityCutoff: () => {},
   onOpenDashboard: () => {},
   onSsidInputChange: () => {},
   onAddSsid: () => {},
@@ -500,6 +505,9 @@ struct CompanionSettingsDetailRoute {
         appLanguage: this.snapshot.appLanguage,
         appTheme: this.snapshot.appTheme,
         serviceCardUpdateFrequency: this.snapshot.serviceCardUpdateFrequency,
+        assistWakeDetectionEnabled: this.snapshot.assistWakeDetectionEnabled,
+        assistWakeWord: this.snapshot.assistWakeWord,
+        assistProbabilityCutoff: this.snapshot.assistProbabilityCutoff,
         gestureActionValue: this.actions.gestureActionValue,
         onRoute: (route: number): void => {
           if (route === AppRoute.SERVER_SETTINGS) {
@@ -512,6 +520,8 @@ struct CompanionSettingsDetailRoute {
           this.actions.onSetDetailHeader(key, title);
           routeToDetail(this.pathStack, key, this.navSyncActions.onSynced);
         },
+        onToggleAssistWakeDetection: this.actions.onToggleAssistWakeDetection,
+        onOpenAssistProbabilityCutoff: this.actions.onOpenAssistProbabilityCutoff,
         onOpenDashboard: this.actions.onOpenDashboard,
         onSsidInputChange: this.actions.onSsidInputChange,
         onAddSsid: this.actions.onAddSsid,
@@ -525,7 +535,9 @@ struct CompanionSettingsDetailRoute {
         },
         onSelectChoice: (key: string, value: string): void => {
           this.actions.onSelectDetailChoice(key, value);
-          routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced);
+          if (key !== 'assist_voice') {
+            routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced);
+          }
         },
         onTextChange: this.actions.onDetailTextChange,
         onOptionChange: (value: string): void => {

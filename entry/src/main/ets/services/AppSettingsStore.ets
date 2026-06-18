@@ -232,6 +232,14 @@ export class AppSettingsStore {
     );
     AppSettingsStore.setAppStorage<string>('serviceCardUpdateFrequency', serviceCardUpdateFrequency);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SERVICE_CARD_UPDATE_FREQUENCY, serviceCardUpdateFrequency);
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED, AppStorage.get<boolean>('assistWakeDetectionEnabled') ?? true);
+    await AppSettingsStore.putActiveValue(
+      context,
+      pref,
+      AppSettingsKeys.ASSIST_WAKE_WORD,
+      AppSettingsStore.normalizeAssistWakeWord(AppStorage.get<string>('assistWakeWord') ?? 'wake_word_1')
+    );
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.ASSIST_PROBABILITY_CUTOFF, AppStorage.get<string>('assistProbabilityCutoff') ?? '');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.GESTURE_SWIPE_LEFT_TWO, AppStorage.get<string>('gestureSwipeLeftTwoAction') ?? 'none');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.GESTURE_SWIPE_LEFT_THREE, AppStorage.get<string>('gestureSwipeLeftThreeAction') ?? 'none');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.GESTURE_SWIPE_RIGHT_TWO, AppStorage.get<string>('gestureSwipeRightTwoAction') ?? 'none');
@@ -393,6 +401,18 @@ export class AppSettingsStore {
       await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SERVICE_CARD_UPDATE_FREQUENCY, serviceCardUpdateFrequency);
       await AppSettingsStore.flush(pref);
     }
+    AppSettingsStore.setAppStorage<boolean>(
+      'assistWakeDetectionEnabled',
+      AppSettingsValueCodec.booleanField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED, true))
+    );
+    AppSettingsStore.setAppStorage<string>(
+      'assistWakeWord',
+      AppSettingsStore.normalizeAssistWakeWord(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.ASSIST_WAKE_WORD, 'wake_word_1'))
+    );
+    AppSettingsStore.setAppStorage<string>(
+      'assistProbabilityCutoff',
+      AppSettingsValueCodec.stringField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.ASSIST_PROBABILITY_CUTOFF, ''))
+    );
     AppSettingsStore.setAppStorage<string>(
       'gestureSwipeLeftTwoAction',
       AppSettingsValueCodec.stringField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.GESTURE_SWIPE_LEFT_TWO, 'none'))
@@ -478,6 +498,13 @@ export class AppSettingsStore {
       return value;
     }
     return 'never';
+  }
+
+  private static normalizeAssistWakeWord(value: preferences.ValueType | string): string {
+    if (value === 'wake_word_2' || value === 'wake_word_3') {
+      return value;
+    }
+    return 'wake_word_1';
   }
 
   private static activeServerId(context: common.Context): string {

@@ -64,6 +64,7 @@ export interface SettingsInteractionState {
   showServerEditDialog: boolean;
   selectedServerSettingsName: string;
   selectedServerSettingsInfo: StoredServerInfo;
+  assistProbabilityCutoff: string;
   settingsDetailKey: string;
   settingsDetailTitle: string;
   settingsDetailSummary: string;
@@ -247,6 +248,8 @@ export class SettingsInteractionRuntimeService {
       }
     } else if (state.serverEditKey === 'server_session_timeout') {
       state.sessionTimeout = value.length > 0 ? value : '0';
+    } else if (state.serverEditKey === 'assist_probability_cutoff') {
+      state.assistProbabilityCutoff = value;
     }
     callbacks.refreshSettingsState();
     state.showServerEditDialog = false;

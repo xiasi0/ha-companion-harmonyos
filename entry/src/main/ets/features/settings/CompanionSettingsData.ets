@@ -98,6 +98,16 @@ export class CompanionSettingsData {
     return groups;
   }
 
+  static assistWakeWordOptions(): SettingChoiceGroup[] {
+    const options: SettingChoiceOption[] = [
+      { value: 'wake_word_1', title: Localization.t('assist_wake_word_1'), summary: '' },
+      { value: 'wake_word_2', title: Localization.t('assist_wake_word_2'), summary: '' },
+      { value: 'wake_word_3', title: Localization.t('assist_wake_word_3'), summary: '' }
+    ];
+    const groups: SettingChoiceGroup[] = [{ title: Localization.t('assist_wake_word'), options }];
+    return groups;
+  }
+
   static gestureActionGroups(): SettingChoiceGroup[] {
     const noneOptions: SettingChoiceOption[] = [
       { value: 'none', title: Localization.t('gesture_none'), summary: '' }
@@ -241,5 +251,27 @@ export class CompanionSettingsData {
       return Localization.t('service_card_update_frequency_normal');
     }
     return Localization.t('service_card_update_frequency_default');
+  }
+
+  static assistWakeWordSummary(value: string): string {
+    if (value === 'wake_word_2') {
+      return Localization.t('assist_wake_word_2');
+    }
+    if (value === 'wake_word_3') {
+      return Localization.t('assist_wake_word_3');
+    }
+    return Localization.t('assist_wake_word_1');
+  }
+
+  static assistSummary(wakeDetectionEnabled: boolean, wakeWord: string): string {
+    if (!wakeDetectionEnabled) {
+      return Localization.t('assist_wake_word_disabled');
+    }
+    return CompanionSettingsData.assistWakeWordSummary(wakeWord);
+  }
+
+  static assistProbabilityCutoffSummary(value: string): string {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : Localization.t('common_not_set');
   }
 }

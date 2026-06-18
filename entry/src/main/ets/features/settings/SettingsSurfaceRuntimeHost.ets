@@ -24,6 +24,9 @@ export struct CompanionSettingsSurfaceHost {
   @Prop secureConnectionChoice: string = '';
   @Prop websocketMode: string = 'system';
   @Prop serviceCardUpdateFrequency: string = 'default';
+  @Prop assistWakeDetectionEnabled: boolean = true;
+  @Prop assistWakeWord: string = 'wake_word_1';
+  @Prop assistProbabilityCutoff: string = '';
   @Prop dark: boolean = false;
 
   onBack: () => void = () => {};
@@ -66,6 +69,7 @@ export struct CompanionSettingsSurfaceHost {
       secureConnectionChoice: this.secureConnectionChoice,
       websocketMode: this.websocketMode,
       serviceCardUpdateFrequency: this.serviceCardUpdateFrequency,
+      assistWakeWord: this.assistWakeWord,
       appConfigTick: 0,
       step: 0
     };
@@ -140,6 +144,7 @@ export struct ServerSettingsSurfaceHost {
       secureConnectionChoice: this.secureConnectionChoice,
       websocketMode: 'system',
       serviceCardUpdateFrequency: 'default',
+      assistWakeWord: 'wake_word_1',
       appConfigTick: 0,
       step: 0
     };
@@ -182,10 +187,15 @@ export struct SettingsDetailSurfaceHost {
   @Prop appLanguage: string = 'default';
   @Prop appTheme: string = 'system';
   @Prop serviceCardUpdateFrequency: string = 'default';
+  @Prop assistWakeDetectionEnabled: boolean = true;
+  @Prop assistWakeWord: string = 'wake_word_1';
+  @Prop assistProbabilityCutoff: string = '';
 
   gestureActionValue: (key: string) => string = () => '';
   onRoute: (route: number) => void = () => {};
   onSetDetailHeader: (key: string, title: string) => void = () => {};
+  onToggleAssistWakeDetection: (value: boolean) => void = () => {};
+  onOpenAssistProbabilityCutoff: () => void = () => {};
   onOpenDashboard: () => void = () => {};
   onSsidInputChange: (value: string) => void = () => {};
   onAddSsid: () => void = () => {};
@@ -219,6 +229,9 @@ export struct SettingsDetailSurfaceHost {
       appLanguage: this.appLanguage,
       appTheme: this.appTheme,
       serviceCardUpdateFrequency: this.serviceCardUpdateFrequency,
+      assistWakeDetectionEnabled: this.assistWakeDetectionEnabled,
+      assistWakeWord: this.assistWakeWord,
+      assistProbabilityCutoff: this.assistProbabilityCutoff,
       gestureActionValue: this.gestureActionValue,
       onBackToServer: (): void => {
         this.onRoute(AppRoute.SERVER_SETTINGS);
@@ -229,6 +242,8 @@ export struct SettingsDetailSurfaceHost {
       onBackToGestures: (): void => {
         this.onSetDetailHeader('display_gestures', Localization.t('settings_gestures'));
       },
+      onToggleAssistWakeDetection: this.onToggleAssistWakeDetection,
+      onOpenAssistProbabilityCutoff: this.onOpenAssistProbabilityCutoff,
       onOpenDashboard: this.onOpenDashboard,
       onSsidInputChange: this.onSsidInputChange,
       onAddSsid: this.onAddSsid,

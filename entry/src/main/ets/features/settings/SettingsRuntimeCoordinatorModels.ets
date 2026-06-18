@@ -20,6 +20,9 @@ export interface SettingsRuntimeSnapshot {
   secureConnectionChoice: string;
   websocketMode: string;
   serviceCardUpdateFrequency: string;
+  assistWakeDetectionEnabled: boolean;
+  assistWakeWord: string;
+  assistProbabilityCutoff: string;
   dark: boolean;
   showDeleteServerDialog: boolean;
   deletingServer: boolean;
@@ -58,6 +61,8 @@ export interface SettingsRuntimeActions {
   onCancelEdit: () => void;
   onSaveEdit: () => void;
   onSetDetailHeader: (key: string, title: string) => void;
+  onToggleAssistWakeDetection: (value: boolean) => void;
+  onOpenAssistProbabilityCutoff: () => void;
   onOpenDashboard: () => void;
   onSsidInputChange: (value: string) => void;
   onAddSsid: () => void;
