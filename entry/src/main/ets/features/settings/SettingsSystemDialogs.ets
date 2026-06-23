@@ -1,5 +1,6 @@
 import { HaColors } from '../../shared/constants/HaStyle';
 import { Localization } from '../../shared/i18n/Localization';
+import { HaTheme } from '../../shared/theme/HaTheme';
 import { SettingsDialogUiConfig } from './components/SettingsDialogUiConfig';
 
 @CustomDialog
@@ -9,6 +10,7 @@ export struct SettingsTextEditSystemDialog {
   @Prop title: string = '';
   @Prop value: string = '';
   @Prop unit: string = '';
+  @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   onChange: (value: string) => void = () => {};
   onCancel: () => void = () => {};
   onSave: () => void = () => {};
@@ -18,7 +20,7 @@ export struct SettingsTextEditSystemDialog {
       Text(this.title)
         .fontSize(20)
         .fontWeight(FontWeight.Medium)
-        .fontColor(HaColors.SETTINGS_TEXT_PRIMARY)
+        .fontColor(HaTheme.textPrimary(this.appResolvedDark))
         .width('100%')
 
       Row({ space: 8 }) {
@@ -29,8 +31,9 @@ export struct SettingsTextEditSystemDialog {
           .type(this.unit === Localization.t('unit_seconds') ? InputType.Number : InputType.Normal)
           .height(SettingsDialogUiConfig.dialogInputHeight)
           .fontSize(16)
-          .backgroundColor(HaColors.SURFACE)
-          .border({ width: SettingsDialogUiConfig.dialogInputBorderWidth, color: HaColors.OUTLINE_STRONG })
+          .fontColor(HaTheme.textPrimary(this.appResolvedDark))
+          .backgroundColor(HaTheme.surface(this.appResolvedDark))
+          .border({ width: SettingsDialogUiConfig.dialogInputBorderWidth, color: HaTheme.outline(this.appResolvedDark) })
           .borderRadius(SettingsDialogUiConfig.dialogInputRadius)
           .cancelButton({ style: CancelButtonStyle.CONSTANT })
           .layoutWeight(1)
@@ -38,7 +41,7 @@ export struct SettingsTextEditSystemDialog {
         if (this.unit.length > 0) {
           Text(this.unit)
             .fontSize(16)
-            .fontColor(HaColors.SETTINGS_TEXT_SECONDARY)
+            .fontColor(HaTheme.textSecondary(this.appResolvedDark))
         }
       }
       .width('100%')
@@ -75,7 +78,7 @@ export struct SettingsTextEditSystemDialog {
     }
     .width('100%')
     .padding(SettingsDialogUiConfig.dialogPadding())
-    .backgroundColor(SettingsDialogUiConfig.dialogBackground)
+    .backgroundColor(HaTheme.surface(this.appResolvedDark))
   }
 }
 
