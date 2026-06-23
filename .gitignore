@@ -17,6 +17,13 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
+*.codepoints
+*.otf
+*.ttc
+*.ttf
+!entry/src/main/resources/rawfile/fonts/material_symbols_rounded.ttf
+*.woff
+*.woff2
 *.hap
 *.hsp
 *.har
