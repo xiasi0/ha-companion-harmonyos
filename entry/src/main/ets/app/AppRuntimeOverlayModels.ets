@@ -6,6 +6,7 @@ export interface AppRuntimeOverlaySnapshot {
   baseUrl: string;
   accessToken: string;
   refreshToken: string;
+  assistOverlayVisible: boolean;
   assistStartListeningSignal: number;
   assistStartListeningRequested: boolean;
   profile: DeviceProfileInfo;
@@ -21,6 +22,8 @@ export interface AppRuntimeOverlayActions {
   onBackToNativeTarget: () => void;
   onSwipeBack: () => void;
   onCloseAssist: () => void;
+  onAssistAudioCaptureStart: () => Promise<void>;
+  onAssistSpeechComplete: () => void;
   onSensorHelp: () => void;
   onSensorSearch: () => void;
   onSensorFilter: () => void;

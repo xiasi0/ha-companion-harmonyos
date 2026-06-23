@@ -57,9 +57,16 @@ export class AppStorageDefaults {
     AppStorage.setOrCreate<string>('appLanguage', AppStorage.get<string>('appLanguage') ?? 'default');
     AppStorage.setOrCreate<string>('appTheme', AppStorage.get<string>('appTheme') ?? 'system');
     AppStorage.setOrCreate<string>('serviceCardUpdateFrequency', AppStorage.get<string>('serviceCardUpdateFrequency') ?? 'default');
-    AppStorage.setOrCreate<boolean>('assistWakeDetectionEnabled', AppStorage.get<boolean>('assistWakeDetectionEnabled') ?? true);
+    AppStorage.setOrCreate<boolean>('assistWakeDetectionEnabled', AppStorage.get<boolean>('assistWakeDetectionEnabled') ?? false);
+    AppStorage.setOrCreate<boolean>('assistWakeDetectionUserSet', AppStorage.get<boolean>('assistWakeDetectionUserSet') ?? false);
     AppStorage.setOrCreate<string>('assistWakeWord', AppStorage.get<string>('assistWakeWord') ?? 'wake_word_1');
     AppStorage.setOrCreate<string>('assistProbabilityCutoff', AppStorage.get<string>('assistProbabilityCutoff') ?? '');
+    AppStorage.setOrCreate<string>('assistWakeWordModelsJson', AppStorage.get<string>('assistWakeWordModelsJson') ?? '[]');
+    AppStorage.setOrCreate<string>('assistWakeWordStatus', AppStorage.get<string>('assistWakeWordStatus') ?? 'disabled');
+    AppStorage.setOrCreate<string>('assistWakeWordStatusText', AppStorage.get<string>('assistWakeWordStatusText') ?? '');
+    AppStorage.setOrCreate<string>('assistProbabilityCutoffStatusText', AppStorage.get<string>('assistProbabilityCutoffStatusText') ?? '');
+    AppStorage.setOrCreate<boolean>('assistPendingStartListening', AppStorage.get<boolean>('assistPendingStartListening') ?? true);
+    AppStorage.setOrCreate<number>('assistPendingLaunchTick', AppStorage.get<number>('assistPendingLaunchTick') ?? 0);
     AppStorage.setOrCreate<boolean>('appResolvedDark', AppStorage.get<boolean>('appResolvedDark') ?? false);
     AppStorage.setOrCreate<number>('appConfigTick', AppStorage.get<number>('appConfigTick') ?? 0);
     AppStorage.setOrCreate<number>('notificationUnreadCount', AppStorage.get<number>('notificationUnreadCount') ?? 0);

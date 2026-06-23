@@ -125,9 +125,7 @@ export struct AppRuntimeScaffold {
         .height('100%')
       }
 
-      if (!this.settingsLayerMounted && !this.isSettingsSecureConnectionRoute()) {
-        this.renderRuntimeOverlays();
-      }
+      this.renderRuntimeOverlays();
 
     }
     .width('100%')

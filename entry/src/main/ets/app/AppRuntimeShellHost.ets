@@ -83,9 +83,12 @@ const EMPTY_SETTINGS_SNAPSHOT: SettingsRuntimeSnapshot = {
   secureConnectionChoice: '',
   websocketMode: 'system',
   serviceCardUpdateFrequency: 'default',
-  assistWakeDetectionEnabled: true,
+  assistWakeDetectionEnabled: false,
   assistWakeWord: 'wake_word_1',
   assistProbabilityCutoff: '',
+  assistWakeWordModelsJson: '[]',
+  assistWakeWordStatusText: '',
+  assistProbabilityCutoffStatusText: '',
   dark: false,
   showDeleteServerDialog: false,
   deletingServer: false,
@@ -144,6 +147,7 @@ const EMPTY_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   baseUrl: '',
   accessToken: '',
   refreshToken: '',
+  assistOverlayVisible: false,
   assistStartListeningSignal: 0,
   assistStartListeningRequested: false,
   profile: new EmptyDeviceProfileInfo(),
@@ -159,6 +163,8 @@ const EMPTY_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onBackToNativeTarget: () => {},
   onSwipeBack: () => {},
   onCloseAssist: () => {},
+  onAssistAudioCaptureStart: (): Promise<void> => Promise.resolve(),
+  onAssistSpeechComplete: () => {},
   onSensorHelp: () => {},
   onSensorSearch: () => {},
   onSensorFilter: () => {},
@@ -295,6 +301,7 @@ export struct AppRuntimeShellHost {
     AppRuntimeOverlaysHost({
       snapshot: this.overlaySnapshot,
       route: this.overlaySnapshot.route,
+      routeOverlaysEnabled: !this.companionSettingsFlowVisible,
       actions: this.overlayActions
     })
   }

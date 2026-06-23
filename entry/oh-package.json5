@@ -5,6 +5,8 @@
   "main": "",
   "author": "Home Assistant",
   "license": "Apache-2.0",
-  "dependencies": {}
+  "dependencies": {
+    "micro-wake-word": "file:D:/harmony-micro-wake-word/microwakeword/build/default/outputs/default/microwakeword.har"
+  }
 }
 

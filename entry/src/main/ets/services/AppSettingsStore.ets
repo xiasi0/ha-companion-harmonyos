@@ -268,7 +268,8 @@ export class AppSettingsStore {
     );
     AppSettingsStore.setAppStorage<string>('serviceCardUpdateFrequency', serviceCardUpdateFrequency);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SERVICE_CARD_UPDATE_FREQUENCY, serviceCardUpdateFrequency);
-    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED, AppStorage.get<boolean>('assistWakeDetectionEnabled') ?? true);
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED, AppStorage.get<boolean>('assistWakeDetectionEnabled') ?? false);
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.ASSIST_WAKE_DETECTION_USER_SET, AppStorage.get<boolean>('assistWakeDetectionUserSet') ?? false);
     await AppSettingsStore.putActiveValue(
       context,
       pref,
@@ -453,9 +454,14 @@ export class AppSettingsStore {
       await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SERVICE_CARD_UPDATE_FREQUENCY, serviceCardUpdateFrequency);
       await AppSettingsStore.flush(pref);
     }
+    const assistWakeDetectionUserSet = AppSettingsValueCodec.booleanField(
+      await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.ASSIST_WAKE_DETECTION_USER_SET, false)
+    );
+    AppSettingsStore.setAppStorage<boolean>('assistWakeDetectionUserSet', assistWakeDetectionUserSet);
     AppSettingsStore.setAppStorage<boolean>(
       'assistWakeDetectionEnabled',
-      AppSettingsValueCodec.booleanField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED, true))
+      assistWakeDetectionUserSet &&
+        AppSettingsValueCodec.booleanField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED, false))
     );
     AppSettingsStore.setAppStorage<string>(
       'assistWakeWord',
@@ -553,7 +559,7 @@ export class AppSettingsStore {
   }
 
   private static normalizeAssistWakeWord(value: preferences.ValueType | string): string {
-    if (value === 'wake_word_2' || value === 'wake_word_3') {
+    if (typeof value === 'string' && value.trim().length > 0) {
       return value;
     }
     return 'wake_word_1';

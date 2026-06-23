@@ -32,6 +32,8 @@ export interface CompanionSettingsSectionsInput {
   serviceCardUpdateFrequency: string;
   assistWakeDetectionEnabled: boolean;
   assistWakeWord: string;
+  assistWakeWordModelsJson: string;
+  assistWakeWordStatusText: string;
   appLanguage: string;
   appTheme: string;
   notificationUnreadCount: number;
@@ -89,8 +91,8 @@ export class SettingsSectionService {
         SettingsSectionService.notificationItem(input.notificationUnreadCount)
       ]),
       SettingsSectionService.policySection(input.profile, Localization.t('settings_section_assist'), [
-        SettingsSectionService.detailActionItem('assist', Localization.t('settings_harmonyos_voice_assistant'), CompanionSettingsData.assistSummary(input.assistWakeDetectionEnabled, input.assistWakeWord), '', '', 'assist_voice'),
-        SettingsSectionService.capabilityItem(infoSettingsItem('headphones', Localization.t('settings_headphone_button'), Localization.t('settings_headphone_button_summary'), Localization.t('common_placeholder')), SettingsCapability.ASSIST)
+        SettingsSectionService.detailActionItem('assist', Localization.t('settings_harmonyos_voice_assistant'), CompanionSettingsData.assistSummary(input.assistWakeDetectionEnabled), '', '', 'assist_voice'),
+        SettingsSectionService.capabilityItem(infoSettingsItem('headphones', Localization.t('settings_headphone_button'), Localization.t('settings_headphone_button_summary'), Localization.t('assist_headphone_button_status')), SettingsCapability.ASSIST)
       ]),
       SettingsSectionService.policySection(input.profile, Localization.t('settings_section_app_info'), [
         SettingsSectionService.capabilityItem(detailSettingsItem('info', Localization.t('settings_app_version'), AppVersionService.versionLabel(), Localization.t('common_available'), Localization.t('settings_app_version_body')), SettingsCapability.APP_INFO),

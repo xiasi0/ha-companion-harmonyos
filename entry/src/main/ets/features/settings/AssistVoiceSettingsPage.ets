@@ -1,7 +1,7 @@
 import { SettingsItem, detailSettingsItem } from '../../models/SettingsItem';
 import { HaTheme } from '../../shared/theme/HaTheme';
 import { Localization } from '../../shared/i18n/Localization';
-import { SettingChoiceGroup, SettingChoiceOption } from './CompanionSettingsData';
+import { CompanionSettingsData, SettingChoiceGroup, SettingChoiceOption } from './CompanionSettingsData';
 import { SettingsBoundary } from './components/SettingsBoundary';
 import { SettingsCategory } from './components/SettingsCategory';
 import { SettingsInlineSwitchRow } from './components/SettingsInlineSwitchRow';
@@ -17,9 +17,11 @@ import {
 export struct AssistVoiceSettingsPage {
   @Prop groups: SettingChoiceGroup[] = [];
   @Prop selectedWakeWord: string = '';
-  @Prop wakeDetectionEnabled: boolean = true;
+  @Prop wakeDetectionEnabled: boolean = false;
+  @Prop statusText: string = '';
   @Prop probabilityCutoffSummary: string = '';
   @Prop contentMaxWidth: number = SettingsUiConfig.contentMaxWidth;
+  @StorageLink('assistWakeWordModelsJson') liveModelsJson: string = '[]';
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   private scroller: Scroller = new Scroller();
   onBack: () => void = () => {};
@@ -58,6 +60,7 @@ export struct AssistVoiceSettingsPage {
     Column() {
       SettingsInlineSwitchRow({
         title: Localization.t('assist_wake_word_detection_enabled'),
+        summary: Localization.t('assist_wake_word_detection_enabled_summary'),
         checked: this.wakeDetectionEnabled,
         onChange: this.onWakeDetectionChange
       })
@@ -112,7 +115,7 @@ export struct AssistVoiceSettingsPage {
       .width('100%')
 
       if (this.wakeDetectionEnabled) {
-        ForEach(this.groups, (group: SettingChoiceGroup) => {
+        ForEach(CompanionSettingsData.assistWakeWordOptions(this.liveModelsJson), (group: SettingChoiceGroup) => {
           if (group.title.length > 0) {
             ListItem() {
               SettingsCategory({ title: group.title })
