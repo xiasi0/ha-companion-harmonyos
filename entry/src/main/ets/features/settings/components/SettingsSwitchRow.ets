@@ -54,7 +54,10 @@ export struct SettingsSwitchRow {
 
   build() {
     Row() {
-      SettingsIcon({ label: this.icon })
+      SettingsIcon({
+        label: this.icon,
+        color: this.isOn ? HaColors.SETTINGS_ACCENT : HaTheme.textSecondary(this.appResolvedDark)
+      })
 
       Column({ space: 2 }) {
         Text(this.title)
