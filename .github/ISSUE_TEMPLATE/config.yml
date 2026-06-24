@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Dashboard or Home Assistant frontend issue
+    url: https://github.com/home-assistant/frontend/issues/new/choose
+    about: If the problem only appears inside the Home Assistant dashboard or Lovelace UI, report it to Home Assistant frontend.
+  - name: Home Assistant help and support
+    url: https://www.home-assistant.io/help
+    about: GitHub issues are for reproducible bugs. For setup questions and support, use the Home Assistant help channels.
+  - name: Home Assistant Companion documentation
+    url: https://companion.home-assistant.io/
+    about: Check the companion app documentation for troubleshooting and configuration guidance.
