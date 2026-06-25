@@ -19,6 +19,7 @@ enum SensorFilterMode {
 }
 
 interface VisibleSensorGroup {
+  key: string;
   group: SensorSettingsLiveGroupState;
   rows: SensorSettingsLiveRowState[];
 }
@@ -57,7 +58,7 @@ export struct SensorSettingsPage {
         const sensor = group.sensors[j];
         const row = SensorSettingsLiveStateStore.stateFor(sensor.id);
         row.title = sensor.title;
-        row.icon = this.sensorIcon(sensor);
+        row.icon = sensor.icon;
         groupState.rows.push(row);
       }
       nextGroups.push(groupState);
@@ -70,46 +71,6 @@ export struct SensorSettingsPage {
       return `${index}:${group.sensors[0].id}`;
     }
     return `${index}:${group.title}`;
-  }
-
-  private sensorIcon(sensor: SensorEntry): string {
-    if (sensor.id === 'battery_level') {
-      return 'sensor_battery_level';
-    }
-    if (sensor.id === 'battery_state') {
-      return 'sensor_battery_state';
-    }
-    if (sensor.id === 'charger_type') {
-      return 'sensor_charger_type';
-    }
-    if (sensor.id === 'network_type') {
-      return 'sensor_network_type';
-    }
-    if (sensor.id === 'accurate_location') {
-      return 'sensor_accurate_location';
-    }
-    if (sensor.id === 'zone_background') {
-      return 'sensor_zone_background';
-    }
-    if (sensor.id === 'location_background') {
-      return 'sensor_location_background';
-    }
-    if (sensor.id === 'last_update_trigger') {
-      return 'sensor_last_update_trigger';
-    }
-    if (sensor.icon === 'update') {
-      return 'sensor_update';
-    }
-    if (sensor.icon === 'wifi') {
-      return 'wifi';
-    }
-    if (sensor.icon === 'nfc') {
-      return 'nfc';
-    }
-    if (sensor.icon === 'lock') {
-      return 'lock';
-    }
-    return 'sensor';
   }
 
   private visibleRows(group: SensorSettingsLiveGroupState): SensorSettingsLiveRowState[] {
@@ -129,10 +90,18 @@ export struct SensorSettingsPage {
       const group = this.liveGroups[i];
       const rows = this.visibleRows(group);
       if (rows.length > 0) {
-        groups.push({ group, rows });
+        groups.push({ key: this.visibleGroupKey(group, rows), group, rows });
       }
     }
     return groups;
+  }
+
+  private visibleGroupKey(group: SensorSettingsLiveGroupState, rows: SensorSettingsLiveRowState[]): string {
+    const rowIds: string[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      rowIds.push(rows[i].id);
+    }
+    return `${group.key}:${this.filterMode}:${this.searchText.trim().toLowerCase()}:${rowIds.join('|')}`;
   }
 
   private matchesFilter(row: SensorSettingsLiveRowState): boolean {
@@ -327,7 +296,7 @@ export struct SensorSettingsPage {
             this.renderSensorGroup(visibleGroup.rows)
           }
           .width('100%')
-        }, (visibleGroup: VisibleSensorGroup) => visibleGroup.group.key)
+        }, (visibleGroup: VisibleSensorGroup) => visibleGroup.key)
       }
       .padding(SettingsUiConfig.listPadding())
       .width('100%')

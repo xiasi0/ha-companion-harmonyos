@@ -50,7 +50,7 @@ export struct DashboardInsecureBlockPage {
     Column() {
       OnboardingTopBar({
         showBack: true,
-        leadingIcon: $r('sys.symbol.arrow_clockwise'),
+        leadingIconName: 'refresh',
         onBack: (): void => this.onRetry(),
         onHelp: (): void => {}
       })

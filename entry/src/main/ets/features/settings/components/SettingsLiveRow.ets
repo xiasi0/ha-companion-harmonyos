@@ -1,8 +1,10 @@
 import { SettingsItem, SettingsItemType } from '../../../models/SettingsItem';
+import { HaColors } from '../../../shared/constants/HaStyle';
+import { AppIconView } from '../../../shared/icons/AppIconView';
+import { systemIcon } from '../../../shared/icons/AppIconModels';
 import { Localization } from '../../../shared/i18n/Localization';
 import { HaTheme } from '../../../shared/theme/HaTheme';
 import { SettingsLiveRowState, SettingsLiveStateStore } from '../../../services/SettingsLiveStateStore';
-import { SettingsIcon } from './SettingsIcon';
 import { SettingsUiConfig } from './SettingsUiConfig';
 
 @Component
@@ -35,7 +37,7 @@ export struct SettingsLiveRow {
 
   build() {
     Row() {
-      SettingsIcon({ label: this.state.icon })
+      AppIconView({ icon: systemIcon(this.state.icon), color: HaColors.SETTINGS_ACCENT })
 
       Column({ space: 2 }) {
         Text(this.state.title)
@@ -80,11 +82,10 @@ export struct SettingsLiveRow {
       }
 
       if (this.isInteractive()) {
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(24)
-          .fontColor([HaTheme.textMuted(this.appResolvedDark)])
-          .width(56)
-          .height(56)
+        AppIconView({
+          icon: systemIcon('chevron_right'),
+          color: HaTheme.textMuted(this.appResolvedDark)
+        })
       } else {
         Blank()
           .width(56)

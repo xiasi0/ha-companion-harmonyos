@@ -1,4 +1,6 @@
 import { HaColors } from '../../shared/constants/HaStyle';
+import { AppIconView } from '../../shared/icons/AppIconView';
+import { systemIcon } from '../../shared/icons/AppIconModels';
 import { Localization } from '../../shared/i18n/Localization';
 import { HaTheme } from '../../shared/theme/HaTheme';
 import { SettingsBoundary } from './components/SettingsBoundary';
@@ -52,9 +54,12 @@ export struct ServerHomeNetworkPage {
       .layoutWeight(1)
 
       Button() {
-        SymbolGlyph($r('sys.symbol.plus'))
-          .fontSize(22)
-          .fontColor([this.canAddSsid() ? HaColors.ON_PRIMARY : SettingsUiConfig.cardButtonForeground(this.appResolvedDark)])
+        AppIconView({
+          icon: systemIcon('plus'),
+          iconSize: 22,
+          slotSize: SettingsUiConfig.cardButtonSize,
+          color: this.canAddSsid() ? HaColors.ON_PRIMARY : SettingsUiConfig.cardButtonForeground(this.appResolvedDark)
+        })
       }
         .width(SettingsUiConfig.cardButtonSize)
         .height(SettingsUiConfig.cardButtonSize)
@@ -84,9 +89,12 @@ export struct ServerHomeNetworkPage {
         .layoutWeight(1)
 
       Button() {
-        SymbolGlyph($r('sys.symbol.minus'))
-          .fontSize(22)
-          .fontColor([HaColors.ERROR])
+        AppIconView({
+          icon: systemIcon('minus'),
+          iconSize: 22,
+          slotSize: SettingsUiConfig.cardButtonSize,
+          color: HaColors.ERROR
+        })
       }
         .width(SettingsUiConfig.cardButtonSize)
         .height(SettingsUiConfig.cardButtonSize)

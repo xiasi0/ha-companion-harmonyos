@@ -1,3 +1,5 @@
+import { AppIconView } from '../../../shared/icons/AppIconView';
+import { systemIcon } from '../../../shared/icons/AppIconModels';
 import { HaTheme } from '../../../shared/theme/HaTheme';
 import { SettingsUiConfig } from './SettingsUiConfig';
 
@@ -50,11 +52,10 @@ export struct SettingsContentRow {
       .alignItems(HorizontalAlign.Start)
 
       if (this.showArrow) {
-        SymbolGlyph($r('sys.symbol.chevron_right'))
-          .fontSize(24)
-          .fontColor([HaTheme.textMuted(this.appResolvedDark)])
-          .width(56)
-          .height(56)
+        AppIconView({
+          icon: systemIcon('chevron_right'),
+          color: HaTheme.textMuted(this.appResolvedDark)
+        })
       }
     }
     .width('100%')

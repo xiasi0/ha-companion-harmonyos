@@ -1,8 +1,8 @@
 import { HaColors } from '../../shared/constants/HaStyle';
+import { AppIconView } from '../../shared/icons/AppIconView';
 import { Localization } from '../../shared/i18n/Localization';
 import { HaTheme } from '../../shared/theme/HaTheme';
 import { SensorSettingsLiveRowState } from '../../services/SensorSettingsLiveStateStore';
-import { SettingsIcon } from '../settings/components/SettingsIcon';
 import { SettingsUiConfig } from '../settings/components/SettingsUiConfig';
 
 @Component
@@ -41,8 +41,9 @@ export struct SensorSettingsSwitchRow {
 
   build() {
     Row() {
-      SettingsIcon({
-        label: this.state.icon,
+      AppIconView({
+        icon: this.state.icon,
+        iconSize: 28,
         color: this.state.checked ? HaColors.SETTINGS_ACCENT : HaTheme.textSecondary(this.appResolvedDark)
       })
 

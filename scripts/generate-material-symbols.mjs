@@ -10,6 +10,14 @@ const usedIconsPath = path.join(repoRoot, 'tools', 'material-symbols', 'used-ico
 const fontName = 'MaterialSymbolsRounded[FILL,GRAD,opsz,wght]';
 const fontFamily = 'Material Symbols Rounded';
 const arkTsIdentifierPattern = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const explicitCodepoints = new Map([
+  ['battery_health', 'e1a4'],
+  ['do_not_disturb_sensor', 'e643'],
+  ['last_reboot_time', 'e889'],
+  ['last_update_trigger', 'e889'],
+  ['location_permission', 'e0c8'],
+  ['mobile_data_roaming', 'e6ca']
+]);
 const python = resolvePython();
 
 function parseCodepoints(content) {
@@ -27,25 +35,31 @@ function parseCodepoints(content) {
   return result;
 }
 
-function selectedSymbolEntries(codepoints, names) {
-  return Array.from(new Set(names)).map((icon) => {
+function selectedSymbolEntries(codepoints, icons) {
+  return icons.map((icon) => {
     const codepoint = codepoints.get(icon);
-    if (!codepoint) {
+    const explicitCodepoint = explicitCodepoints.get(icon);
+    const selectedCodepoint = codepoint ?? explicitCodepoint;
+    if (!selectedCodepoint) {
       throw new Error(`Missing Material Symbol codepoint: ${icon}`);
     }
     return {
       icon,
-      unicode: `0x${codepoint}`
+      unicode: `0x${selectedCodepoint}`,
+      text: codepoint ? icon : ''
     };
   });
 }
 
 function readUsedIcons() {
   const icons = JSON.parse(fs.readFileSync(usedIconsPath, 'utf8'));
-  if (!Array.isArray(icons) || icons.some((icon) => typeof icon !== 'string' || icon.trim() === '')) {
+  if (!Array.isArray(icons)) {
+    throw new Error(`Material Symbols icon list must be a JSON array: ${usedIconsPath}`);
+  }
+  if (icons.some((icon) => typeof icon !== 'string' || icon.trim() === '')) {
     throw new Error(`Material Symbols icon list must be a JSON string array: ${usedIconsPath}`);
   }
-  return icons.map((icon) => icon.trim()).sort();
+  return Array.from(new Set(icons.map((icon) => icon.trim()))).sort();
 }
 
 function writeText(filePath, content) {
@@ -72,7 +86,7 @@ export function arkTsCodepoints(entries) {
 
 function subsetFont(sourceFont, targetFont, entries) {
   const unicodes = entries.map((entry) => `U+${entry.unicode.slice(2).toUpperCase()}`).join(',');
-  const ligatureText = entries.map((entry) => entry.icon).join(' ');
+  const ligatureText = entries.map((entry) => entry.text ?? '').filter((text) => text.length > 0).join(' ');
   const staticFont = path.join(repoRoot, '.tmp', 'material-symbols-rounded-static.ttf');
   fs.mkdirSync(path.dirname(staticFont), { recursive: true });
   const instantiateResult = runPython([
@@ -89,16 +103,19 @@ function subsetFont(sourceFont, targetFont, entries) {
     throw new Error(`fontTools varLib instancer failed:\n${pythonHelp()}\n\n${formatSpawnFailure(instantiateResult)}`);
   }
 
-  const result = runPython([
+  const subsetArgs = [
     '-m',
     'fontTools.subset',
     staticFont,
     `--unicodes=${unicodes}`,
-    `--text=${ligatureText}`,
     `--output-file=${targetFont}`,
     '--layout-features=*',
     '--glyph-names'
-  ]);
+  ];
+  if (ligatureText.length > 0) {
+    subsetArgs.splice(4, 0, `--text=${ligatureText}`);
+  }
+  const result = runPython(subsetArgs);
   if (result.status !== 0) {
     throw new Error(`fontTools.subset failed:\n${pythonHelp()}\n\n${formatSpawnFailure(result)}`);
   }

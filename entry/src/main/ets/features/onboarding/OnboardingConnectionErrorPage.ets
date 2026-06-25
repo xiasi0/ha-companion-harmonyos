@@ -1,6 +1,8 @@
 import { OnboardingTopBar } from '../../shared/components/OnboardingTopBar';
 import { PrimaryButton } from '../../shared/components/PrimaryButton';
 import { HaColors } from '../../shared/constants/HaStyle';
+import { AppIconView } from '../../shared/icons/AppIconView';
+import { systemIcon } from '../../shared/icons/AppIconModels';
 import { OnboardingUiConfig } from '../../shared/constants/OnboardingUiConfig';
 import { Localization } from '../../shared/i18n/Localization';
 
@@ -47,11 +49,12 @@ export struct OnboardingConnectionErrorPage {
   private detailsCard(): void {
     Column({ space: OnboardingUiConfig.connectionErrorCardSpace }) {
       Row({ space: OnboardingUiConfig.noticeRowSpace }) {
-        SymbolGlyph($r('sys.symbol.chevron_up'))
-          .width(OnboardingUiConfig.noticeIconSize)
-          .height(OnboardingUiConfig.noticeIconSize)
-          .fontSize(OnboardingUiConfig.noticeIconSize)
-          .fontColor([HaColors.TEXT_SECONDARY])
+        AppIconView({
+          icon: systemIcon('chevron_up'),
+          iconSize: OnboardingUiConfig.noticeIconSize,
+          slotSize: OnboardingUiConfig.noticeIconSize,
+          color: HaColors.TEXT_SECONDARY
+        })
         Text(Localization.t('connection_error_more_details'))
           .fontSize(OnboardingUiConfig.bodySize)
           .fontColor(HaColors.TEXT_SECONDARY)

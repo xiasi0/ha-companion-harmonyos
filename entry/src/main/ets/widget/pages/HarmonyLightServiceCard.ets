@@ -2,6 +2,8 @@ import { Localization } from '../../shared/i18n/Localization';
 import { CardEntityDetailLaunchService } from '../../features/cards/CardEntityDetailLaunchService';
 import { CardRefreshTicker } from '../components/CardRefreshTicker';
 import { ServiceCardUiConfig } from '../components/ServiceCardUiConfig';
+import { AppIconView } from '../../shared/icons/AppIconView';
+import { systemIcon } from '../../shared/icons/AppIconModels';
 
 let harmonyLightServiceCardStorage = new LocalStorage();
 
@@ -89,10 +91,12 @@ struct HarmonyLightServiceCard {
   private unboundContent(): void {
     Column({ space: ServiceCardUiConfig.defaultVerticalGap }) {
       Stack({ alignContent: Alignment.Center }) {
-        SymbolGlyph($r('sys.symbol.plus'))
-          .fontSize(ServiceCardUiConfig.defaultSymbolSize)
-          .fontWeight(FontWeight.Medium)
-          .fontColor([ServiceCardUiConfig.brand])
+        AppIconView({
+          icon: systemIcon('plus'),
+          iconSize: ServiceCardUiConfig.defaultSymbolSize,
+          slotSize: ServiceCardUiConfig.iconButtonSize,
+          color: ServiceCardUiConfig.brand
+        })
       }
       .width(ServiceCardUiConfig.iconButtonSize)
       .height(ServiceCardUiConfig.iconButtonSize)
@@ -154,10 +158,12 @@ struct HarmonyLightServiceCard {
         .onClick(() => this.openEntityDetail())
 
       Stack({ alignContent: Alignment.Center }) {
-        SymbolGlyph($r('sys.symbol.power'))
-          .fontSize(24)
-          .fontWeight(FontWeight.Medium)
-          .fontColor([this.isOn() ? ServiceCardUiConfig.brand : ServiceCardUiConfig.textSecondary])
+        AppIconView({
+          icon: systemIcon('power'),
+          iconSize: 24,
+          slotSize: ServiceCardUiConfig.iconButtonSize,
+          color: this.isOn() ? ServiceCardUiConfig.brand : ServiceCardUiConfig.textSecondary
+        })
       }
       .width(ServiceCardUiConfig.iconButtonSize)
       .height(ServiceCardUiConfig.iconButtonSize)

@@ -2,6 +2,8 @@ import { Localization } from '../../shared/i18n/Localization';
 import { CardEntityDetailLaunchService } from '../../features/cards/CardEntityDetailLaunchService';
 import { CardRefreshTicker } from '../components/CardRefreshTicker';
 import { ServiceCardUiConfig } from '../components/ServiceCardUiConfig';
+import { AppIconView } from '../../shared/icons/AppIconView';
+import { systemIcon } from '../../shared/icons/AppIconModels';
 
 let harmonyMediaServiceCardStorage = new LocalStorage();
 
@@ -50,10 +52,12 @@ struct HarmonyMediaServiceCard {
 
       Column({ space: ServiceCardUiConfig.defaultVerticalGap }) {
         Stack({ alignContent: Alignment.Center }) {
-          SymbolGlyph($r('sys.symbol.plus'))
-            .fontSize(ServiceCardUiConfig.defaultSymbolSize)
-            .fontWeight(FontWeight.Medium)
-            .fontColor([ServiceCardUiConfig.brand])
+          AppIconView({
+            icon: systemIcon('plus'),
+            iconSize: ServiceCardUiConfig.defaultSymbolSize,
+            slotSize: ServiceCardUiConfig.iconButtonSize,
+            color: ServiceCardUiConfig.brand
+          })
         }
         .width(ServiceCardUiConfig.iconButtonSize)
         .height(ServiceCardUiConfig.iconButtonSize)
@@ -129,9 +133,12 @@ struct HarmonyMediaServiceCard {
                 curve: Curve.Smooth
               }))
           } else {
-            SymbolGlyph($r('sys.symbol.play_fill'))
-              .fontSize(64)
-              .fontColor([this.disabledColor()])
+            AppIconView({
+              icon: systemIcon('play'),
+              iconSize: 64,
+              slotSize: 64,
+              color: this.disabledColor()
+            })
               .opacity(0.20)
               .transition(TransitionEffect.OPACITY.animation({
                 duration: ServiceCardUiConfig.fadeDurationMs,
@@ -174,11 +181,11 @@ struct HarmonyMediaServiceCard {
       this.detailContentArea()
 
       Row() {
-        this.controlButton('previous', $r('sys.symbol.backward_end_fill'))
+        this.controlButton('previous', 'previous')
         this.controlGap()
         this.playPauseButton()
         this.controlGap()
-        this.controlButton('next', $r('sys.symbol.forward_end_fill'))
+        this.controlButton('next', 'next')
         Blank()
           .layoutWeight(1)
           .height(ServiceCardUiConfig.controlButtonSize)
@@ -200,9 +207,12 @@ struct HarmonyMediaServiceCard {
       Column({ space: 5 }) {
         Row({ space: 4 }) {
           if (this.roomNameText().length > 0) {
-            SymbolGlyph($r('sys.symbol.speaker_wave_3'))
-              .fontSize(23)
-              .fontColor([this.contentTranslucentColor()])
+            AppIconView({
+              icon: systemIcon('speaker'),
+              iconSize: 23,
+              slotSize: 23,
+              color: this.contentTranslucentColor()
+            })
 
             Text(this.roomNameText())
               .fontSize(16)
@@ -266,12 +276,15 @@ struct HarmonyMediaServiceCard {
   }
 
   @Builder
-  private controlButton(action: string, icon: Resource): void {
+  private controlButton(action: string, icon: string): void {
     Stack({ alignContent: Alignment.Center }) {
-      SymbolGlyph(icon)
-        .fontSize(action === 'play_pause' ? 26 : 23)
-        .fontColor([this.contentTranslucentColor()])
-        .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), true)
+      AppIconView({
+        icon: systemIcon(icon),
+        iconSize: action === 'play_pause' ? 26 : 23,
+        slotSize: ServiceCardUiConfig.controlButtonSize,
+        color: this.contentTranslucentColor(),
+        replaceEffect: true
+      })
     }
     .width(ServiceCardUiConfig.controlButtonSize)
     .height(ServiceCardUiConfig.controlButtonSize)
@@ -291,10 +304,13 @@ struct HarmonyMediaServiceCard {
   private playPauseButton(): void {
     Stack({ alignContent: Alignment.Center }) {
       ForEach([this.playPauseIconKey()], (item: string) => {
-        SymbolGlyph(item === 'pause' ? $r('sys.symbol.pause') : $r('sys.symbol.play_fill'))
-          .fontSize(26)
-          .fontColor([this.contentTranslucentColor()])
-          .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE), true)
+        AppIconView({
+          icon: systemIcon(item === 'pause' ? 'pause' : 'play'),
+          iconSize: 26,
+          slotSize: ServiceCardUiConfig.controlButtonSize,
+          color: this.contentTranslucentColor(),
+          replaceEffect: true
+        })
       }, (item: string) => item)
     }
     .width(ServiceCardUiConfig.controlButtonSize)

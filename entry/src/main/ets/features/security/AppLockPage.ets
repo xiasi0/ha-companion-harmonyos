@@ -1,5 +1,7 @@
 import { PrimaryButton } from '../../shared/components/PrimaryButton';
 import { HaColors } from '../../shared/constants/HaStyle';
+import { AppIconView } from '../../shared/icons/AppIconView';
+import { systemIcon } from '../../shared/icons/AppIconModels';
 import { Localization } from '../../shared/i18n/Localization';
 import { HaTheme } from '../../shared/theme/HaTheme';
 
@@ -11,9 +13,12 @@ export struct AppLockPage {
 
   build() {
     Column({ space: 22 }) {
-      SymbolGlyph($r('sys.symbol.lock_fill'))
-        .fontSize(64)
-        .fontColor([HaColors.PRIMARY])
+      AppIconView({
+        icon: systemIcon('lock'),
+        iconSize: 64,
+        slotSize: 64,
+        color: HaColors.PRIMARY
+      })
 
       Text(Localization.t('app_lock_title'))
         .fontSize(24)
