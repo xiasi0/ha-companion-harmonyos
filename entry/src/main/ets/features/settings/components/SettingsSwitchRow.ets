@@ -1,8 +1,9 @@
 import { SettingsCapability, SettingsItem, SettingsItemType } from '../../../models/SettingsItem';
 import { HaColors } from '../../../shared/constants/HaStyle';
+import { AppIconView } from '../../../shared/icons/AppIconView';
+import { systemIcon } from '../../../shared/icons/AppIconModels';
 import { Localization } from '../../../shared/i18n/Localization';
 import { HaTheme } from '../../../shared/theme/HaTheme';
-import { SettingsIcon } from './SettingsIcon';
 import { SettingsUiConfig } from './SettingsUiConfig';
 
 @Component
@@ -54,8 +55,8 @@ export struct SettingsSwitchRow {
 
   build() {
     Row() {
-      SettingsIcon({
-        label: this.icon,
+      AppIconView({
+        icon: systemIcon(this.icon),
         color: this.isOn ? HaColors.SETTINGS_ACCENT : HaTheme.textSecondary(this.appResolvedDark)
       })
 

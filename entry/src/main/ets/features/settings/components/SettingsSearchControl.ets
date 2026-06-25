@@ -1,3 +1,5 @@
+import { AppIconView } from '../../../shared/icons/AppIconView';
+import { systemIcon } from '../../../shared/icons/AppIconModels';
 import { HaTheme } from '../../../shared/theme/HaTheme';
 import { SettingsTextInput } from './SettingsTextInput';
 import { SettingsUiConfig } from './SettingsUiConfig';
@@ -11,9 +13,12 @@ export struct SettingsSearchControl {
 
   build() {
     Row({ space: 8 }) {
-      SymbolGlyph($r('sys.symbol.magnifyingglass'))
-        .fontSize(20)
-        .fontColor([HaTheme.textSecondary(this.appResolvedDark)])
+      AppIconView({
+        icon: systemIcon('search'),
+        iconSize: 20,
+        slotSize: 20,
+        color: HaTheme.textSecondary(this.appResolvedDark)
+      })
 
       SettingsTextInput({
         text: this.text,

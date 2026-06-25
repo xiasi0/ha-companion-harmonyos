@@ -2,6 +2,8 @@ import { Localization } from '../../shared/i18n/Localization';
 import { CardEntityDetailLaunchService } from '../../features/cards/CardEntityDetailLaunchService';
 import { CardRefreshTicker } from '../components/CardRefreshTicker';
 import { ServiceCardUiConfig } from '../components/ServiceCardUiConfig';
+import { AppIconView } from '../../shared/icons/AppIconView';
+import { systemIcon } from '../../shared/icons/AppIconModels';
 
 let harmonySceneServiceCardStorage = new LocalStorage();
 
@@ -100,10 +102,12 @@ struct HarmonySceneServiceCard {
   @Builder
   private plusButton(): void {
     Stack({ alignContent: Alignment.Center }) {
-      SymbolGlyph($r('sys.symbol.plus'))
-        .fontSize(ServiceCardUiConfig.defaultSymbolSize)
-        .fontWeight(FontWeight.Medium)
-        .fontColor([ServiceCardUiConfig.brand])
+      AppIconView({
+        icon: systemIcon('plus'),
+        iconSize: ServiceCardUiConfig.defaultSymbolSize,
+        slotSize: ServiceCardUiConfig.iconButtonSize,
+        color: ServiceCardUiConfig.brand
+      })
     }
     .width(ServiceCardUiConfig.iconButtonSize)
     .height(ServiceCardUiConfig.iconButtonSize)
@@ -114,10 +118,12 @@ struct HarmonySceneServiceCard {
   @Builder
   private activateButton(): void {
     Stack({ alignContent: Alignment.Center }) {
-      SymbolGlyph($r('sys.symbol.play_fill'))
-        .fontSize(ServiceCardUiConfig.defaultSymbolSize)
-        .fontWeight(FontWeight.Medium)
-        .fontColor([ServiceCardUiConfig.brand])
+      AppIconView({
+        icon: systemIcon('play'),
+        iconSize: ServiceCardUiConfig.defaultSymbolSize,
+        slotSize: ServiceCardUiConfig.iconButtonSize,
+        color: ServiceCardUiConfig.brand
+      })
     }
     .width(ServiceCardUiConfig.iconButtonSize)
     .height(ServiceCardUiConfig.iconButtonSize)

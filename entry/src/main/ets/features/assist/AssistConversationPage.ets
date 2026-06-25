@@ -1,4 +1,6 @@
 ﻿import { HaColors } from '../../shared/constants/HaStyle';
+import { AppIconView } from '../../shared/icons/AppIconView';
+import { systemIcon } from '../../shared/icons/AppIconModels';
 import { Localization } from '../../shared/i18n/Localization';
 import { HaTheme } from '../../shared/theme/HaTheme';
 import { SettingsTextInput } from '../settings/components/SettingsTextInput';
@@ -8,7 +10,6 @@ export interface AssistMessage {
   role: string;
   text: string;
 }
-
 export interface AssistAgentOption {
   id: string;
   name: string;
@@ -280,9 +281,12 @@ export struct AssistConversationPage {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
 
-        SymbolGlyph($r('sys.symbol.chevron_down'))
-          .fontSize(16)
-          .fontColor([HaTheme.textPrimary(this.appResolvedDark)])
+        AppIconView({
+          icon: systemIcon('chevron_down'),
+          iconSize: 16,
+          slotSize: 16,
+          color: HaTheme.textPrimary(this.appResolvedDark)
+        })
       }
       .padding({ left: 0, right: 0, top: 1, bottom: 1 })
       .onClick(() => {
@@ -324,9 +328,12 @@ export struct AssistConversationPage {
         }
 
         Button() {
-          SymbolGlyph($r('sys.symbol.mic_fill'))
-            .fontSize(28)
-            .fontColor([HaTheme.textPrimary(this.appResolvedDark)])
+          AppIconView({
+            icon: systemIcon('mic'),
+            iconSize: 28,
+            slotSize: 48,
+            color: HaTheme.textPrimary(this.appResolvedDark)
+          })
         }
         .width(48)
         .height(48)
@@ -352,9 +359,12 @@ export struct AssistConversationPage {
         .layoutWeight(1)
 
       Button() {
-        SymbolGlyph($r('sys.symbol.keyboard_circle'))
-          .fontSize(28)
-          .fontColor([HaTheme.textPrimary(this.appResolvedDark)])
+        AppIconView({
+          icon: systemIcon('keyboard'),
+          iconSize: 28,
+          slotSize: 44,
+          color: HaTheme.textPrimary(this.appResolvedDark)
+        })
       }
       .width(56)
       .height(44)
@@ -390,13 +400,19 @@ export struct AssistConversationPage {
 
       Button() {
         if (this.inputText.trim().length > 0) {
-          SymbolGlyph($r('sys.symbol.paperplane_right_fill'))
-            .fontSize(24)
-            .fontColor([HaTheme.textPrimary(this.appResolvedDark)])
+          AppIconView({
+            icon: systemIcon('send'),
+            iconSize: 24,
+            slotSize: 44,
+            color: HaTheme.textPrimary(this.appResolvedDark)
+          })
         } else {
-          SymbolGlyph($r('sys.symbol.mic_fill'))
-            .fontSize(26)
-            .fontColor([HaTheme.textPrimary(this.appResolvedDark)])
+          AppIconView({
+            icon: systemIcon('mic'),
+            iconSize: 26,
+            slotSize: 44,
+            color: HaTheme.textPrimary(this.appResolvedDark)
+          })
         }
       }
       .height(44)

@@ -1,8 +1,10 @@
+import { AppIconSpec } from '../../shared/icons/AppIconModels';
+
 export interface SensorEntry {
   id: string;
   title: string;
   summary: string;
-  icon: string;
+  icon: AppIconSpec;
   enabled: boolean;
 }
 

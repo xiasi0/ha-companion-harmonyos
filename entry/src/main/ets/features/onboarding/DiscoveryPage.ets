@@ -3,6 +3,8 @@ import { HaLogo } from '../../shared/components/HaLogo';
 import { OnboardingTopBar } from '../../shared/components/OnboardingTopBar';
 import { PrimaryButton } from '../../shared/components/PrimaryButton';
 import { HaColors } from '../../shared/constants/HaStyle';
+import { AppIconView } from '../../shared/icons/AppIconView';
+import { systemIcon } from '../../shared/icons/AppIconModels';
 import { OnboardingUiConfig } from '../../shared/constants/OnboardingUiConfig';
 import { Localization } from '../../shared/i18n/Localization';
 
@@ -126,11 +128,12 @@ export struct DiscoveryPage {
         .textAlign(TextAlign.Center)
         .width('100%')
 
-      SymbolGlyph($r('sys.symbol.externaldrive_fill_3'))
-        .width(OnboardingUiConfig.discoveredSheetIconSize)
-        .height(OnboardingUiConfig.discoveredSheetIconSize)
-        .fontSize(OnboardingUiConfig.discoveredSheetIconSize)
-        .fontColor([HaColors.BRAND])
+      AppIconView({
+        icon: systemIcon('drive'),
+        iconSize: OnboardingUiConfig.discoveredSheetIconSize,
+        slotSize: OnboardingUiConfig.discoveredSheetIconSize,
+        color: HaColors.BRAND
+      })
 
       Text(item.url)
         .fontSize(OnboardingUiConfig.discoveredSheetUrlSize)

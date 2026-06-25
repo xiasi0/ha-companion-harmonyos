@@ -1,3 +1,4 @@
+import { AppIconSpec, materialIcon } from '../shared/icons/AppIconModels';
 import { SensorGroup } from '../features/sensors/SensorModels';
 import type { SensorStateRecord } from './SensorStateStore';
 
@@ -5,7 +6,7 @@ import type { SensorStateRecord } from './SensorStateStore';
 export class SensorSettingsLiveRowState {
   id: string = '';
   title: string = '';
-  icon: string = '';
+  icon: AppIconSpec = materialIcon('settings');
   checked: boolean = false;
   summary: string = '';
   updatedAt: number = 0;

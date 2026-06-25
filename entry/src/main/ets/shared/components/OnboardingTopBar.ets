@@ -1,4 +1,6 @@
 import { HaColors } from '../constants/HaStyle';
+import { AppIconView } from '../icons/AppIconView';
+import { systemIcon } from '../icons/AppIconModels';
 import { OnboardingUiConfig } from '../constants/OnboardingUiConfig';
 import { HaTheme } from '../theme/HaTheme';
 
@@ -7,7 +9,7 @@ export struct OnboardingTopBar {
   @Prop
   showBack: boolean = true;
   @Prop
-  leadingIcon: Resource = $r('sys.symbol.arrow_left');
+  leadingIconName: string = 'arrow_left';
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   onBack: () => void = () => {};
   onHelp: () => void = () => {};
@@ -20,11 +22,12 @@ export struct OnboardingTopBar {
     Row({ space: OnboardingUiConfig.topBarSpace }) {
       if (this.showBack) {
         Stack() {
-          SymbolGlyph(this.leadingIcon)
-            .width(OnboardingUiConfig.topBarIconSize)
-            .height(OnboardingUiConfig.topBarIconSize)
-            .fontSize(OnboardingUiConfig.topBarIconSize)
-            .fontColor([this.iconColor()])
+          AppIconView({
+            icon: systemIcon(this.leadingIconName),
+            iconSize: OnboardingUiConfig.topBarIconSize,
+            slotSize: OnboardingUiConfig.topBarIconSize,
+            color: this.iconColor()
+          })
         }
         .width(OnboardingUiConfig.topBarButtonSize)
         .height(OnboardingUiConfig.topBarButtonSize)
@@ -44,11 +47,12 @@ export struct OnboardingTopBar {
         .layoutWeight(1)
 
       Stack() {
-        SymbolGlyph($r('sys.symbol.questionmark_circle'))
-          .width(OnboardingUiConfig.topBarIconSize)
-          .height(OnboardingUiConfig.topBarIconSize)
-          .fontSize(OnboardingUiConfig.topBarIconSize)
-          .fontColor([this.iconColor()])
+        AppIconView({
+          icon: systemIcon('question'),
+          iconSize: OnboardingUiConfig.topBarIconSize,
+          slotSize: OnboardingUiConfig.topBarIconSize,
+          color: this.iconColor()
+        })
       }
       .width(OnboardingUiConfig.topBarButtonSize)
       .height(OnboardingUiConfig.topBarButtonSize)
