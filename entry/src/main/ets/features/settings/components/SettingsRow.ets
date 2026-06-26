@@ -11,7 +11,7 @@ export struct SettingsRow {
   @Prop
   item: SettingsItem = {
     type: SettingsItemType.DETAIL,
-    icon: '',
+    icon: systemIcon(''),
     title: '',
     summary: '',
     status: '',
@@ -50,7 +50,7 @@ export struct SettingsRow {
 
   build() {
     Row() {
-      AppIconView({ icon: systemIcon(this.item.icon), color: HaColors.SETTINGS_ACCENT })
+      AppIconView({ icon: this.item.icon, color: HaColors.SETTINGS_ACCENT })
 
       Column({ space: 2 }) {
         Text(this.item.title)

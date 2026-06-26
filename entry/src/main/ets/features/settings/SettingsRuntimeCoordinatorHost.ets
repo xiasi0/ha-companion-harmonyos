@@ -287,7 +287,7 @@ export struct SettingsRuntimeCoordinatorHost {
   private settingsItemSignature(item: SettingsItem): string {
     return [
       item.type.toString(),
-      item.icon,
+      `${item.icon.source}:${item.icon.name}`,
       item.title,
       item.summary,
       item.status,

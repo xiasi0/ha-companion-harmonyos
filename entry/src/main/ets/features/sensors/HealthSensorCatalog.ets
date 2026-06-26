@@ -14,6 +14,17 @@ const HEALTH_SENSOR_TITLE_KEYS: Record<string, string> = {
   'health_last_workout_distance': 'health_sensor_last_workout_distance'
 };
 
+const HEALTH_SENSOR_ICON_NAMES: Record<string, string> = {
+  'health_steps_today': 'directions_walk',
+  'health_calories_today': 'directions_run',
+  'health_distance_today': 'pin_road_2',
+  'health_workout_count_today': '_123',
+  'health_last_workout': 'avg_time',
+  'health_last_workout_duration': 'avg_time',
+  'health_last_workout_calories': 'directions_run',
+  'health_last_workout_distance': 'pin_road_2'
+};
+
 export class HealthSensorCatalog {
   static groups(enabledSensorIds: string[] = []): SensorGroup[] {
     return [
@@ -40,7 +51,7 @@ export class HealthSensorCatalog {
     return {
       id,
       title: Localization.t(HEALTH_SENSOR_TITLE_KEYS[id]),
-      icon: materialIcon('settings'),
+      icon: materialIcon(HEALTH_SENSOR_ICON_NAMES[id]),
       enabled: HealthSensorCatalog.contains(enabledSensorIds, id),
       summary: ''
     };

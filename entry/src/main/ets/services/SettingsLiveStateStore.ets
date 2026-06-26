@@ -4,12 +4,13 @@ import {
   SettingsItemType,
   SettingsSection
 } from '../models/SettingsItem';
+import { AppIconSpec, systemIcon } from '../shared/icons/AppIconModels';
 
 @Observed
 export class SettingsLiveRowState {
   key: string = '';
   type: SettingsItemType = SettingsItemType.DETAIL;
-  icon: string = '';
+  icon: AppIconSpec = systemIcon('');
   title: string = '';
   summary: string = '';
   status: string = '';
