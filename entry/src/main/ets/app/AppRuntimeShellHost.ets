@@ -147,6 +147,8 @@ const EMPTY_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   assistStartListeningRequested: false,
   profile: new EmptyDeviceProfileInfo(),
   sensorGroups: [],
+  directSensorIds: [],
+  healthAuthorizationState: 'unknown',
   sensorUpdateFrequency: 'normal',
   contentMaxWidth: 720
 };
@@ -160,6 +162,7 @@ const EMPTY_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSensorSearch: () => {},
   onSensorFilter: () => {},
   onToggleSensor: (_id: string, _enabled: boolean): void => {},
+  onOpenHealthSensors: (_onAuthorized: () => void): void => {},
   onSelectSensorFrequency: () => {}
 };
 

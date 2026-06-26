@@ -13,6 +13,12 @@
     ],
     "deliveryWithInstall": true,
     "installationFree": false,
+    "metadata": [
+      {
+        "name": "client_id",
+        "value": "REPLACE_WITH_HUAWEI_CLIENT_ID"
+      }
+    ],
     "requestPermissions": [
       {
         "name": "ohos.permission.INTERNET"
