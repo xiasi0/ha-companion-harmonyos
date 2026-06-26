@@ -129,6 +129,11 @@ export class AppNavigationRuntimeService {
       state.step = AppRoute.DASHBOARD;
       return true;
     }
+    if (state.step === AppRoute.SENSOR_UPDATE_FREQUENCY ||
+      state.step === AppRoute.HEALTH_SENSOR_SETTINGS) {
+      state.step = AppRoute.SENSOR_SETTINGS;
+      return true;
+    }
     if (AppNavigationRuntimeService.isNativeSettingsRoute(state.step)) {
       state.step = state.nativeFeatureBackTarget;
       return true;
@@ -153,6 +158,7 @@ export class AppNavigationRuntimeService {
   private static isNativeSettingsRoute(route: number): boolean {
     return route === AppRoute.NOTIFICATION_SETTINGS ||
       route === AppRoute.SENSOR_SETTINGS ||
-      route === AppRoute.SENSOR_UPDATE_FREQUENCY;
+      route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
+      route === AppRoute.HEALTH_SENSOR_SETTINGS;
   }
 }

@@ -43,6 +43,7 @@ import { ExternalBusService } from '../services/ExternalBusService';
 import { HaConnectionPolicyService } from '../services/HaConnectionPolicyService';
 import { SystemEventService } from '../services/SystemEventService';
 import { HarmonySensorService } from '../services/HarmonySensorService';
+import { HarmonyHealthAuthorizationState, HarmonyHealthService } from '../services/HarmonyHealthService';
 import {
   FrontendUrlResolution,
   HomeNetworkSettings,
@@ -232,6 +233,7 @@ export struct AppRuntimeHost {
   @State companionChoiceDialogKey: string = '';
   @State assistStartListeningSignal: number = 0;
   @State assistStartListeningRequested: boolean = false;
+  @State healthAuthorizationState: string = 'unknown';
   private pendingEntityDetailEntityId: string = '';
   private pendingEntityDetailRequestTick: number = 0;
   private pendingEntityDetailBaseUrl: string = '';
@@ -246,6 +248,7 @@ export struct AppRuntimeHost {
   private restoringAppSettings: boolean = false;
   private systemEventService: SystemEventService = new SystemEventService();
   private sensorRuntimeService: SensorRuntimeService = new SensorRuntimeService();
+  private healthService: HarmonyHealthService = new HarmonyHealthService();
   private mobileAppRegistrationInFlight: boolean = false;
   private pendingEntityDetailProcessingTick: number = 0;
 
@@ -1831,6 +1834,30 @@ export struct AppRuntimeHost {
     }
   }
 
+  openHealthSensors(onAuthorized: () => void): void {
+    this.healthService.ensureAuthorized(this.context() as common.UIAbilityContext)
+      .then((state: HarmonyHealthAuthorizationState): void => {
+        this.healthAuthorizationState = state;
+        AppSettingsStore.saveHealthAuthorizationState(
+          this.context(),
+          Date.now(),
+          state === 'authorized' ? '' : Localization.t(`health_authorization_${state}`)
+        ).catch((): void => {});
+        if (state === 'authorized') {
+          this.step = AppRoute.HEALTH_SENSOR_SETTINGS;
+          onAuthorized();
+          this.refreshSensorStates();
+          return;
+        }
+        this.message = Localization.t(`health_authorization_${state}`);
+      })
+      .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+        this.message = this.stringifyError(error);
+        this.healthAuthorizationState = 'unavailable';
+        AppSettingsStore.saveHealthAuthorizationState(this.context(), Date.now(), this.message).catch((): void => {});
+      });
+  }
+
   overlaySensorGroups(): SensorGroup[] {
     const cacheKey = this.overlaySensorGroupsKey();
     if (this.overlaySensorGroupsCacheKey === cacheKey) {
@@ -1839,6 +1866,10 @@ export struct AppRuntimeHost {
     this.overlaySensorGroupsCacheKey = cacheKey;
     this.overlaySensorGroupsCache = SensorRuntimeBridgeService.sensorGroups(this.sensorRuntimeService, this);
     return this.overlaySensorGroupsCache;
+  }
+
+  overlayDirectSensorIds(): string[] {
+    return HarmonySensorService.directSensorIdsFromJson(this.sensorDirectEnabledJson);
   }
 
   private overlaySensorGroupsKey(): string {
@@ -1877,6 +1908,7 @@ export struct AppRuntimeHost {
       this.haRefreshToken,
       this.assistStartListeningSignal.toString(),
       this.assistStartListeningRequested ? '1' : '0',
+      this.healthAuthorizationState,
       profile.widthVp.toString(),
       profile.heightVp.toString(),
       profile.formFactor.toString(),

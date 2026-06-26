@@ -48,7 +48,8 @@ export class SettingsRouteService {
     }
     return route === AppRoute.NOTIFICATION_SETTINGS ||
       route === AppRoute.SENSOR_SETTINGS ||
-      route === AppRoute.SENSOR_UPDATE_FREQUENCY;
+      route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
+      route === AppRoute.HEALTH_SENSOR_SETTINGS;
   }
 
   static companionChoiceKey(actionId: string): string {
@@ -76,6 +77,9 @@ export class SettingsRouteService {
     }
     if (actionId === 'open_sensor_update_frequency') {
       return AppRoute.SENSOR_UPDATE_FREQUENCY;
+    }
+    if (actionId === 'open_health_sensor_settings') {
+      return AppRoute.HEALTH_SENSOR_SETTINGS;
     }
     if (actionId === 'open_notification_settings') {
       return AppRoute.NOTIFICATION_SETTINGS;

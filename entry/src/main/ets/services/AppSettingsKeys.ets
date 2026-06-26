@@ -21,6 +21,9 @@ export interface AppSettingsKeySet {
   SENSOR_ZONE_BACKGROUND: string;
   SENSOR_ACCURATE_LOCATION: string;
   SENSOR_DIRECT_ENABLED_JSON: string;
+  HEALTH_AUTHORIZATION_CHECKED_AT: string;
+  HEALTH_LAST_ERROR: string;
+  HEALTH_LAST_SYNC_AT: string;
   LOCATION_HISTORY_JSON: string;
   LOCATION_SENT_MODE: string;
   LOCATION_DIAGNOSTICS_JSON: string;
@@ -73,6 +76,9 @@ export const AppSettingsKeys: AppSettingsKeySet = {
   SENSOR_ZONE_BACKGROUND: 'sensor_zone_background_enabled',
   SENSOR_ACCURATE_LOCATION: 'sensor_accurate_location_enabled',
   SENSOR_DIRECT_ENABLED_JSON: 'sensor_direct_enabled_json',
+  HEALTH_AUTHORIZATION_CHECKED_AT: 'health_authorization_checked_at',
+  HEALTH_LAST_ERROR: 'health_last_error',
+  HEALTH_LAST_SYNC_AT: 'health_last_sync_at',
   LOCATION_HISTORY_JSON: 'location_history_json',
   LOCATION_SENT_MODE: 'location_sent_mode',
   LOCATION_DIAGNOSTICS_JSON: 'location_diagnostics_json',
@@ -124,6 +130,7 @@ export const AppSettingsScopedKeys: string[] = [
   AppSettingsKeys.SENSOR_ZONE_BACKGROUND,
   AppSettingsKeys.SENSOR_ACCURATE_LOCATION,
   AppSettingsKeys.SENSOR_DIRECT_ENABLED_JSON,
+  AppSettingsKeys.HEALTH_LAST_SYNC_AT,
   AppSettingsKeys.LOCATION_HISTORY_JSON,
   AppSettingsKeys.LOCATION_SENT_MODE,
   AppSettingsKeys.LOCATION_DIAGNOSTICS_JSON,

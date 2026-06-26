@@ -17,6 +17,7 @@ import {
   HarmonyLocationZone
 } from '../../services/HarmonyLocationService';
 import { HarmonySensorSyncResult, WebhookResult } from '../../services/HarmonySensorModels';
+import { AppSettingsStore } from '../../services/AppSettingsStore';
 import { HaLocationRuntimeService } from '../location/HaLocationRuntimeService';
 import { LocationSensorCoordinator } from './LocationSensorCoordinator';
 import { SensorGroup, SensorUpdateFrequency } from './SensorModels';
@@ -560,8 +561,10 @@ export class SensorRuntimeService {
       if (LocationSensorCoordinator.shouldRecordDiagnostics(reason, result.locationSummary)) {
         this.recordLocationDiagnostics(reason, result.locationSummary, callbacks);
       }
+      this.recordHealthSyncState(result, callbacks);
     }).catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
       callbacks.setMessage(callbacks.stringifyError(error));
+      this.recordHealthSyncError(snapshot.flags, callbacks.stringifyError(error), callbacks);
       if (LocationSensorCoordinator.isLocationReason(reason)) {
         this.recordLocationDiagnostics(reason, `error:${callbacks.stringifyError(error)}`, callbacks);
       }
@@ -574,6 +577,44 @@ export class SensorRuntimeService {
         this.syncPublicSensors(pendingReason, callbacks);
       }
     });
+  }
+
+  private recordHealthSyncState(result: HarmonySensorSyncResult, callbacks: SensorRuntimeCallbacks): void {
+    if (typeof result.healthAuthorizationCheckedAt === 'number' && result.healthAuthorizationCheckedAt > 0) {
+      AppSettingsStore.saveHealthAuthorizationState(
+        callbacks.context(),
+        result.healthAuthorizationCheckedAt,
+        result.healthLastError ?? ''
+      ).catch((): void => {});
+    }
+    if (result.healthSynced) {
+      AppSettingsStore.saveHealthSyncState(
+        callbacks.context(),
+        Date.now(),
+        result.healthLastError ?? ''
+      ).catch((): void => {});
+    }
+  }
+
+  private recordHealthSyncError(
+    flags: SensorRuntimeFlags,
+    message: string,
+    callbacks: SensorRuntimeCallbacks
+  ): void {
+    if (!this.hasAnyHealthSensorEnabled(flags)) {
+      return;
+    }
+    AppSettingsStore.saveHealthSyncState(callbacks.context(), AppStorage.get<number>('healthLastSyncAt') ?? 0, message)
+      .catch((): void => {});
+  }
+
+  private hasAnyHealthSensorEnabled(flags: SensorRuntimeFlags): boolean {
+    for (let i = 0; i < flags.directSensorIds.length; i++) {
+      if (HarmonySensorService.isHealthSensorId(flags.directSensorIds[i])) {
+        return true;
+      }
+    }
+    return false;
   }
 
   hasAnyLocationSensorEnabled(flags: SensorRuntimeFlags): boolean {

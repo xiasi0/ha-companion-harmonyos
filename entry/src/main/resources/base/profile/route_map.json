@@ -21,6 +21,11 @@
       "buildFunction": "CompanionSensorFrequencyBuilder"
     },
     {
+      "name": "CompanionHealthSensorSettings",
+      "pageSourceFile": "src/main/ets/features/settings/SettingsNavigationRoutes.ets",
+      "buildFunction": "CompanionHealthSensorSettingsBuilder"
+    },
+    {
       "name": "CompanionNotificationSettings",
       "pageSourceFile": "src/main/ets/features/settings/SettingsNavigationRoutes.ets",
       "buildFunction": "CompanionNotificationSettingsBuilder"
