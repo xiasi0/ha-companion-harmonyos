@@ -17,12 +17,18 @@ export struct AppIconView {
 
   private materialCodepoint(): number {
     switch (this.icon.name) {
+      case '_123':
+        return MaterialSymbols._123;
       case 'account_tree':
         return MaterialSymbols.account_tree;
       case 'arrow_downward':
         return MaterialSymbols.arrow_downward;
       case 'arrow_upward':
         return MaterialSymbols.arrow_upward;
+      case 'approval_delegation':
+        return MaterialSymbols.approval_delegation;
+      case 'avg_time':
+        return MaterialSymbols.avg_time;
       case 'battery_charging_80':
         return MaterialSymbols.battery_charging_80;
       case 'battery_charging_full':
@@ -41,8 +47,14 @@ export struct AppIconView {
         return MaterialSymbols.circle;
       case 'distance':
         return MaterialSymbols.distance;
+      case 'directions_run':
+        return MaterialSymbols.directions_run;
+      case 'directions_walk':
+        return MaterialSymbols.directions_walk;
       case 'do_not_disturb_sensor':
         return MaterialSymbols.do_not_disturb_sensor;
+      case 'ecg_heart':
+        return MaterialSymbols.ecg_heart;
       case 'hard_disk':
         return MaterialSymbols.hard_disk;
       case 'home':
@@ -89,6 +101,8 @@ export struct AppIconView {
         return MaterialSymbols.phone_enabled;
       case 'phone_in_talk':
         return MaterialSymbols.phone_in_talk;
+      case 'pin_road_2':
+        return MaterialSymbols.pin_road_2;
       case 'power':
         return MaterialSymbols.power;
       case 'search':

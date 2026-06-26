@@ -37,7 +37,7 @@ export struct SettingsLiveRow {
 
   build() {
     Row() {
-      AppIconView({ icon: systemIcon(this.state.icon), color: HaColors.SETTINGS_ACCENT })
+      AppIconView({ icon: this.state.icon, color: HaColors.SETTINGS_ACCENT })
 
       Column({ space: 2 }) {
         Text(this.state.title)

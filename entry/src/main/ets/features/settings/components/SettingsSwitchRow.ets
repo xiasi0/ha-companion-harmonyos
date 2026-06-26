@@ -19,7 +19,7 @@ export struct SettingsSwitchRow {
   @Prop
   item: SettingsItem = {
     type: SettingsItemType.SWITCH,
-    icon: '',
+    icon: systemIcon(''),
     title: '',
     summary: '',
     status: Localization.t('settings_switch_pending'),

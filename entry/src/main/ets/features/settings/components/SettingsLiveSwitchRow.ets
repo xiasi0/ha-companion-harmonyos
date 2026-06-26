@@ -1,7 +1,6 @@
 import { SettingsItem } from '../../../models/SettingsItem';
 import { HaColors } from '../../../shared/constants/HaStyle';
 import { AppIconView } from '../../../shared/icons/AppIconView';
-import { systemIcon } from '../../../shared/icons/AppIconModels';
 import { HaTheme } from '../../../shared/theme/HaTheme';
 import { SettingsLiveRowState, SettingsLiveStateStore } from '../../../services/SettingsLiveStateStore';
 import { SettingsUiConfig } from './SettingsUiConfig';
@@ -34,7 +33,7 @@ export struct SettingsLiveSwitchRow {
   build() {
     Row() {
       AppIconView({
-        icon: systemIcon(this.state.icon),
+        icon: this.state.icon,
         color: this.state.isOn ? HaColors.SETTINGS_ACCENT : HaTheme.textSecondary(this.appResolvedDark)
       })
 

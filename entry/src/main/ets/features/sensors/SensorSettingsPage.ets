@@ -11,6 +11,7 @@ import { SettingsRow } from '../settings/components/SettingsRow';
 import { SettingsSearchControl } from '../settings/components/SettingsSearchControl';
 import { SettingsUiConfig } from '../settings/components/SettingsUiConfig';
 import { SettingsItem, actionSettingsItem, infoSettingsItem } from '../../models/SettingsItem';
+import { materialIcon } from '../../shared/icons/AppIconModels';
 import { SensorEntry, SensorGroup } from './SensorModels';
 import { SensorSettingsSwitchRow } from './SensorSettingsSwitchRow';
 
@@ -187,7 +188,7 @@ export struct SensorSettingsPage {
 
   private healthSettingsItem(): SettingsItem {
     return actionSettingsItem(
-      'sensor',
+      materialIcon('ecg_heart'),
       Localization.t('health_title'),
       Localization.t('health_settings_summary'),
       '',
@@ -197,7 +198,7 @@ export struct SensorSettingsPage {
 
   private healthAuthorizationItem(): SettingsItem {
     return infoSettingsItem(
-      'privacy',
+      materialIcon('approval_delegation'),
       Localization.t('health_authorization_status_title'),
       '',
       this.healthAuthorizationStatus()

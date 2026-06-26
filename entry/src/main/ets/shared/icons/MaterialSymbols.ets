@@ -2,9 +2,12 @@ export const MATERIAL_SYMBOLS_FONT_FAMILY: string = 'Material Symbols Rounded';
 export const MATERIAL_SYMBOLS_FONT_SOURCE: Resource = $rawfile('fonts/material_symbols_rounded.ttf');
 
 export class MaterialSymbols {
+  static readonly _123: number = 0xeb8d;
   static readonly account_tree: number = 0xe97a;
+  static readonly approval_delegation: number = 0xf84a;
   static readonly arrow_downward: number = 0xe5db;
   static readonly arrow_upward: number = 0xe5d8;
+  static readonly avg_time: number = 0xf813;
   static readonly battery_charging_80: number = 0xf0a6;
   static readonly battery_charging_full: number = 0xe1a3;
   static readonly battery_health: number = 0xe1a4;
@@ -13,8 +16,11 @@ export class MaterialSymbols {
   static readonly brightness_6: number = 0xe3ab;
   static readonly bring_your_own_ip: number = 0xe016;
   static readonly circle: number = 0xef4a;
+  static readonly directions_run: number = 0xe566;
+  static readonly directions_walk: number = 0xe536;
   static readonly distance: number = 0xf6ea;
   static readonly do_not_disturb_sensor: number = 0xe643;
+  static readonly ecg_heart: number = 0xf6e9;
   static readonly hard_disk: number = 0xf3da;
   static readonly headphones: number = 0xf01f;
   static readonly home: number = 0xe9b2;
@@ -38,6 +44,7 @@ export class MaterialSymbols {
   static readonly notification_sound: number = 0xf353;
   static readonly phone_enabled: number = 0xe9cd;
   static readonly phone_in_talk: number = 0xe61d;
+  static readonly pin_road_2: number = 0xffeeb;
   static readonly power: number = 0xe63c;
   static readonly screen_rotation: number = 0xf2d5;
   static readonly search: number = 0xef7a;

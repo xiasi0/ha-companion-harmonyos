@@ -1,4 +1,5 @@
 import { Localization } from '../shared/i18n/Localization';
+import { AppIconSpec, systemIcon } from '../shared/icons/AppIconModels';
 
 export enum SettingsItemType {
   DETAIL,
@@ -24,7 +25,7 @@ export enum SettingsCapability {
 
 export interface SettingsItem {
   type: SettingsItemType;
-  icon: string;
+  icon: AppIconSpec;
   title: string;
   summary: string;
   status: string;
@@ -36,13 +37,22 @@ export interface SettingsItem {
   capability: SettingsCapability;
 }
 
+type SettingsItemIcon = AppIconSpec | string;
+
+function normalizedSettingsItemIcon(icon: SettingsItemIcon): AppIconSpec {
+  if (typeof icon === 'string') {
+    return systemIcon(icon);
+  }
+  return icon;
+}
+
 export interface SettingsSection {
   title: string;
   items: SettingsItem[];
 }
 
 export function detailSettingsItem(
-  icon: string,
+  icon: SettingsItemIcon,
   title: string,
   summary: string,
   status: string,
@@ -51,7 +61,7 @@ export function detailSettingsItem(
 ): SettingsItem {
   return {
     type: SettingsItemType.DETAIL,
-    icon,
+    icon: normalizedSettingsItemIcon(icon),
     title,
     summary,
     status,
@@ -65,7 +75,7 @@ export function detailSettingsItem(
 }
 
 export function actionSettingsItem(
-  icon: string,
+  icon: SettingsItemIcon,
   title: string,
   summary: string,
   status: string,
@@ -73,7 +83,7 @@ export function actionSettingsItem(
 ): SettingsItem {
   return {
     type: SettingsItemType.ACTION,
-    icon,
+    icon: normalizedSettingsItemIcon(icon),
     title,
     summary,
     status,
@@ -87,14 +97,14 @@ export function actionSettingsItem(
 }
 
 export function infoSettingsItem(
-  icon: string,
+  icon: SettingsItemIcon,
   title: string,
   summary: string,
   status: string = ''
 ): SettingsItem {
   return {
     type: SettingsItemType.INFO,
-    icon,
+    icon: normalizedSettingsItemIcon(icon),
     title,
     summary,
     status,
@@ -108,7 +118,7 @@ export function infoSettingsItem(
 }
 
 export function switchSettingsItem(
-  icon: string,
+  icon: SettingsItemIcon,
   title: string,
   summary: string,
   isOn: boolean,
@@ -116,7 +126,7 @@ export function switchSettingsItem(
 ): SettingsItem {
   return {
     type: SettingsItemType.SWITCH,
-    icon,
+    icon: normalizedSettingsItemIcon(icon),
     title,
     summary,
     status: Localization.t('settings_switch_pending'),

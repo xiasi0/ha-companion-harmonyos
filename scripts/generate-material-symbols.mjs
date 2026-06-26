@@ -11,6 +11,7 @@ const fontName = 'MaterialSymbolsRounded[FILL,GRAD,opsz,wght]';
 const fontFamily = 'Material Symbols Rounded';
 const arkTsIdentifierPattern = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const explicitCodepoints = new Map([
+  ['_123', 'eb8d'],
   ['battery_health', 'e1a4'],
   ['do_not_disturb_sensor', 'e643'],
   ['last_reboot_time', 'e889'],
