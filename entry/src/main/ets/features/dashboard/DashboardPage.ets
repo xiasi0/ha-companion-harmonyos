@@ -1,6 +1,7 @@
 ﻿import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
 import common from '@ohos.app.ability.common';
 import web_webview from '@ohos.web.webview';
+import { window } from '@kit.ArkUI';
 import { UrlGuardResult } from '../../models/UrlGuardResult';
 import { ExternalAppProxy } from './ExternalAppProxy';
 import { Localization } from '../../shared/i18n/Localization';
@@ -28,6 +29,7 @@ export struct DashboardPage {
   appTheme: string = 'system';
   @Prop
   isDarkTheme: boolean = false;
+  @State private topSafeAreaPadding: number = 0;
   controller: web_webview.WebviewController = new web_webview.WebviewController();
   externalAppProxy: ExternalAppProxy = new ExternalAppProxy(
     () => {},
@@ -48,13 +50,30 @@ export struct DashboardPage {
   private controllerAttached: boolean = false;
   private resumeReloadGuardExpiresAt: number = 0;
   private clearedAuthStorageOrigin: string = '';
+  private dashboardWindow: window.Window | undefined = undefined;
+  private avoidAreaChangeCallback: ((data: window.AvoidAreaOptions) => void) | undefined = undefined;
+  private isDashboardVisible: boolean = false;
 
   aboutToAppear(): void {
+    this.isDashboardVisible = true;
     try {
       this.controller.setCustomUserAgent(NetworkService.ANDROID_COMPATIBLE_USER_AGENT);
     } catch (_) {
     }
     this.clearStoredAuthForDashboardOrigin();
+    this.attachSystemAvoidAreaListener();
+  }
+
+  aboutToDisappear(): void {
+    this.isDashboardVisible = false;
+    if (this.dashboardWindow && this.avoidAreaChangeCallback) {
+      try {
+        this.dashboardWindow.off('avoidAreaChange', this.avoidAreaChangeCallback);
+      } catch (_) {
+      }
+    }
+    this.dashboardWindow = undefined;
+    this.avoidAreaChangeCallback = undefined;
   }
 
   private onDashboardUrlChanged(): void {
@@ -154,18 +173,45 @@ export struct DashboardPage {
     return targetUrl.length > 0 ? targetUrl : 'about:blank';
   }
 
-  private viewportFitCoverScript(): string {
-    return `(function(){` +
-      `var content='width=device-width,initial-scale=1,viewport-fit=cover';` +
-      `var metas=document.getElementsByTagName('meta');` +
-      `var viewport=null;` +
-      `for(var i=0;i<metas.length;i++){if((metas[i].getAttribute('name')||'').toLowerCase()==='viewport'){viewport=metas[i];break;}}` +
-      `if(!viewport){viewport=document.createElement('meta');viewport.setAttribute('name','viewport');document.head.appendChild(viewport);}` +
-      `var current=viewport.getAttribute('content')||'';` +
-      `if(current.indexOf('viewport-fit=')>=0){current=current.replace(/viewport-fit\\s*=\\s*[^,]+/,'viewport-fit=cover');}` +
-      `else{current=(current.trim().length>0?current+',':'')+'viewport-fit=cover';}` +
-      `viewport.setAttribute('content',current||content);` +
-      `})();`;
+  private applyTopSafeAreaPadding(topRectHeightPx: number): void {
+    const topSafeAreaPadding = this.getUIContext().px2vp(topRectHeightPx);
+    this.topSafeAreaPadding = Number.isFinite(topSafeAreaPadding) && topSafeAreaPadding > 0
+      ? topSafeAreaPadding
+      : 0;
+  }
+
+  private attachSystemAvoidAreaListener(): void {
+    const appContext = this.getUIContext().getHostContext() as common.Context;
+    window.getLastWindow(appContext)
+      .then((mainWindow: window.Window): void => {
+        if (!this.isDashboardVisible) {
+          return;
+        }
+        this.dashboardWindow = mainWindow;
+        try {
+          this.applyTopSafeAreaPadding(mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect.height);
+        } catch (_) {
+          this.topSafeAreaPadding = 0;
+        }
+        if (this.avoidAreaChangeCallback) {
+          return;
+        }
+        this.avoidAreaChangeCallback = (data: window.AvoidAreaOptions): void => {
+          if (!this.isDashboardVisible) {
+            return;
+          }
+          if (data.type === window.AvoidAreaType.TYPE_SYSTEM) {
+            this.applyTopSafeAreaPadding(data.area.topRect.height);
+          }
+        };
+        mainWindow.on('avoidAreaChange', this.avoidAreaChangeCallback);
+      })
+      .catch((): void => {
+        if (!this.isDashboardVisible) {
+          return;
+        }
+        this.topSafeAreaPadding = 0;
+      });
   }
 
   private haSafeAreaPatchScript(): string {
@@ -256,7 +302,7 @@ export struct DashboardPage {
           .pinchSmooth(this.pinchToZoomEnabled)
           .mediaPlayGestureAccess(!this.autoPlayVideoEnabled)
           .forceDarkAccess(this.isDarkTheme)
-          .runJavaScriptOnHeadEnd([{ script: this.viewportFitCoverScript() + this.haSafeAreaPatchScript(), scriptRules: ['*'] }])
+          .runJavaScriptOnHeadEnd([{ script: this.haSafeAreaPatchScript(), scriptRules: ['*'] }])
           .overScrollMode(OverScrollMode.ALWAYS)
           .onPermissionRequest((event) => {
             if (event) {
@@ -341,7 +387,6 @@ export struct DashboardPage {
           })
           .width('100%')
           .height('100%')
-          .expandSafeArea([SafeAreaType.SYSTEM, SafeAreaType.CUTOUT], [SafeAreaEdge.TOP, SafeAreaEdge.START, SafeAreaEdge.END])
           .layoutWeight(1)
       } else {
         Column()
@@ -353,7 +398,7 @@ export struct DashboardPage {
     }
     .width('100%')
     .height('100%')
-    .expandSafeArea([SafeAreaType.SYSTEM, SafeAreaType.CUTOUT], [SafeAreaEdge.TOP, SafeAreaEdge.START, SafeAreaEdge.END])
+    .padding({ top: this.topSafeAreaPadding })
     .backgroundColor(HaTheme.background(this.isDarkTheme))
   }
 }
