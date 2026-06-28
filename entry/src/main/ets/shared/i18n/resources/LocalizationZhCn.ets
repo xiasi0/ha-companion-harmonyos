@@ -193,6 +193,7 @@ export const ZH_CN: Map<string, string> = new Map<string, string>([
   ['settings_open_source_licenses', '开源许可'],
   ['settings_open_source_licenses_summary', '查看第三方开源许可。'],
   ['license_ha_icon_assets', '应用内图标资源来自 Home Assistant 项目资源，并已转换为 HarmonyOS 可用资源。'],
+  ['license_google_material_symbols', '应用使用从 Google Material Symbols 字体文件生成的 Google Material Symbols Rounded 子集。'],
   ['license_harmony_sdk', '应用使用 HarmonyOS SDK 和系统能力构建，相关许可和条款以华为开发者工具链随附协议为准。'],
   ['settings_privacy_policy', '隐私政策'],
   ['settings_privacy_policy_summary', '查看 Home Assistant 隐私政策和华为隐私声明'],

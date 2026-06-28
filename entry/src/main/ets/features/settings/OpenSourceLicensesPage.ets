@@ -32,6 +32,12 @@ export struct OpenSourceLicensesPage {
         description: Localization.t('license_ha_icon_assets')
       },
       {
+        name: 'Google Material Symbols Rounded',
+        version: 'subset',
+        license: 'Apache-2.0',
+        description: Localization.t('license_google_material_symbols')
+      },
+      {
         name: 'HarmonyOS SDK',
         version: '6.x',
         license: 'SDK',
