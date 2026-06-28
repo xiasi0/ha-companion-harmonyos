@@ -7,6 +7,7 @@
 /artifacts
 /logs
 /.tools
+/.tmp
 /.local
 /docs/superpowers
 /verify-profile.json
