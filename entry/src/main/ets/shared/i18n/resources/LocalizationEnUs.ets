@@ -193,6 +193,7 @@ export const EN_US: Map<string, string> = new Map<string, string>([
   ['settings_open_source_licenses', 'Open source licenses'],
   ['settings_open_source_licenses_summary', 'View third-party open source licenses.'],
   ['license_ha_icon_assets', 'Icon assets in the app come from Home Assistant project resources and were converted for HarmonyOS.'],
+  ['license_google_material_symbols', 'The app uses a subset of Google Material Symbols Rounded generated from Google Material Symbols font files.'],
   ['license_harmony_sdk', 'The app is built with HarmonyOS SDK and system capabilities. Related terms follow the agreements bundled with the Huawei developer toolchain.'],
   ['settings_privacy_policy', 'Privacy policy'],
   ['settings_privacy_policy_summary', 'View the Home Assistant privacy policy and Huawei privacy statement'],
