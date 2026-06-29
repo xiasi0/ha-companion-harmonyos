@@ -6,7 +6,7 @@
 
 HA Companion For HarmonyOS is a Home Assistant Companion implementation for HarmonyOS NEXT. The project aims to provide Home Assistant authentication, dashboard access, mobile_app registration, device capability sync, native settings, and HarmonyOS service cards in a native HarmonyOS app.
 
-The current app version is `1.0.0` (`versionCode`: `1000000`) and the declared target device types are `phone` and `tablet`. The project is still under active development: several core paths are runnable, while some platform capabilities still need more real-device validation and production hardening.
+The current app version is `1.2.0` (`versionCode`: `1020000`) and the declared target device types are `phone` and `tablet`. The project is still under active development: several core paths are runnable, while some platform capabilities still need more real-device validation and production hardening.
 
 ## Project Context And Goals
 
@@ -330,8 +330,8 @@ If `build-profile.json5` starts with `S`, local skip-worktree is enabled.
 The app package version is defined in `AppScope/app.json5`:
 
 ```json5
-"versionCode": 1000000,
-"versionName": "1.0.0"
+"versionCode": 1020000,
+"versionName": "1.2.0"
 ```
 
 Runtime code reads the bundled HarmonyOS version through `AppVersionService`. Settings, Home Assistant mobile_app registration, and WebView bridge responses should use this service instead of hardcoded version strings.

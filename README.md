@@ -6,7 +6,7 @@
 
 HA Companion For HarmonyOS 是面向 HarmonyOS NEXT 的 Home Assistant Companion 应用实现。项目目标是在鸿蒙原生应用中提供 Home Assistant 登录、仪表盘访问、移动端注册、设备能力同步、原生设置和服务卡片能力。
 
-当前应用版本为 `1.0.0`（`versionCode`: `1000000`），声明支持的设备类型为 `phone` 和 `tablet`。项目仍处于开发阶段，部分能力已经形成可运行主路径，部分平台能力仍需要更多真机验证和产品化打磨。
+当前应用版本为 `1.2.0`（`versionCode`: `1020000`），声明支持的设备类型为 `phone` 和 `tablet`。项目仍处于开发阶段，部分能力已经形成可运行主路径，部分平台能力仍需要更多真机验证和产品化打磨。
 
 ## 背景与目标
 
@@ -330,8 +330,8 @@ git ls-files -v build-profile.json5
 应用安装包版本以 `AppScope/app.json5` 为准：
 
 ```json5
-"versionCode": 1000000,
-"versionName": "1.0.0"
+"versionCode": 1020000,
+"versionName": "1.2.0"
 ```
 
 运行时通过 `AppVersionService` 读取 HarmonyOS bundle 信息。设置页、Home Assistant mobile_app 注册和 WebView bridge 都应使用该服务，不应在业务代码中硬编码版本号。
