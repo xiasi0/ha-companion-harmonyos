@@ -2,8 +2,6 @@ import common from '@ohos.app.ability.common';
 import { HaConnectionPolicyService } from '../../services/HaConnectionPolicyService';
 import { HarmonySensorService, SensorPreferenceSnapshot } from '../../services/HarmonySensorService';
 import {
-  HarmonyGeofenceStatus,
-  HarmonyGeofenceTransition,
   HarmonyLocationService,
   HarmonyLocationSnapshot,
   HarmonyLocationZone
@@ -35,48 +33,32 @@ export class HaLocationRuntimeService {
   private static currentZoneName = '';
   private static running = false;
   private static zonesRefreshing = false;
-  private static geofenceRefreshing = false;
   private static syncing = false;
   private static pendingSyncReason = '';
 
   static ensureRunning(context: common.Context, reason: string = 'location_runtime_ensure'): void {
     HaLocationRuntimeService.context = context;
     const snapshot = HaLocationRuntimeService.snapshot();
-    if (!snapshot.registered || snapshot.locationSentMode === 'never' ||
-      !SensorRuntimePresenter.hasAnyLocationSensorEnabled(snapshot.flags)) {
+    if (!snapshot.registered || !HaLocationRuntimeService.shouldUseBackgroundRuntime(snapshot)) {
       HaLocationRuntimeService.stop();
       HaLocationRuntimeService.syncSensors(reason);
       return;
     }
 
-    const useContinuousLocation = HaLocationRuntimeService.shouldUseContinuousLocation(snapshot);
-    if (snapshot.flags.locationBackgroundEnabled && useContinuousLocation) {
-      LongRunningTaskService.ensureLocationActive(context as common.UIAbilityContext).catch((): void => {});
-    } else {
-      LongRunningTaskService.stopLocation(context as common.UIAbilityContext).catch((): void => {});
-    }
+    LongRunningTaskService.ensureLocationActive(context as common.UIAbilityContext).catch((): void => {});
     HaLocationRuntimeService.locationEnabled = HaLocationRuntimeService.locationService.getLocationEnabled();
     HaLocationRuntimeService.startEnabledWatch();
-    if (useContinuousLocation) {
-      HaLocationRuntimeService.startLocationWatch();
-    } else {
-      HaLocationRuntimeService.running = false;
-      HaLocationRuntimeService.locationService.stopLocationWatch();
-    }
-    HaLocationRuntimeService.refreshZones(false);
+    HaLocationRuntimeService.startLocationWatch();
     HaLocationRuntimeService.refreshCurrentLocation(reason);
   }
 
   static refreshOnce(context: common.Context, reason: string = 'location_background_work'): void {
     HaLocationRuntimeService.context = context;
     const snapshot = HaLocationRuntimeService.snapshot();
-    if (!snapshot.registered || !snapshot.flags.locationBackgroundEnabled ||
-      snapshot.locationSentMode === 'never' ||
-      !SensorRuntimePresenter.hasAnyLocationSensorEnabled(snapshot.flags)) {
+    if (!snapshot.registered || !HaLocationRuntimeService.shouldUseBackgroundRuntime(snapshot)) {
       return;
     }
     HaLocationRuntimeService.locationEnabled = HaLocationRuntimeService.locationService.getLocationEnabled();
-    HaLocationRuntimeService.refreshZones(false);
     HaLocationRuntimeService.refreshCurrentLocation(reason);
   }
 
@@ -105,8 +87,10 @@ export class HaLocationRuntimeService {
     return HaLocationRuntimeService.running;
   }
 
-  private static shouldUseContinuousLocation(snapshot: LocationRuntimeSnapshot): boolean {
-    return snapshot.locationSentMode === 'exact' && snapshot.flags.accurateLocationEnabled;
+  private static shouldUseBackgroundRuntime(snapshot: LocationRuntimeSnapshot): boolean {
+    return snapshot.flags.locationBackgroundEnabled &&
+      snapshot.locationSentMode === 'exact' &&
+      snapshot.flags.accurateLocationEnabled;
   }
 
   private static startEnabledWatch(): void {
@@ -169,7 +153,6 @@ export class HaLocationRuntimeService {
         if (location) {
           HaLocationRuntimeService.currentZoneName = LocationSensorCoordinator.currentZoneName(location, zones);
         }
-        HaLocationRuntimeService.refreshGeofences();
         if (syncAfterRefresh) {
           HaLocationRuntimeService.syncSensors('zones_refreshed');
         }
@@ -178,44 +161,6 @@ export class HaLocationRuntimeService {
       .finally((): void => {
         HaLocationRuntimeService.zonesRefreshing = false;
       });
-  }
-
-  private static refreshGeofences(): void {
-    const snapshot = HaLocationRuntimeService.snapshot();
-    if (!SensorRuntimePresenter.hasAnyLocationSensorEnabled(snapshot.flags) ||
-      HaLocationRuntimeService.zones.length === 0 ||
-      HaLocationRuntimeService.geofenceRefreshing) {
-      return;
-    }
-    HaLocationRuntimeService.geofenceRefreshing = true;
-    HaLocationRuntimeService.locationService.refreshGeofences(
-      HaLocationRuntimeService.context as common.Context,
-      HaLocationRuntimeService.zones,
-      (transition: HarmonyGeofenceTransition): void => {
-        HaLocationRuntimeService.handleGeofenceTransition(transition);
-      }
-    ).then((status: HarmonyGeofenceStatus): void => {
-      HaLocationRuntimeService.setLocationGeofenceStatus(status.summary);
-    }).catch((err: Error | string | number | boolean | Object): void => {
-      HaLocationRuntimeService.setLocationGeofenceStatus(`geofence_error:${HaLocationRuntimeService.stringifyError(err)}`);
-    }).finally((): void => {
-      HaLocationRuntimeService.geofenceRefreshing = false;
-    });
-  }
-
-  static handleGeofenceWant(context: common.Context): void {
-    HaLocationRuntimeService.context = context;
-    HaLocationRuntimeService.ensureRunning(context, 'geofence_want');
-  }
-
-  private static handleGeofenceTransition(transition: HarmonyGeofenceTransition): void {
-    if (transition.event === 'geofence_enter' || transition.event === 'geofence_dwell') {
-      HaLocationRuntimeService.currentZoneName = transition.zone.name;
-    } else if (transition.event === 'geofence_exit' &&
-      HaLocationRuntimeService.currentZoneName === transition.zone.name) {
-      HaLocationRuntimeService.currentZoneName = '';
-    }
-    HaLocationRuntimeService.refreshCurrentLocation(transition.event);
   }
 
   private static syncSensors(reason: string): void {
@@ -239,7 +184,7 @@ export class HaLocationRuntimeService {
       bearerTypesEnabled: preferences.bearerTypesEnabled,
       lastUpdateTriggerEnabled: preferences.lastUpdateTriggerEnabled,
       locationBackgroundEnabled: preferences.locationBackgroundEnabled && HaLocationRuntimeService.running,
-      zoneBackgroundEnabled: preferences.zoneBackgroundEnabled,
+      zoneBackgroundEnabled: false,
       accurateLocationEnabled: preferences.accurateLocationEnabled,
       directSensorIds: preferences.directSensorIds
     };

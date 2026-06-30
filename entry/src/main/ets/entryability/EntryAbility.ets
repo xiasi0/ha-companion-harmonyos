@@ -9,7 +9,6 @@ import { HaLocationRuntimeService } from '../features/location/HaLocationRuntime
 import { AppStorageDefaults } from '../app/AppStorageDefaults';
 import { AppSettingsStore } from '../services/AppSettingsStore';
 import { DiscoveryCacheService } from '../services/DiscoveryCacheService';
-import { HARMONY_GEOFENCE_ACTION } from '../services/HarmonyLocationService';
 import { ServerManager } from '../services/ServerManager';
 import { CardEntityDetailLaunchService } from '../features/cards/CardEntityDetailLaunchService';
 
@@ -21,7 +20,6 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     AppStorageDefaults.register();
-    this.handleLocationWant(want);
     this.handleEntityDetailWant(want);
     LongRunningTaskService.setRecoveryHandler((context): void => {
       if ((AppStorage.get<string>('websocketMode') ?? 'system') !== 'always') {
@@ -39,7 +37,6 @@ export default class EntryAbility extends UIAbility {
   }
 
   onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
-    this.handleLocationWant(want);
     this.handleEntityDetailWant(want);
   }
 
@@ -149,20 +146,6 @@ export default class EntryAbility extends UIAbility {
     const baseUrl = AppStorage.get<string>('haBaseUrl') ?? '';
     const token = AppStorage.get<string>('haAccessToken') ?? '';
     return baseUrl.trim().length > 0 && token.trim().length > 0;
-  }
-
-  private handleLocationWant(want: Want): void {
-    if (want.action !== HARMONY_GEOFENCE_ACTION) {
-      return;
-    }
-    ServerManager.restoreActiveToAppStorage(this.context)
-      .then((): Promise<void> => AppSettingsStore.restoreToAppStorage(this.context))
-      .then((): void => {
-        HaLocationRuntimeService.handleGeofenceWant(this.context);
-      })
-      .catch((err: Error): void => {
-        hilog.warn(DOMAIN, TAG, 'Failed to handle geofence want. Cause: %{public}s', err.message);
-      });
   }
 
   private handleEntityDetailWant(want: Want): void {

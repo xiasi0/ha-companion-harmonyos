@@ -5,8 +5,6 @@ import common from '@ohos.app.ability.common';
 import geoLocationManager from '@ohos.geoLocationManager';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import type { Permissions } from '@ohos.abilityAccessCtrl';
-import type { WantAgent } from '@ohos.wantAgent';
-import { wantAgent } from '@kit.AbilityKit';
 
 export interface HarmonyLocationSnapshot {
   latitude: number;
@@ -51,7 +49,6 @@ export interface HarmonyGeofenceStatus {
 const GEOFENCE_EXPIRATION_MS = 24 * 60 * 60 * 1000;
 const DOMAIN = 0x0000;
 const TAG = 'HALocationService';
-export const HARMONY_GEOFENCE_ACTION = 'ha.companion.location.GEOFENCE';
 
 interface PermissionRequestError {
   code?: number;
@@ -61,8 +58,6 @@ export class HarmonyLocationService {
   private locationCallback: ((location: geoLocationManager.Location) => void) | undefined = undefined;
   private enabledCallback: ((enabled: boolean) => void) | undefined = undefined;
   private geofenceIds: number[] = [];
-  private geofenceRequests: geoLocationManager.GeofenceRequest[] = [];
-  private geofenceWantAgent: WantAgent | undefined = undefined;
 
   async requestLocationPermission(context: common.Context): Promise<boolean> {
     return this.requestPreciseLocationPermission(context);
@@ -222,7 +217,6 @@ export class HarmonyLocationService {
   }
 
   async refreshGeofences(
-    context: common.Context,
     zones: HarmonyLocationZone[],
     onTransition: (transition: HarmonyGeofenceTransition) => void
   ): Promise<HarmonyGeofenceStatus> {
@@ -252,10 +246,6 @@ export class HarmonyLocationService {
       };
     }
     const maxGeofences = Math.min(zones.length, 100);
-    const systemStatus = await this.refreshSystemGeofences(context, zones, maxGeofences);
-    if (systemStatus.active) {
-      return systemStatus;
-    }
     try {
       for (let i = 0; i < maxGeofences; i++) {
         const zone = zones[i];
@@ -302,18 +292,6 @@ export class HarmonyLocationService {
   }
 
   async stopGeofences(): Promise<void> {
-    const requests = this.geofenceRequests;
-    const agent = this.geofenceWantAgent;
-    this.geofenceRequests = [];
-    this.geofenceWantAgent = undefined;
-    if (agent) {
-      for (let i = 0; i < requests.length; i++) {
-        try {
-          geoLocationManager.off('gnssFenceStatusChange', requests[i], agent);
-        } catch (_) {
-        }
-      }
-    }
     const ids = this.geofenceIds;
     this.geofenceIds = [];
     for (let i = 0; i < ids.length; i++) {
@@ -404,64 +382,6 @@ export class HarmonyLocationService {
       }
     }
     return false;
-  }
-
-  private async refreshSystemGeofences(
-    context: common.Context,
-    zones: HarmonyLocationZone[],
-    maxGeofences: number
-  ): Promise<HarmonyGeofenceStatus> {
-    let agent: WantAgent;
-    try {
-      const abilityContext = context as common.UIAbilityContext;
-      agent = await wantAgent.getWantAgent({
-        wants: [{
-          bundleName: abilityContext.abilityInfo.bundleName,
-          abilityName: abilityContext.abilityInfo.name,
-          action: HARMONY_GEOFENCE_ACTION
-        }],
-        actionType: wantAgent.OperationType.START_ABILITY,
-        requestCode: 735003,
-        actionFlags: [wantAgent.WantAgentFlags.UPDATE_PRESENT_FLAG]
-      });
-    } catch (err) {
-      return {
-        active: false,
-        summary: `system_geofence_agent_failed:${HarmonyLocationService.stringifyError(err)}`,
-        registeredCount: 0
-      };
-    }
-
-    try {
-      for (let i = 0; i < maxGeofences; i++) {
-        const zone = zones[i];
-        const request: geoLocationManager.GeofenceRequest = {
-          scenario: geoLocationManager.LocationRequestScenario.DAILY_LIFE_SERVICE,
-          geofence: {
-            latitude: zone.latitude,
-            longitude: zone.longitude,
-            coordinateSystemType: geoLocationManager.CoordinateSystemType.WGS84,
-            radius: Math.max(zone.radius, 100),
-            expiration: GEOFENCE_EXPIRATION_MS
-          }
-        };
-        geoLocationManager.on('gnssFenceStatusChange', request, agent);
-        this.geofenceRequests.push(request);
-      }
-      this.geofenceWantAgent = agent;
-      return {
-        active: this.geofenceRequests.length > 0,
-        summary: `system_active:${this.geofenceRequests.length}`,
-        registeredCount: this.geofenceRequests.length
-      };
-    } catch (err) {
-      await this.stopGeofences();
-      return {
-        active: false,
-        summary: `system_geofence_failed:${HarmonyLocationService.stringifyError(err)}`,
-        registeredCount: 0
-      };
-    }
   }
 
   private static geofenceEventName(event: geoLocationManager.GeofenceTransitionEvent): string {

@@ -10,7 +10,7 @@ export interface SensorRuntimeBridgeState {
   sensorPluggedTypeEnabled: boolean;
   sensorBearerTypesEnabled: boolean;
   sensorLastUpdateTriggerEnabled: boolean;
-  sensorLocationEnabled: boolean;
+  sensorLocationBackgroundEnabled: boolean;
   sensorZoneBackgroundEnabled: boolean;
   sensorAccurateLocationEnabled: boolean;
   sensorDirectEnabledJson: string;
@@ -29,7 +29,7 @@ export class SensorRuntimeBridgeService {
       pluggedTypeEnabled: state.sensorPluggedTypeEnabled,
       bearerTypesEnabled: state.sensorBearerTypesEnabled,
       lastUpdateTriggerEnabled: state.sensorLastUpdateTriggerEnabled,
-      locationBackgroundEnabled: state.sensorLocationEnabled,
+      locationBackgroundEnabled: state.sensorLocationBackgroundEnabled,
       zoneBackgroundEnabled: state.sensorZoneBackgroundEnabled,
       accurateLocationEnabled: state.sensorAccurateLocationEnabled,
       directSensorIds: SensorRuntimePresenter.directSensorIdsFromJson(state.sensorDirectEnabledJson)
@@ -42,7 +42,7 @@ export class SensorRuntimeBridgeService {
     state.sensorPluggedTypeEnabled = flags.pluggedTypeEnabled;
     state.sensorBearerTypesEnabled = flags.bearerTypesEnabled;
     state.sensorLastUpdateTriggerEnabled = flags.lastUpdateTriggerEnabled;
-    state.sensorLocationEnabled = flags.locationBackgroundEnabled;
+    state.sensorLocationBackgroundEnabled = flags.locationBackgroundEnabled;
     state.sensorZoneBackgroundEnabled = flags.zoneBackgroundEnabled;
     state.sensorAccurateLocationEnabled = flags.accurateLocationEnabled;
     state.sensorDirectEnabledJson = SensorRuntimePresenter.directSensorIdsToJson(flags.directSensorIds);
