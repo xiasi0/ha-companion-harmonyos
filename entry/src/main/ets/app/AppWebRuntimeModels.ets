@@ -11,6 +11,7 @@ export interface AppWebRuntimeSnapshot {
   dashboardInsecureBlocked: boolean;
   dashboardMissingHomeSetup: boolean;
   dashboardBlockedReason: string;
+  dashboardConnectionErrorVisible: boolean;
   dashboardAuthProvided: boolean;
   pageZoomLevel: string;
   pinchToZoomEnabled: boolean;
@@ -29,6 +30,10 @@ export interface AppWebRuntimeActions {
   onDashboardPageReady: () => void;
   onRememberDashboardUrl: (url: string) => void;
   onDashboardLoadedUrlChange: (url: string) => void;
+  onDashboardConnectionError: () => void;
+  onDashboardConnectionLoadStarted: () => void;
+  onWaitDashboardConnection: () => void;
+  onRetryDashboardConnection: () => void;
   onRetryDashboardSecurity: () => void;
   onOpenDashboardSecuritySettings: () => void;
   onChangeDashboardSecurityLevel: () => void;

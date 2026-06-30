@@ -2,6 +2,7 @@ import common from '@ohos.app.ability.common';
 import { AppRoute } from './AppRoute';
 import { HaServerItem } from '../models/HaServerItem';
 import { OnboardingRuntimeActions, OnboardingRuntimeSnapshot } from '../features/onboarding/OnboardingRuntimeModels';
+import { ConnectionError } from '../features/connection/ConnectionErrorModels';
 import { AppSettingsStore } from '../services/AppSettingsStore';
 import { NetworkService } from '../services/NetworkService';
 
@@ -22,6 +23,7 @@ export interface AppOnboardingRuntimeTarget {
   connectionErrorUrl: string;
   connectionErrorCode: number;
   connectionErrorDetail: string;
+  connectionError: ConnectionError | undefined;
   message: string;
   context(): common.Context;
   onboardingContentMaxWidth(): number;
@@ -55,7 +57,8 @@ export class AppOnboardingRuntimeService {
       secureConnectionFromSettings: target.secureConnectionFromSettings,
       connectionErrorUrl: target.connectionErrorUrl,
       connectionErrorCode: target.connectionErrorCode,
-      connectionErrorDetail: target.connectionErrorDetail
+      connectionErrorDetail: target.connectionErrorDetail,
+      connectionError: target.connectionError
     };
   }
 

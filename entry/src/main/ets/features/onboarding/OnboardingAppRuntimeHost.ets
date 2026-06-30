@@ -27,7 +27,8 @@ const DEFAULT_ONBOARDING_SNAPSHOT: OnboardingRuntimeSnapshot = {
   secureConnectionFromSettings: false,
   connectionErrorUrl: '',
   connectionErrorCode: 0,
-  connectionErrorDetail: ''
+  connectionErrorDetail: '',
+  connectionError: undefined
 };
 
 const DEFAULT_ONBOARDING_ACTIONS: OnboardingRuntimeActions = {
@@ -63,6 +64,7 @@ const DEFAULT_WEB_RUNTIME_SNAPSHOT: AppWebRuntimeSnapshot = {
   dashboardInsecureBlocked: false,
   dashboardMissingHomeSetup: false,
   dashboardBlockedReason: '',
+  dashboardConnectionErrorVisible: false,
   pageZoomLevel: '100',
   pinchToZoomEnabled: false,
   autoPlayVideoEnabled: false,
@@ -80,6 +82,10 @@ const DEFAULT_WEB_RUNTIME_ACTIONS: AppWebRuntimeActions = {
   onDashboardPageReady: () => {},
   onRememberDashboardUrl: () => {},
   onDashboardLoadedUrlChange: () => {},
+  onDashboardConnectionError: () => {},
+  onDashboardConnectionLoadStarted: () => {},
+  onWaitDashboardConnection: () => {},
+  onRetryDashboardConnection: () => {},
   onRetryDashboardSecurity: () => {},
   onOpenDashboardSecuritySettings: () => {},
   onChangeDashboardSecurityLevel: () => {},

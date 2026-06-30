@@ -12,6 +12,7 @@ export interface AppWebRuntimeState {
   dashboardInsecureBlocked: boolean;
   dashboardMissingHomeSetup: boolean;
   dashboardBlockedReason: string;
+  dashboardConnectionErrorVisible: boolean;
   dashboardAuthProvided: boolean;
   pageZoomLevel: string;
   pinchToZoomEnabled: boolean;
@@ -33,6 +34,10 @@ export interface AppWebRuntimeActionTarget {
   clearPendingDashboardHistory(): void;
   rememberDashboardUrl(url: string): void;
   rememberDashboardLoadedUrl(url: string): void;
+  handleDashboardConnectionError(): void;
+  handleDashboardConnectionLoadStarted(): void;
+  waitDashboardConnection(): void;
+  retryDashboardConnection(): void;
   retryDashboardSecurity(): void;
   openDashboardSecuritySettings(): void;
   changeDashboardSecurityLevel(): void;
@@ -52,6 +57,7 @@ export class AppWebRuntimeService {
       dashboardInsecureBlocked: state.dashboardInsecureBlocked,
       dashboardMissingHomeSetup: state.dashboardMissingHomeSetup,
       dashboardBlockedReason: state.dashboardBlockedReason,
+      dashboardConnectionErrorVisible: state.dashboardConnectionErrorVisible,
       dashboardAuthProvided: state.dashboardAuthProvided,
       pageZoomLevel: state.pageZoomLevel,
       pinchToZoomEnabled: state.pinchToZoomEnabled,
@@ -82,6 +88,10 @@ export class AppWebRuntimeService {
       },
       onRememberDashboardUrl: (url: string): void => target.rememberDashboardUrl(url),
       onDashboardLoadedUrlChange: (url: string): void => target.rememberDashboardLoadedUrl(url),
+      onDashboardConnectionError: (): void => target.handleDashboardConnectionError(),
+      onDashboardConnectionLoadStarted: (): void => target.handleDashboardConnectionLoadStarted(),
+      onWaitDashboardConnection: (): void => target.waitDashboardConnection(),
+      onRetryDashboardConnection: (): void => target.retryDashboardConnection(),
       onRetryDashboardSecurity: (): void => target.retryDashboardSecurity(),
       onOpenDashboardSecuritySettings: (): void => target.openDashboardSecuritySettings(),
       onChangeDashboardSecurityLevel: (): void => target.changeDashboardSecurityLevel(),

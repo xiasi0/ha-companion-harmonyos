@@ -101,6 +101,9 @@ export class AppLifecycleRuntimeService {
         state.message = Localization.format('app_config_fetch_exception', 'error', callbacks.stringifyError(e));
       });
     } else if (restoreDecision.shouldRestoreDashboard) {
+      if (state.step === AppRoute.DASHBOARD && state.dashboardUrl.trim().length === 0) {
+        AppLifecycleRuntimeService.initializeDashboardUrl(state, restoreDecision);
+      }
       callbacks.fetchHaConfig().catch((e: Error | string | number | boolean | Object | ArrayBuffer) => {
         state.message = Localization.format('app_config_fetch_exception', 'error', callbacks.stringifyError(e));
       });
@@ -175,6 +178,17 @@ export class AppLifecycleRuntimeService {
     state.dashboardBridgeReady = restoreDecision.dashboardBridgeReady;
     state.dashboardAuthProvided = restoreDecision.dashboardAuthProvided;
     state.step = restoreDecision.route;
+    state.message = restoreDecision.message;
+  }
+
+  private static initializeDashboardUrl(state: AppLifecycleRuntimeState, restoreDecision: StartupRestoreDecision): void {
+    state.dashboardUrl = restoreDecision.dashboardUrl;
+    state.dashboardCurrentUrl = restoreDecision.dashboardUrl;
+    state.dashboardClearHistoryPending = true;
+    state.authUrl = restoreDecision.authUrl;
+    state.showLoginWeb = restoreDecision.showLoginWeb;
+    state.dashboardBridgeReady = restoreDecision.dashboardBridgeReady;
+    state.dashboardAuthProvided = restoreDecision.dashboardAuthProvided;
     state.message = restoreDecision.message;
   }
 

@@ -5,6 +5,8 @@ import { StorageService, StoredServerInfo } from '../../services/StorageService'
 import { UrlService } from '../../services/UrlService';
 import { DiscoveryService, HaServerProbeResult } from '../../services/DiscoveryService';
 import { Localization } from '../../shared/i18n/Localization';
+import { ConnectionErrorMapper } from '../connection/ConnectionErrorMapper';
+import { ConnectionError } from '../connection/ConnectionErrorModels';
 import { DiscoveryRuntimeService } from './DiscoveryRuntimeService';
 
 export interface DiscoveryFlowRuntimeState {
@@ -26,6 +28,7 @@ export interface DiscoveryFlowRuntimeState {
   connectionErrorUrl: string;
   connectionErrorCode: number;
   connectionErrorDetail: string;
+  connectionError: ConnectionError | undefined;
   connectionErrorBackTarget: number;
   connectionProbeToken: number;
   dashboardBridgeReady: boolean;
@@ -125,6 +128,7 @@ export class DiscoveryFlowRuntimeService {
     state.connectionErrorUrl = normalized;
     state.connectionErrorCode = 0;
     state.connectionErrorDetail = '';
+    state.connectionError = undefined;
     state.connectionErrorBackTarget = backTarget;
     const token = state.connectionProbeToken + 1;
     state.connectionProbeToken = token;
@@ -138,6 +142,7 @@ export class DiscoveryFlowRuntimeService {
           state.connectionErrorUrl = '';
           state.connectionErrorCode = 0;
           state.connectionErrorDetail = '';
+          state.connectionError = undefined;
           DiscoveryFlowRuntimeService.activateServer(state, callbacks, result.baseUrl);
           return;
         }
@@ -166,6 +171,7 @@ export class DiscoveryFlowRuntimeService {
     state.connectionErrorUrl = url;
     state.connectionErrorCode = result.responseCode;
     state.connectionErrorDetail = result.detail;
+    state.connectionError = ConnectionErrorMapper.fromProbeResult(url, result);
     state.connectionErrorBackTarget = backTarget;
     state.showLoginWeb = false;
     state.authUrl = '';
@@ -184,6 +190,7 @@ export class DiscoveryFlowRuntimeService {
     state.connectionErrorUrl = '';
     state.connectionErrorCode = 0;
     state.connectionErrorDetail = '';
+    state.connectionError = undefined;
     state.connectionErrorBackTarget = AppRoute.MANUAL_SERVER;
     state.connectionProbeToken += 1;
     state.loading = false;
@@ -244,6 +251,7 @@ export class DiscoveryFlowRuntimeService {
     state.connectionErrorUrl = '';
     state.connectionErrorCode = 0;
     state.connectionErrorDetail = '';
+    state.connectionError = undefined;
     state.connectionErrorBackTarget = AppRoute.MANUAL_SERVER;
     state.connectionProbeToken += 1;
     state.showLoginWeb = false;
