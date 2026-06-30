@@ -122,7 +122,7 @@ HACompanionNext/
 │
 ├─ entry/
 │  ├─ build-profile.json5
-│  │  Entry module build configuration, including release obfuscation settings.
+│  │  Entry module build configuration. Release obfuscation is disabled by default.
 │  ├─ obfuscation-rules.txt
 │  │  ArkTS obfuscation rules.
 │  └─ src/main/
@@ -347,7 +347,7 @@ Runtime code reads the bundled HarmonyOS version through `AppVersionService`. Se
 - Push Kit is not integrated for now; remote push features should be revisited only after the required entity qualification, AppGallery distribution path, and platform service configuration are clear.
 - The project does not plan to publish to Huawei AppGallery under an individual developer account; it is currently better treated as an open-source implementation, development build, and real-device validation project.
 - NFC, speech, background tasks, notifications, location, and service cards need more real-device coverage.
-- Release obfuscation is enabled, but keep rules for external Home Assistant protocol fields must be maintained carefully to avoid breaking wire formats.
+- Release obfuscation is disabled by default to avoid rewriting external Home Assistant protocol fields and breaking wire formats.
 - HarmonyOS NEXT and its SDK are still evolving, so API behavior may change between versions.
 
 ## License

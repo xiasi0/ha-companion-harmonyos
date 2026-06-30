@@ -122,7 +122,7 @@ HACompanionNext/
 │
 ├─ entry/
 │  ├─ build-profile.json5
-│  │  entry 模块构建配置。当前包含 release obfuscation 配置。
+│  │  entry 模块构建配置。release 混淆当前默认关闭。
 │  ├─ obfuscation-rules.txt
 │  │  ArkTS 混淆规则。
 │  └─ src/main/
@@ -347,7 +347,7 @@ git ls-files -v build-profile.json5
 - Push Kit 暂不接入；涉及远程推送的能力需要等合适的主体资质、应用市场分发条件和平台服务配置明确后再评估。
 - 项目不计划以个人身份上架华为应用市场，当前更适合作为开源实现、开发构建和真机验证项目。
 - NFC、语音、后台任务、通知、定位、服务卡片等平台能力需要更多真机覆盖。
-- release 混淆已开启，但涉及 Home Assistant 外部协议字段时需要持续维护 keep 规则，避免破坏 wire format。
+- release 混淆当前默认关闭，避免 Home Assistant 外部协议字段被改写并破坏 wire format。
 - HarmonyOS NEXT 平台和 SDK 仍在演进，部分 API 行为可能随版本变化。
 
 ## 许可证
