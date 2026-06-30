@@ -89,13 +89,18 @@ export class SensorRuntimeService {
   }
 
   startLocationSensorsIfNeeded(callbacks: SensorRuntimeCallbacks): void {
-    HaLocationRuntimeService.ensureRunning(callbacks.context(), 'location_runtime_start');
+    this.syncBackgroundLocationRuntime(callbacks, 'location_runtime_start');
     this.latestLocationEnabled = this.locationService.getLocationEnabled();
     this.locationService.startLocationEnabledWatch((enabled: boolean): void => {
       this.latestLocationEnabled = enabled;
       HaLocationRuntimeService.setLocationEnabled(enabled);
       this.syncPublicSensors('location_enabled_changed', callbacks);
     });
+    if (this.shouldUseBackgroundLocationRuntime(callbacks)) {
+      this.locationService.stopLocationWatch();
+      this.stopLocationGeofences(callbacks);
+      return;
+    }
     if (!this.needsForegroundLocation(callbacks.snapshot().flags)) {
       return;
     }
@@ -149,7 +154,7 @@ export class SensorRuntimeService {
           pluggedTypeEnabled: flags.pluggedTypeEnabled,
           bearerTypesEnabled: flags.bearerTypesEnabled,
           lastUpdateTriggerEnabled: flags.lastUpdateTriggerEnabled,
-          locationBackgroundEnabled: true,
+          locationBackgroundEnabled: false,
           zoneBackgroundEnabled: false,
           accurateLocationEnabled: true,
           directSensorIds: flags.directSensorIds
@@ -157,7 +162,6 @@ export class SensorRuntimeService {
         this.latestLocationEnabled = this.locationService.getLocationEnabled();
         this.startLocationSensorsIfNeeded(callbacks);
         this.refreshLocationZones(false, callbacks);
-        HaLocationRuntimeService.ensureRunning(callbacks.context(), reason);
         this.syncCurrentLocation(reason, callbacks, onFinished);
       })
       .catch((): void => {
@@ -250,7 +254,7 @@ export class SensorRuntimeService {
           pluggedTypeEnabled: flags.pluggedTypeEnabled,
           bearerTypesEnabled: flags.bearerTypesEnabled,
           lastUpdateTriggerEnabled: flags.lastUpdateTriggerEnabled,
-          locationBackgroundEnabled: flags.locationBackgroundEnabled,
+          locationBackgroundEnabled: value === 'exact' ? flags.locationBackgroundEnabled : false,
           zoneBackgroundEnabled: value === 'zone',
           accurateLocationEnabled: value === 'exact',
           directSensorIds: flags.directSensorIds
@@ -258,7 +262,6 @@ export class SensorRuntimeService {
         this.latestLocationEnabled = this.locationService.getLocationEnabled();
         this.startLocationSensorsIfNeeded(callbacks);
         this.refreshLocationZones(false, callbacks);
-        HaLocationRuntimeService.ensureRunning(callbacks.context(), 'location_sent_mode_changed');
         this.syncCurrentLocation('location_sent_mode_changed', callbacks, onChanged);
       });
   }
@@ -284,12 +287,11 @@ export class SensorRuntimeService {
         accurateLocationEnabled: flags.accurateLocationEnabled,
         directSensorIds: flags.directSensorIds
       });
+      HaLocationRuntimeService.stop();
       if (!this.needsForegroundLocation(callbacks.snapshot().flags)) {
         this.stopLocationRuntime(callbacks);
-        HaLocationRuntimeService.stop();
-      } else if (!this.hasAnyLocationSensorEnabled(callbacks.snapshot().flags)) {
-        this.stopLocationGeofences(callbacks);
-        HaLocationRuntimeService.stop();
+      } else {
+        this.startLocationSensorsIfNeeded(callbacks);
       }
       callbacks.refreshLiveRows();
       onChanged?.();
@@ -880,7 +882,6 @@ export class SensorRuntimeService {
     this.latestLocationEnabled = this.locationService.getLocationEnabled();
     this.startLocationSensorsIfNeeded(callbacks);
     this.refreshLocationZones(false, callbacks);
-    HaLocationRuntimeService.ensureRunning(callbacks.context(), reason);
     callbacks.refreshLiveRows();
     onChanged?.();
     this.syncPublicSensors('sensor_preferences_changed', callbacks);
@@ -924,7 +925,7 @@ export class SensorRuntimeService {
       this.stopLocationRuntime(callbacks);
       return;
     }
-    if (!this.hasAnyLocationSensorEnabled(callbacks.snapshot().flags)) {
+    if (!callbacks.snapshot().flags.zoneBackgroundEnabled) {
       this.stopLocationGeofences(callbacks);
     }
   }
@@ -951,14 +952,16 @@ export class SensorRuntimeService {
   }
 
   private refreshLocationGeofences(callbacks: SensorRuntimeCallbacks): void {
-    if (!this.hasAnyLocationSensorEnabled(callbacks.snapshot().flags) ||
-      this.locationZones.length === 0 ||
-      this.geofenceRefreshing) {
+    if (!callbacks.snapshot().flags.zoneBackgroundEnabled ||
+      this.locationZones.length === 0) {
+      this.stopLocationGeofences(callbacks);
+      return;
+    }
+    if (this.geofenceRefreshing) {
       return;
     }
     this.geofenceRefreshing = true;
     this.locationService.refreshGeofences(
-      callbacks.context(),
       this.locationZones,
       (transition: HarmonyGeofenceTransition): void => {
         this.handleGeofenceTransition(transition, callbacks);
@@ -970,6 +973,21 @@ export class SensorRuntimeService {
     }).finally((): void => {
       this.geofenceRefreshing = false;
     });
+  }
+
+  private syncBackgroundLocationRuntime(callbacks: SensorRuntimeCallbacks, reason: string): void {
+    if (this.shouldUseBackgroundLocationRuntime(callbacks)) {
+      HaLocationRuntimeService.ensureRunning(callbacks.context(), reason);
+      return;
+    }
+    HaLocationRuntimeService.stop();
+  }
+
+  private shouldUseBackgroundLocationRuntime(callbacks: SensorRuntimeCallbacks): boolean {
+    const snapshot = callbacks.snapshot();
+    return snapshot.flags.locationBackgroundEnabled &&
+      snapshot.locationSentMode === 'exact' &&
+      snapshot.flags.accurateLocationEnabled;
   }
 
   private handleGeofenceTransition(

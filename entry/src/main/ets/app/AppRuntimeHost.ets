@@ -113,7 +113,7 @@ export struct AppRuntimeHost {
   @StorageLink('sensorPluggedTypeEnabled') @Watch('onSensorPreferenceChanged') sensorPluggedTypeEnabled: boolean = false;
   @StorageLink('sensorBearerTypesEnabled') @Watch('onSensorPreferenceChanged') sensorBearerTypesEnabled: boolean = false;
   @StorageLink('sensorLastUpdateTriggerEnabled') @Watch('onSensorPreferenceChanged') sensorLastUpdateTriggerEnabled: boolean = false;
-  @StorageLink('sensorLocationEnabled') @Watch('onSensorPreferenceChanged') sensorLocationEnabled: boolean = false;
+  @StorageLink('sensorLocationEnabled') @Watch('onSensorPreferenceChanged') sensorLocationBackgroundEnabled: boolean = false;
   @StorageLink('sensorZoneBackgroundEnabled') @Watch('onSensorPreferenceChanged') sensorZoneBackgroundEnabled: boolean = false;
   @StorageLink('sensorAccurateLocationEnabled') @Watch('onSensorPreferenceChanged') sensorAccurateLocationEnabled: boolean = false;
   @StorageLink('sensorDirectEnabledJson') @Watch('onSensorDirectEnabledChanged') sensorDirectEnabledJson: string = '[]';
