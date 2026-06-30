@@ -6,6 +6,7 @@ import { AuthRuntimeService } from '../features/auth/AuthRuntimeService';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { DashboardInsecureBlockPage } from '../features/dashboard/DashboardInsecureBlockPage';
 import { ExternalAppProxy } from '../features/dashboard/ExternalAppProxy';
+import { DashboardConnectionErrorDialog } from '../features/dashboard/DashboardConnectionErrorDialog';
 import { AppRoute } from './AppRoute';
 
 @Component
@@ -20,6 +21,7 @@ export struct AppWebRuntimeHost {
   @Prop dashboardInsecureBlocked: boolean = false;
   @Prop dashboardMissingHomeSetup: boolean = false;
   @Prop dashboardBlockedReason: string = '';
+  @Prop dashboardConnectionErrorVisible: boolean = false;
   @Prop dashboardAuthProvided: boolean = false;
   @Prop pageZoomLevel: string = '100';
   @Prop pinchToZoomEnabled: boolean = false;
@@ -43,6 +45,10 @@ export struct AppWebRuntimeHost {
   onDashboardPageReady: () => void = () => {};
   onRememberDashboardUrl: (url: string) => void = () => {};
   onDashboardLoadedUrlChange: (url: string) => void = () => {};
+  onDashboardConnectionError: () => void = () => {};
+  onDashboardConnectionLoadStarted: () => void = () => {};
+  onWaitDashboardConnection: () => void = () => {};
+  onRetryDashboardConnection: () => void = () => {};
   onRetryDashboardSecurity: () => void = () => {};
   onOpenDashboardSecuritySettings: () => void = () => {};
   onChangeDashboardSecurityLevel: () => void = () => {};
@@ -75,25 +81,38 @@ export struct AppWebRuntimeHost {
         onConfigureHomeNetwork: this.onConfigureDashboardHomeNetwork
       })
     } else {
-      DashboardPage({
-        dashboardUrl: this.dashboardUrl,
-        loadedDashboardUrl: this.dashboardLoadedUrl,
-        isActiveDashboard: this.route === AppRoute.DASHBOARD,
-        dashboardAuthProvided: this.dashboardAuthProvided,
-        pageZoomLevel: this.pageZoomLevel,
-        pinchToZoomEnabled: this.pinchToZoomEnabled,
-        autoPlayVideoEnabled: this.autoPlayVideoEnabled,
-        appTheme: this.appTheme,
-        isDarkTheme: this.dark,
-        controller: this.controller,
-        externalAppProxy: this.externalAppProxy,
-        onBridgeReady: this.onDashboardBridgeReady,
-        onPageReady: this.onDashboardPageReady,
-        onRememberUrl: this.onRememberDashboardUrl,
-        onLoadedUrlChange: this.onDashboardLoadedUrlChange,
-        onMessage: this.onMessage,
-        onUrlGuard: this.onUrlGuard
-      })
+      Stack() {
+        DashboardPage({
+          dashboardUrl: this.dashboardUrl,
+          loadedDashboardUrl: this.dashboardLoadedUrl,
+          isActiveDashboard: this.route === AppRoute.DASHBOARD,
+          dashboardAuthProvided: this.dashboardAuthProvided,
+          pageZoomLevel: this.pageZoomLevel,
+          pinchToZoomEnabled: this.pinchToZoomEnabled,
+          autoPlayVideoEnabled: this.autoPlayVideoEnabled,
+          appTheme: this.appTheme,
+          isDarkTheme: this.dark,
+          controller: this.controller,
+          externalAppProxy: this.externalAppProxy,
+          onBridgeReady: this.onDashboardBridgeReady,
+          onPageReady: this.onDashboardPageReady,
+          onRememberUrl: this.onRememberDashboardUrl,
+          onLoadedUrlChange: this.onDashboardLoadedUrlChange,
+          onConnectionError: this.onDashboardConnectionError,
+          onConnectionLoadStarted: this.onDashboardConnectionLoadStarted,
+          onMessage: this.onMessage,
+          onUrlGuard: this.onUrlGuard
+        })
+        if (this.dashboardConnectionErrorVisible) {
+          DashboardConnectionErrorDialog({
+            onWait: this.onWaitDashboardConnection,
+            onRefreshExternal: this.onRetryDashboardConnection,
+            onOpenSettings: this.onOpenDashboardSecuritySettings
+          })
+        }
+      }
+      .width('100%')
+      .height('100%')
     }
   }
 }

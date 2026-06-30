@@ -36,7 +36,8 @@ const DEFAULT_ONBOARDING_SNAPSHOT: OnboardingRuntimeSnapshot = {
   secureConnectionFromSettings: false,
   connectionErrorUrl: '',
   connectionErrorCode: 0,
-  connectionErrorDetail: ''
+  connectionErrorDetail: '',
+  connectionError: undefined
 };
 
 const DEFAULT_ONBOARDING_ACTIONS: OnboardingRuntimeActions = {
@@ -238,9 +239,7 @@ struct CompanionOnboardingConnectionErrorRoute {
     NavDestination() {
       OnboardingConnectionErrorPage({
         contentMaxWidth: this.snapshot.contentMaxWidth,
-        url: this.snapshot.connectionErrorUrl,
-        errorCode: this.snapshot.connectionErrorCode,
-        errorDetail: this.snapshot.connectionErrorDetail,
+        error: this.snapshot.connectionError,
         onBack: this.actions.onHandleBackNavigation,
         onHelp: (): void => this.actions.onSetMessage(Localization.t('connection_error_help')),
         onRetry: this.actions.onRetryConnectionError

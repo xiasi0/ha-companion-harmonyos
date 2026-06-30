@@ -40,6 +40,8 @@ export struct DashboardPage {
   onPageReady: () => void = () => {};
   onRememberUrl: (url: string) => void = () => {};
   onLoadedUrlChange: (url: string) => void = () => {};
+  onConnectionError: () => void = () => {};
+  onConnectionLoadStarted: () => void = () => {};
   onMessage: (message: string) => void = () => {};
   onUrlGuard: (url: string) => UrlGuardResult = () => {
     return {
@@ -171,6 +173,27 @@ export struct DashboardPage {
   private initialWebSource(): string {
     const targetUrl = this.dashboardUrl.trim();
     return targetUrl.length > 0 ? targetUrl : 'about:blank';
+  }
+
+  private handleWebError(event: OnErrorReceiveEvent): void {
+    if (!event) {
+      return;
+    }
+    let requestUrl = '';
+    let isMainFrame = true;
+    try {
+      requestUrl = event.request.getRequestUrl();
+    } catch (_) {
+      requestUrl = this.dashboardUrl;
+    }
+    try {
+      isMainFrame = event.request.isMainFrame();
+    } catch (_) {
+      isMainFrame = true;
+    }
+    if (isMainFrame && (this.dashboardUrl.trim().length > 0 || requestUrl.trim().length > 0)) {
+      this.onConnectionError();
+    }
   }
 
   private applyTopSafeAreaPadding(topRectHeightPx: number): void {
@@ -325,6 +348,9 @@ export struct DashboardPage {
           .onPageBegin((event) => {
             this.onRememberUrl(event.url);
             this.rememberLoadedDashboardUrl(event.url);
+            if (!this.dashboardAuthProvided) {
+              this.onConnectionLoadStarted();
+            }
           })
           .onPageEnd((event) => {
             this.onRememberUrl(event.url);
@@ -339,6 +365,9 @@ export struct DashboardPage {
             }
             this.runHaSafeAreaPatch();
             this.onPageReady();
+          })
+          .onErrorReceive((event) => {
+            this.handleWebError(event);
           })
           .onLoadIntercept((event) => {
             if (!event) {

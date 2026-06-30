@@ -124,8 +124,11 @@ export class UrlService {
   }
 
   static appendQueryParam(url: string, key: string, value: string): string {
-    const separator = url.indexOf('?') >= 0 ? '&' : '?';
-    return `${url}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+    const hashIndex = url.indexOf('#');
+    const beforeHash = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+    const fragment = hashIndex >= 0 ? url.slice(hashIndex) : '';
+    const separator = beforeHash.indexOf('?') >= 0 ? '&' : '?';
+    return `${beforeHash}${separator}${encodeURIComponent(key)}=${encodeURIComponent(value)}${fragment}`;
   }
 
   static buildDashboardUrl(baseUrl: string): string {

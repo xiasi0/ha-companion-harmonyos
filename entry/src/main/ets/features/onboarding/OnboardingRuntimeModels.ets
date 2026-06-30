@@ -1,5 +1,6 @@
 import { AppRoute } from '../../app/AppRoute';
 import { HaServerItem } from '../../models/HaServerItem';
+import { ConnectionError } from '../connection/ConnectionErrorModels';
 
 export interface OnboardingRuntimeSnapshot {
   step: number;
@@ -17,6 +18,7 @@ export interface OnboardingRuntimeSnapshot {
   connectionErrorUrl: string;
   connectionErrorCode: number;
   connectionErrorDetail: string;
+  connectionError: ConnectionError | undefined;
 }
 
 export interface OnboardingRuntimeActions {

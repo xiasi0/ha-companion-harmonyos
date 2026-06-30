@@ -20,6 +20,7 @@ import { SettingsChoiceRuntimeService } from '../features/settings/SettingsChoic
 import { SettingsInteractionRuntimeService } from '../features/settings/SettingsInteractionRuntimeService';
 import { ExternalAppProxy } from '../features/dashboard/ExternalAppProxy';
 import { DashboardRuntimeService } from '../features/dashboard/DashboardRuntimeService';
+import { ConnectionError } from '../features/connection/ConnectionErrorModels';
 import { AppLockRuntimeService } from '../features/security/AppLockRuntimeService';
 import { AppLockUnlockRuntimeService } from '../features/security/AppLockUnlockRuntimeService';
 import { SensorGroup, SensorUpdateFrequency } from '../features/sensors/SensorModels';
@@ -74,6 +75,7 @@ AppStorageDefaults.register();
 
 const DOMAIN = 0x0000;
 const TAG = 'HACompanion';
+const DASHBOARD_CONNECTION_WAIT_MS = 10000;
 
 function initialRuntimeRoute(): AppRoute {
   const baseUrl = AppStorage.get<string>('haBaseUrl') ?? '';
@@ -186,6 +188,7 @@ export struct AppRuntimeHost {
   @State dashboardInsecureBlocked: boolean = false;
   @State dashboardMissingHomeSetup: boolean = false;
   @State dashboardBlockedReason: string = '';
+  @State dashboardConnectionErrorVisible: boolean = false;
   @State prioritizeInternal: boolean = false;
   @State secureConnectionFromSettings: boolean = false;
   @State appLocked: boolean = false;
@@ -199,6 +202,7 @@ export struct AppRuntimeHost {
   @State connectionErrorUrl: string = '';
   @State connectionErrorCode: number = 0;
   @State connectionErrorDetail: string = '';
+  @State connectionError: ConnectionError | undefined = undefined;
   @State connectionErrorBackTarget: number = AppRoute.MANUAL_SERVER;
   connectionProbeToken: number = 0;
   @State dashboardUrl: string = '';
@@ -224,6 +228,8 @@ export struct AppRuntimeHost {
   private settingsActionsCache: SettingsRuntimeActions | undefined = undefined;
   private applyingSensorFlags: boolean = false;
   private lastSensorPreferenceKey: string = '';
+  private dashboardConnectionWaitToken: number = 0;
+  private dashboardFrontendConnected: boolean = false;
   @State viewportWidth: number = AppDeviceRuntimeService.defaultViewportWidth();
   @State viewportHeight: number = 0;
   @State settingsRefreshTick: number = 0;
@@ -490,6 +496,8 @@ export struct AppRuntimeHost {
       this.dashboardBlockedReason = resolution.reason;
       this.dashboardBridgeReady = false;
       this.dashboardAuthProvided = false;
+      this.dashboardConnectionErrorVisible = false;
+      this.dashboardConnectionWaitToken += 1;
       try {
         this.webCtrl.loadUrl('about:blank');
       } catch (_) {
@@ -512,6 +520,9 @@ export struct AppRuntimeHost {
         }
         this.dashboardBridgeReady = false;
         this.dashboardAuthProvided = false;
+        if (!this.dashboardConnectionErrorVisible) {
+          this.dashboardConnectionWaitToken += 1;
+        }
       } else if (UrlService.isHttpLikeUrl(currentUrl)) {
         this.dashboardCurrentUrl = currentUrl;
       }
@@ -581,10 +592,13 @@ export struct AppRuntimeHost {
     this.restoreInstanceAppSettingsState()
       .then((): Promise<void> => this.loadSensorStates())
       .then((): void => this.refreshSensorLiveRows())
-      .then((): Promise<void> => this.refreshHomeNetworkStatusNow())
       .catch((): void => {})
       .finally((): void => {
         AppLifecycleRuntimeService.aboutToAppear(this, AppRuntimeCallbackFactory.lifecycle(this));
+        if (this.step === AppRoute.DASHBOARD) {
+          this.handleDashboardConnectionLoadStarted();
+        }
+        this.refreshHomeNetworkStatus();
         this.openPendingEntityDetailFromCard();
       });
   }
@@ -639,6 +653,112 @@ export struct AppRuntimeHost {
       return;
     }
     this.dashboardLoadedUrl = url;
+  }
+
+  handleDashboardConnectionError(): void {
+    if (this.dashboardInsecureBlocked || this.step !== AppRoute.DASHBOARD) {
+      return;
+    }
+    if (this.dashboardConnectionErrorVisible) {
+      return;
+    }
+    this.dashboardFrontendConnected = false;
+    this.dashboardBridgeReady = false;
+    this.dashboardAuthProvided = false;
+    this.scheduleDashboardConnectionWait();
+  }
+
+  handleDashboardConnectionLoadStarted(): void {
+    if (this.dashboardInsecureBlocked || this.step !== AppRoute.DASHBOARD) {
+      return;
+    }
+    this.dashboardFrontendConnected = false;
+    if (!this.dashboardConnectionErrorVisible) {
+      this.scheduleDashboardConnectionWait();
+    }
+  }
+
+  handleDashboardConnectionStatus(connected: boolean): void {
+    if (connected) {
+      this.dashboardFrontendConnected = true;
+      this.dashboardConnectionWaitToken += 1;
+      this.dashboardConnectionErrorVisible = false;
+      return;
+    }
+    if (this.dashboardInsecureBlocked || this.step !== AppRoute.DASHBOARD) {
+      return;
+    }
+    this.dashboardFrontendConnected = false;
+    this.scheduleDashboardConnectionWait();
+  }
+
+  waitDashboardConnection(): void {
+    this.dashboardConnectionErrorVisible = false;
+    this.scheduleDashboardConnectionWait();
+  }
+
+  retryDashboardConnection(): void {
+    const targetUrl = this.dashboardExternalRefreshUrl();
+    this.dashboardUrl = targetUrl;
+    this.dashboardCurrentUrl = targetUrl;
+    this.dashboardLoadedUrl = '';
+    this.dashboardConnectionErrorVisible = false;
+    this.dashboardFrontendConnected = false;
+    this.dashboardBridgeReady = false;
+    this.dashboardAuthProvided = false;
+    this.scheduleDashboardConnectionWait();
+    this.forceLoadDashboard(targetUrl);
+  }
+
+  private dashboardExternalRefreshUrl(): string {
+    const externalBaseUrl = UrlService.normalizeBaseUrl(
+      this.serverExternalUrl.trim().length > 0 ? this.serverExternalUrl : this.haBaseUrl
+    );
+    if (externalBaseUrl.length === 0) {
+      return this.dashboardUrl.trim().length > 0 ? this.dashboardUrl : this.dashboardCurrentUrl;
+    }
+    const currentUrl = this.currentDashboardUrl();
+    const targetUrl = UrlService.isHttpLikeUrl(currentUrl)
+      ? UrlService.buildUrlWithBaseHost(externalBaseUrl, currentUrl)
+      : UrlService.buildDashboardUrl(externalBaseUrl);
+    return targetUrl.indexOf('external_auth=') >= 0
+      ? targetUrl
+      : UrlService.appendQueryParam(targetUrl, 'external_auth', '1');
+  }
+
+  private scheduleDashboardConnectionWait(): void {
+    if (this.shouldSkipDashboardConnectionWait()) {
+      return;
+    }
+    const token = this.dashboardConnectionWaitToken + 1;
+    this.dashboardConnectionWaitToken = token;
+    setTimeout((): void => {
+      if (this.dashboardConnectionWaitToken !== token || this.dashboardFrontendConnected ||
+        this.shouldSkipDashboardConnectionWait()) {
+        return;
+      }
+      this.dashboardConnectionErrorVisible = true;
+    }, DASHBOARD_CONNECTION_WAIT_MS);
+  }
+
+  private shouldSkipDashboardConnectionWait(): boolean {
+    if (this.step !== AppRoute.DASHBOARD || this.dashboardInsecureBlocked) {
+      return true;
+    }
+    const firstSegment = this.firstDashboardPathSegment();
+    return firstSegment === 'api' || firstSegment === 'local';
+  }
+
+  private firstDashboardPathSegment(): string {
+    const rawUrl = this.dashboardCurrentUrl.trim().length > 0 ? this.dashboardCurrentUrl : this.dashboardUrl;
+    const schemeEnd = rawUrl.indexOf('://');
+    const pathStart = schemeEnd >= 0 ? rawUrl.indexOf('/', schemeEnd + 3) : rawUrl.indexOf('/');
+    if (pathStart < 0 || pathStart + 1 >= rawUrl.length) {
+      return '';
+    }
+    const path = rawUrl.substring(pathStart + 1);
+    const end = path.indexOf('/');
+    return (end >= 0 ? path.substring(0, end) : path).toLowerCase();
   }
 
   clearPendingDashboardHistory(): void {
@@ -779,6 +899,10 @@ export struct AppRuntimeHost {
       this.entityDetailOpenedFromCard = false;
       return;
     }
+    if (type === 'connection-status') {
+      this.handleDashboardConnectionStatus(ExternalBusService.stringPayload(payload, 'event', '') === 'connected');
+      return;
+    }
     ExternalAuthRuntimeService.handleExternalBus(payload, this, AppRuntimeCallbackFactory.externalAuth(this));
   }
 
@@ -901,6 +1025,7 @@ export struct AppRuntimeHost {
     this.dashboardBackToHomePending = false;
     this.nativeSettingsReturnUrl = '';
     DashboardRuntimeService.openDashboard(this, AppRuntimeCallbackFactory.dashboard(this));
+    this.handleDashboardConnectionLoadStarted();
     this.refreshHomeNetworkStatus();
   }
 
@@ -955,6 +1080,9 @@ export struct AppRuntimeHost {
       this.syncPublicSensors('dashboard_opened');
     } else if (this.step === AppRoute.SENSOR_SETTINGS) {
       this.refreshCurrentLocationForDiagnostics('sensor_settings_opened');
+    } else {
+      this.dashboardConnectionWaitToken += 1;
+      this.dashboardConnectionErrorVisible = false;
     }
   }
 
