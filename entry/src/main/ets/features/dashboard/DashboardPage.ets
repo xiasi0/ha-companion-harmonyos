@@ -4,6 +4,7 @@ import web_webview from '@ohos.web.webview';
 import { window } from '@kit.ArkUI';
 import { UrlGuardResult } from '../../models/UrlGuardResult';
 import { ExternalAppProxy } from './ExternalAppProxy';
+import { DashboardWebBridge } from './DashboardWebBridge';
 import { Localization } from '../../shared/i18n/Localization';
 import { NetworkService } from '../../services/NetworkService';
 import { UrlService } from '../../services/UrlService';
@@ -15,7 +16,7 @@ export struct DashboardPage {
   dashboardUrl: string = '';
   @Prop
   loadedDashboardUrl: string = '';
-  @Prop
+  @Prop @Watch('onDashboardActiveChanged')
   isActiveDashboard: boolean = false;
   @Prop
   dashboardAuthProvided: boolean = false;
@@ -27,14 +28,27 @@ export struct DashboardPage {
   autoPlayVideoEnabled: boolean = false;
   @Prop
   appTheme: string = 'system';
-  @Prop
+  @Prop @Watch('onDashboardChromeChanged')
   isDarkTheme: boolean = false;
+  @State private currentDashboardUrl: string = '';
+  @State private dashboardTopChromeDark: boolean = false;
   @State private topSafeAreaPadding: number = 0;
   controller: web_webview.WebviewController = new web_webview.WebviewController();
   externalAppProxy: ExternalAppProxy = new ExternalAppProxy(
     () => {},
     () => {},
     () => {}
+  );
+  private dashboardExternalAppProxy: ExternalAppProxy = new ExternalAppProxy(
+    (payload: Object | string): void => {
+      this.externalAppProxy.getExternalAuth(payload);
+    },
+    (payload: Object | string): void => {
+      this.externalAppProxy.revokeExternalAuth(payload);
+    },
+    (payload: Object | string): void => {
+      this.handleExternalBus(payload);
+    }
   );
   onBridgeReady: () => void = () => {};
   onPageReady: () => void = () => {};
@@ -62,8 +76,11 @@ export struct DashboardPage {
       this.controller.setCustomUserAgent(NetworkService.ANDROID_COMPATIBLE_USER_AGENT);
     } catch (_) {
     }
+    this.currentDashboardUrl = this.dashboardUrl;
+    this.dashboardTopChromeDark = this.isDarkTheme;
     this.clearStoredAuthForDashboardOrigin();
     this.attachSystemAvoidAreaListener();
+    this.refreshDashboardSystemBars();
   }
 
   aboutToDisappear(): void {
@@ -76,10 +93,41 @@ export struct DashboardPage {
     }
     this.dashboardWindow = undefined;
     this.avoidAreaChangeCallback = undefined;
+    this.restoreDefaultSystemBars();
   }
 
   private onDashboardUrlChanged(): void {
     this.loadDashboardUrlIfNeeded();
+  }
+
+  private onDashboardChromeChanged(): void {
+    if (!this.isDashboardVisible) {
+      return;
+    }
+    this.dashboardTopChromeDark = this.isDarkTheme;
+    this.refreshDashboardSystemBars();
+  }
+
+  private onDashboardActiveChanged(): void {
+    if (!this.isDashboardVisible) {
+      return;
+    }
+    if (!this.isActiveDashboard) {
+      this.restoreDefaultSystemBars();
+      return;
+    }
+    this.runDashboardStartupScript();
+    this.refreshDashboardSystemBars();
+  }
+
+  private shouldExpandTopSafeArea(): boolean {
+    const url = this.currentDashboardUrl.trim().length > 0 ? this.currentDashboardUrl : this.dashboardUrl;
+    const path = UrlService.urlPathOnly(url).toLowerCase();
+    return path !== '/hacs' && !path.startsWith('/hacs/');
+  }
+
+  private topPadding(): number {
+    return this.shouldExpandTopSafeArea() ? 0 : this.topSafeAreaPadding;
   }
 
   private loadDashboardUrlIfNeeded(): void {
@@ -196,6 +244,87 @@ export struct DashboardPage {
     }
   }
 
+  private rememberDashboardUrl(url: string): void {
+    if (url.trim().length > 0 && url !== this.currentDashboardUrl) {
+      this.currentDashboardUrl = url;
+      this.refreshDashboardSystemBars();
+    }
+    this.onRememberUrl(url);
+  }
+
+  private handleExternalBus(payload: Object | string): void {
+    const type = DashboardWebBridge.externalBusType(payload);
+    if (type === 'harmony_url_changed') {
+      const url = DashboardWebBridge.externalBusStringPayload(payload, 'url');
+      if (url.length > 0 && url !== this.currentDashboardUrl) {
+        this.currentDashboardUrl = url;
+        this.refreshDashboardSystemBars();
+      }
+    } else if (type === 'harmony_dashboard_chrome_changed') {
+      const dark = DashboardWebBridge.externalBusBooleanPayload(payload, 'dark', this.dashboardTopChromeDark);
+      if (dark !== this.dashboardTopChromeDark) {
+        this.dashboardTopChromeDark = dark;
+      }
+      this.refreshDashboardSystemBars();
+    } else if (type === 'theme-update' || type === 'onHomeAssistantSetTheme') {
+      this.runDashboardStartupScript();
+    }
+    this.externalAppProxy.externalBus(payload);
+  }
+
+  private dashboardChromeObserverScript(): string {
+    return `(function(){` +
+      `if(window.__haCompanionDashboardChromeObserverInstalled){` +
+      `window.__haCompanionDashboardLastChrome='';` +
+      `if(typeof window.__haCompanionDashboardNotifyChrome==='function'){window.__haCompanionDashboardNotifyChrome();}` +
+      `return;` +
+      `}` +
+      `window.__haCompanionDashboardChromeObserverInstalled=true;` +
+      `window.__haCompanionDashboardLastChrome='';` +
+      `function emit(type,payload){try{externalApp.externalBus(JSON.stringify({type:type,payload:payload}));}catch(e){}}` +
+      `function colorDark(color){` +
+      `var raw=String(color||'').trim();` +
+      `var hex=raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);` +
+      `var r=NaN;var g=NaN;var b=NaN;` +
+      `if(hex){` +
+      `var h=hex[1];` +
+      `if(h.length===3){r=parseInt(h.charAt(0)+h.charAt(0),16);g=parseInt(h.charAt(1)+h.charAt(1),16);b=parseInt(h.charAt(2)+h.charAt(2),16);}` +
+      `else{r=parseInt(h.substring(0,2),16);g=parseInt(h.substring(2,4),16);b=parseInt(h.substring(4,6),16);}` +
+      `}else{` +
+      `var m=raw.match(/rgba?\\(\\s*([0-9.]+)(?:,|\\s+)\\s*([0-9.]+)(?:,|\\s+)\\s*([0-9.]+)(?:\\s*[,/]\\s*([0-9.]+))?\\s*\\)/);` +
+      `if(!m){return null;}` +
+      `var a=m[4]!==undefined?parseFloat(m[4]):1;` +
+      `if(!isNaN(a)&&a<=0.05){return null;}` +
+      `r=parseFloat(m[1]);g=parseFloat(m[2]);b=parseFloat(m[3]);` +
+      `}` +
+      `if(isNaN(r)||isNaN(g)||isNaN(b)){return null;}` +
+      `return (r*0.299+g*0.587+b*0.114)<140;` +
+      `}` +
+      `function tokenDark(name){` +
+      `var root=document.documentElement;` +
+      `if(!root){return null;}` +
+      `var value=getComputedStyle(root).getPropertyValue(name);` +
+      `return colorDark(value);` +
+      `}` +
+      `function chromeDark(){` +
+      `var headerDark=tokenDark('--app-header-background-color');` +
+      `if(headerDark!==null){return headerDark;}` +
+      `var primaryDark=tokenDark('--primary-background-color');` +
+      `if(primaryDark!==null){return primaryDark;}` +
+      `return !!(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);` +
+      `}` +
+      `function notifyChrome(){` +
+      `var dark=chromeDark();` +
+      `var key=dark?'dark':'light';` +
+      `if(key===window.__haCompanionDashboardLastChrome){return;}` +
+      `window.__haCompanionDashboardLastChrome=key;` +
+      `emit('harmony_dashboard_chrome_changed',{dark:dark});` +
+      `}` +
+      `window.__haCompanionDashboardNotifyChrome=notifyChrome;` +
+      `notifyChrome();` +
+      `})();`;
+  }
+
   private applyTopSafeAreaPadding(topRectHeightPx: number): void {
     const topSafeAreaPadding = this.getUIContext().px2vp(topRectHeightPx);
     this.topSafeAreaPadding = Number.isFinite(topSafeAreaPadding) && topSafeAreaPadding > 0
@@ -237,6 +366,49 @@ export struct DashboardPage {
       });
   }
 
+  private applyDashboardSystemBars(): void {
+    const appContext = this.getUIContext().getHostContext() as common.Context;
+    window.getLastWindow(appContext)
+      .then((mainWindow: window.Window): void => {
+        if (!this.isDashboardVisible || !this.isActiveDashboard) {
+          return;
+        }
+        const useLightIcon = this.shouldExpandTopSafeArea() ? this.dashboardTopChromeDark : this.isDarkTheme;
+        mainWindow.setWindowSystemBarProperties({
+          statusBarColor: '#00000000',
+          navigationBarColor: '#00000000',
+          statusBarContentColor: useLightIcon ? '#F5F7F8' : '#172126',
+          navigationBarContentColor: this.isDarkTheme ? '#F5F7F8' : '#172126',
+          isStatusBarLightIcon: useLightIcon,
+          isNavigationBarLightIcon: this.isDarkTheme
+        }).catch((): void => {});
+      })
+      .catch((): void => {});
+  }
+
+  private refreshDashboardSystemBars(): void {
+    this.applyDashboardSystemBars();
+    setTimeout((): void => {
+      this.applyDashboardSystemBars();
+    }, 120);
+  }
+
+  private restoreDefaultSystemBars(): void {
+    const appContext = this.getUIContext().getHostContext() as common.Context;
+    window.getLastWindow(appContext)
+      .then((mainWindow: window.Window): void => {
+        mainWindow.setWindowSystemBarProperties({
+          statusBarColor: '#00000000',
+          navigationBarColor: '#00000000',
+          statusBarContentColor: '#172126',
+          navigationBarContentColor: '#172126',
+          isStatusBarLightIcon: false,
+          isNavigationBarLightIcon: false
+        }).catch((): void => {});
+      })
+      .catch((): void => {});
+  }
+
   private haSafeAreaPatchScript(): string {
     return `(function(){` +
       `if(window.__haCompanionSafeAreaPatchInstalled){return;}` +
@@ -269,9 +441,9 @@ export struct DashboardPage {
       `})();`;
   }
 
-  private runHaSafeAreaPatch(): void {
+  private runDashboardStartupScript(): void {
     try {
-      this.controller.runJavaScript(this.haSafeAreaPatchScript()).catch((): void => {});
+      this.controller.runJavaScript(this.dashboardChromeObserverScript() + this.haSafeAreaPatchScript()).catch((): void => {});
     } catch (_) {
     }
   }
@@ -325,7 +497,7 @@ export struct DashboardPage {
           .pinchSmooth(this.pinchToZoomEnabled)
           .mediaPlayGestureAccess(!this.autoPlayVideoEnabled)
           .forceDarkAccess(this.isDarkTheme)
-          .runJavaScriptOnHeadEnd([{ script: this.haSafeAreaPatchScript(), scriptRules: ['*'] }])
+          .runJavaScriptOnHeadEnd([{ script: this.dashboardChromeObserverScript() + this.haSafeAreaPatchScript(), scriptRules: ['*'] }])
           .overScrollMode(OverScrollMode.ALWAYS)
           .onPermissionRequest((event) => {
             if (event) {
@@ -336,7 +508,7 @@ export struct DashboardPage {
             return false;
           })
           .javaScriptProxy({
-            object: this.externalAppProxy,
+            object: this.dashboardExternalAppProxy,
             name: 'externalApp',
             methodList: ['getExternalAuth', 'revokeExternalAuth', 'externalBus'],
             controller: this.controller
@@ -346,14 +518,14 @@ export struct DashboardPage {
             this.onBridgeReady();
           })
           .onPageBegin((event) => {
-            this.onRememberUrl(event.url);
+            this.rememberDashboardUrl(event.url);
             this.rememberLoadedDashboardUrl(event.url);
             if (!this.dashboardAuthProvided) {
               this.onConnectionLoadStarted();
             }
           })
           .onPageEnd((event) => {
-            this.onRememberUrl(event.url);
+            this.rememberDashboardUrl(event.url);
             this.rememberLoadedDashboardUrl(event.url);
             const zoomLevel = Number(this.pageZoomLevel);
             if (Number.isFinite(zoomLevel) && zoomLevel > 0) {
@@ -363,7 +535,8 @@ export struct DashboardPage {
                 // Keep the page usable if the controller rejects the zoom request.
               }
             }
-            this.runHaSafeAreaPatch();
+            this.runDashboardStartupScript();
+            this.refreshDashboardSystemBars();
             this.onPageReady();
           })
           .onErrorReceive((event) => {
@@ -404,7 +577,7 @@ export struct DashboardPage {
               if (this.shouldSuppressResumeReload(currentUrl, isMainFrame, requestMethod, userGesture)) {
                 return true;
               }
-              this.onRememberUrl(currentUrl);
+              this.rememberDashboardUrl(currentUrl);
               const guard = this.onUrlGuard(currentUrl);
               if (guard.intercept) {
                 this.controller.loadUrl(guard.rewrittenUrl);
@@ -427,7 +600,11 @@ export struct DashboardPage {
     }
     .width('100%')
     .height('100%')
-    .padding({ top: this.topSafeAreaPadding })
+    .expandSafeArea(
+      [SafeAreaType.SYSTEM, SafeAreaType.CUTOUT],
+      this.shouldExpandTopSafeArea() ? [SafeAreaEdge.TOP] : []
+    )
+    .padding({ top: this.topPadding() })
     .backgroundColor(HaTheme.background(this.isDarkTheme))
   }
 }
