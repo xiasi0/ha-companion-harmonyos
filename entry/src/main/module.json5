@@ -16,7 +16,17 @@
     "metadata": [
       {
         "name": "client_id",
-        "value": "REPLACE_WITH_HUAWEI_CLIENT_ID"
+        "value": "6917605619463398439"
+      }
+    ],
+    "proxyData": [
+      {
+        "uri": "datashareproxy://io.homeassistant.companion/PushMessage",
+        "requiredWritePermission": "ohos.permission.WRITE_PRIVACY_PUSH_DATA",
+        "metadata": {
+          "name": "dataProperties",
+          "resource": "$profile:PushMessage"
+        }
       }
     ],
     "requestPermissions": [
@@ -153,6 +163,24 @@
         "startWindowIcon": "$media:ha_start_window_icon",
         "startWindowBackground": "$color:start_window_background",
         "exported": true
+      },
+      {
+        "name": "PushKitMessageAbility",
+        "srcEntry": "./ets/abilities/PushKitMessageAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:ha_start_window_icon",
+        "startWindowBackground": "$color:start_window_background",
+        "launchType": "singleton",
+        "exported": false,
+        "skills": [
+          {
+            "actions": [
+              "action.ohos.push.listener"
+            ]
+          }
+        ]
       }
     ],
     "extensionAbilities": [

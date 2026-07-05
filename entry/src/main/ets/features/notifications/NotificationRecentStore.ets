@@ -17,6 +17,7 @@ export interface NotificationRecentRecord {
 
 export interface NotificationRecentInput {
   notificationId: number;
+  dedupeKey: string;
   serverInstanceId: string;
   title: string;
   text: string;
@@ -48,8 +49,14 @@ export class NotificationRecentStore {
   static async add(context: common.Context, input: NotificationRecentInput): Promise<void> {
     try {
       const store = await NotificationRecentStore.getStore(context);
+      const dedupeKey = input.dedupeKey.trim();
+      if (dedupeKey.length > 0 && await NotificationRecentStore.updateExisting(store, input, dedupeKey)) {
+        await NotificationRecentStore.trim(store);
+        return;
+      }
       await store.insert(NotificationRecentStore.TABLE, {
         'notification_id': input.notificationId,
+        'dedupe_key': dedupeKey,
         'server_instance_id': input.serverInstanceId.trim(),
         'title': input.title,
         'text': input.text,
@@ -161,6 +168,7 @@ export class NotificationRecentStore {
         `CREATE TABLE IF NOT EXISTS ${NotificationRecentStore.TABLE} (` +
           'local_id INTEGER PRIMARY KEY AUTOINCREMENT, ' +
           'notification_id INTEGER NOT NULL, ' +
+          'dedupe_key TEXT, ' +
           'server_instance_id TEXT, ' +
           'title TEXT NOT NULL, ' +
           'text TEXT NOT NULL, ' +
@@ -175,6 +183,11 @@ export class NotificationRecentStore {
       );
       await store.executeSql(
         `CREATE INDEX IF NOT EXISTS idx_notification_recent_unread ON ${NotificationRecentStore.TABLE}(unread, received_at DESC)`
+      );
+      await NotificationRecentStore.ensureDedupeColumn(store);
+      await store.executeSql(
+        `CREATE INDEX IF NOT EXISTS idx_notification_recent_server_dedupe_key ON ` +
+          `${NotificationRecentStore.TABLE}(server_instance_id, dedupe_key)`
       );
       NotificationRecentStore.schemaReady = true;
     } catch (error) {
@@ -191,6 +204,56 @@ export class NotificationRecentStore {
       );
     } catch (error) {
       throw NotificationRecentStore.errorFrom(error);
+    }
+  }
+
+  private static async updateExisting(
+    store: relationalStore.RdbStore,
+    input: NotificationRecentInput,
+    dedupeKey: string
+  ): Promise<boolean> {
+    const serverInstanceId = input.serverInstanceId.trim();
+    let result: relationalStore.ResultSet | undefined = undefined;
+    try {
+      result = store.querySqlSync(
+        `SELECT local_id FROM ${NotificationRecentStore.TABLE} ` +
+          'WHERE server_instance_id = ? AND dedupe_key = ? ORDER BY received_at DESC LIMIT 1',
+        [serverInstanceId, dedupeKey]
+      );
+      if (!result.goToFirstRow()) {
+        return false;
+      }
+      const localId = result.getLong(0);
+      await store.executeSql(
+        `UPDATE ${NotificationRecentStore.TABLE} SET ` +
+          'notification_id = ?, server_instance_id = ?, title = ?, text = ?, additional_text = ?, ' +
+          'source = ?, data_json = ?, received_at = ?, unread = 1 WHERE local_id = ?',
+        [
+          input.notificationId,
+          serverInstanceId,
+          input.title,
+          input.text,
+          input.additionalText,
+          input.source,
+          input.dataJson,
+          input.receivedAt,
+          localId
+        ]
+      );
+      return true;
+    } catch (error) {
+      throw NotificationRecentStore.errorFrom(error);
+    } finally {
+      if (result) {
+        NotificationRecentStore.closeResult(result);
+      }
+    }
+  }
+
+  private static async ensureDedupeColumn(store: relationalStore.RdbStore): Promise<void> {
+    try {
+      await store.executeSql(`ALTER TABLE ${NotificationRecentStore.TABLE} ADD COLUMN dedupe_key TEXT`);
+    } catch (_) {
     }
   }
 

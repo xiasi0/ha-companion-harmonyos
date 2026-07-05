@@ -21,7 +21,12 @@ export class MobileAppRegistrationService {
     return candidate.length > 0 ? candidate : 'HarmonyOS Device';
   }
 
-  static buildRequest(deviceName: string, deviceId: string): HaMobileAppRegistrationRequest {
+  static buildRequest(
+    deviceName: string,
+    deviceId: string,
+    pushKitToken: string = '',
+    serverInstanceId: string = ''
+  ): HaMobileAppRegistrationRequest {
     return {
       appId: MobileAppRegistrationService.APP_ID,
       appName: 'Home Assistant',
@@ -32,11 +37,27 @@ export class MobileAppRegistrationService {
       osName: 'HarmonyOS',
       osVersion: MobileAppRegistrationService.osVersionLabel(),
       supportsEncryption: false,
-      appData: {
-        'push_websocket_channel': true
-      },
+      appData: MobileAppRegistrationService.appData(pushKitToken, serverInstanceId),
       deviceId
     };
+  }
+
+  static appData(pushKitToken: string = '', serverInstanceId: string = ''): Record<string, string | number | boolean> {
+    const token = pushKitToken.trim();
+    const serverId = serverInstanceId.trim();
+    const data: Record<string, string | number | boolean> = {
+      'push_websocket_channel': true,
+      'pushkit_enabled': token.length > 0,
+      'pushkit_provider': 'huawei_push_kit',
+      'pushkit_ticket_broker': 'agc_cloud_function'
+    };
+    if (token.length > 0) {
+      data['pushkit_token'] = token;
+    }
+    if (serverId.length > 0) {
+      data['pushkit_server_instance_id'] = serverId;
+    }
+    return data;
   }
 
   static async registerDevice(
