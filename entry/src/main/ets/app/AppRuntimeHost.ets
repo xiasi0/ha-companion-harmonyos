@@ -678,6 +678,13 @@ export struct AppRuntimeHost {
     }
   }
 
+  handleDashboardForegroundConnectionWait(): void {
+    if (this.dashboardInsecureBlocked || this.step !== AppRoute.DASHBOARD || this.dashboardConnectionErrorVisible) {
+      return;
+    }
+    this.scheduleDashboardConnectionWait();
+  }
+
   handleDashboardConnectionStatus(connected: boolean): void {
     if (connected) {
       this.dashboardFrontendConnected = true;
@@ -734,11 +741,19 @@ export struct AppRuntimeHost {
     this.dashboardConnectionWaitToken = token;
     setTimeout((): void => {
       if (this.dashboardConnectionWaitToken !== token || this.dashboardFrontendConnected ||
-        this.shouldSkipDashboardConnectionWait()) {
+        !this.isAppActive() || this.shouldSkipDashboardConnectionWait()) {
         return;
       }
       this.dashboardConnectionErrorVisible = true;
     }, DASHBOARD_CONNECTION_WAIT_MS);
+  }
+
+  private cancelDashboardConnectionWait(): void {
+    this.dashboardConnectionWaitToken += 1;
+  }
+
+  private isAppActive(): boolean {
+    return AppStorage.get<boolean>('appActive') ?? false;
   }
 
   private shouldSkipDashboardConnectionWait(): boolean {
@@ -1169,9 +1184,17 @@ export struct AppRuntimeHost {
 
   isIgnoringAppLockTransitions(): boolean { return this.appLockAuthPending || this.appUnlocking || Date.now() < this.appLockIgnoreTransitionsUntil; }
 
-  private onAppForegroundTick(): void { AppLifecycleRuntimeService.onForeground(this, AppRuntimeCallbackFactory.lifecycle(this)); }
+  private onAppForegroundTick(): void {
+    AppLifecycleRuntimeService.onForeground(this, AppRuntimeCallbackFactory.lifecycle(this));
+    if (this.step === AppRoute.DASHBOARD && !this.appLocked) {
+      this.handleDashboardForegroundConnectionWait();
+    }
+  }
 
-  private onAppBackgroundTick(): void { AppLifecycleRuntimeService.onBackground(this, AppRuntimeCallbackFactory.lifecycle(this)); }
+  private onAppBackgroundTick(): void {
+    AppLifecycleRuntimeService.onBackground(this, AppRuntimeCallbackFactory.lifecycle(this));
+    this.cancelDashboardConnectionWait();
+  }
 
   private onAppConfigurationTick(): void { AppLifecycleRuntimeService.onConfiguration(this, AppRuntimeCallbackFactory.lifecycle(this)); }
 
