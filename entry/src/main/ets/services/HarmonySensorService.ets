@@ -1318,7 +1318,8 @@ export class HarmonySensorService {
       const attrs = item.attributes;
       authorizationCheckedAt = typeof attrs.sensor_updated_at === 'number' ? attrs.sensor_updated_at : authorizationCheckedAt;
       lastError = typeof attrs.health_error === 'string' ? attrs.health_error : lastError;
-      synced = synced || (item.enabled && attrs.health_authorization === 'authorized');
+      synced = synced || (item.enabled &&
+        (attrs.health_authorization === 'authorized' || attrs.health_authorization === 'partial_authorized'));
     }
     return {
       authorizationCheckedAt,

@@ -68,6 +68,7 @@ import { AppDeviceRuntimeService } from './AppDeviceRuntimeService';
 import { AppLifecycleRuntimeService } from './AppLifecycleRuntimeService';
 import { AppNavigationRuntimeService } from './AppNavigationRuntimeService';
 import { AppSessionRuntimeService } from './AppSessionRuntimeService';
+import { HaColors } from '../shared/constants/HaStyle';
 import { AppWindowRuntimeService } from './AppWindowRuntimeService';
 import { ServerOption } from '../features/settings/SettingsSectionRuntimeService';
 
@@ -1986,27 +1987,149 @@ export struct AppRuntimeHost {
   }
 
   openHealthSensors(onAuthorized: () => void): void {
-    this.healthService.ensureAuthorized(this.context() as common.UIAbilityContext)
-      .then((state: HarmonyHealthAuthorizationState): void => {
-        this.healthAuthorizationState = state;
-        AppSettingsStore.saveHealthAuthorizationState(
-          this.context(),
-          Date.now(),
-          state === 'authorized' ? '' : Localization.t(`health_authorization_${state}`)
-        ).catch((): void => {});
-        if (state === 'authorized') {
-          this.step = AppRoute.HEALTH_SENSOR_SETTINGS;
-          onAuthorized();
-          this.refreshSensorStates();
+    if (AppStorage.get<boolean>('healthDataNoticeAccepted') === true) {
+      this.enterHealthSensors(onAuthorized);
+      return;
+    }
+    AppSettingsStore.loadHealthDataNoticeAccepted(this.context())
+      .then((accepted: boolean): void => {
+        if (accepted) {
+          AppStorage.setOrCreate<boolean>('healthDataNoticeAccepted', true);
+          this.enterHealthSensors(onAuthorized);
           return;
         }
-        this.message = Localization.t(`health_authorization_${state}`);
+        this.showHealthDataNoticeDialog(onAuthorized);
+      })
+      .catch((): void => {
+        this.showHealthDataNoticeDialog(onAuthorized);
+      });
+  }
+
+  private enterHealthSensors(onAuthorized: () => void): void {
+    onAuthorized();
+    this.refreshHealthAuthorizationState();
+    this.refreshSensorStates();
+  }
+
+  private showHealthDataNoticeDialog(onAuthorized: () => void): void {
+    this.getUIContext().showAlertDialog({
+      title: Localization.t('health_data_notice_title'),
+      message: Localization.t('health_data_notice_message'),
+      autoCancel: true,
+      primaryButton: {
+        value: Localization.t('action_cancel'),
+        fontColor: HaColors.PRIMARY,
+        action: (): void => {}
+      },
+      secondaryButton: {
+        value: Localization.t('health_data_notice_accept'),
+        fontColor: HaColors.PRIMARY,
+        action: (): void => {
+          AppSettingsStore.saveHealthDataNoticeAccepted(this.context(), true)
+            .then((): void => {
+              this.enterHealthSensors(onAuthorized);
+            })
+            .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+              this.message = this.stringifyError(error);
+            });
+        }
+      },
+      transition: TransitionEffect.OPACITY
+    });
+  }
+
+  requestHealthAuthorization(): void {
+    this.healthService.checkAuthorization(this.context())
+      .then((state: HarmonyHealthAuthorizationState): void => {
+        if (this.hasHealthAuthorization(state)) {
+          this.saveHealthAuthorizationState(state);
+          this.showHealthAuthorizationResetDialog();
+          return;
+        }
+        if (state !== 'unauthorized') {
+          this.saveHealthAuthorizationState(state);
+          this.message = Localization.t(`health_authorization_${state}`);
+          return;
+        }
+        this.requestHealthAuthorizationPage();
       })
       .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
-        this.message = this.stringifyError(error);
-        this.healthAuthorizationState = 'unavailable';
-        AppSettingsStore.saveHealthAuthorizationState(this.context(), Date.now(), this.message).catch((): void => {});
+        this.handleHealthAuthorizationError(error);
       });
+  }
+
+  private requestHealthAuthorizationPage(): void {
+    this.healthService.requestAuthorization(this.context() as common.UIAbilityContext)
+      .then((state: HarmonyHealthAuthorizationState): void => {
+        this.saveHealthAuthorizationState(state);
+        this.refreshSensorStates();
+      })
+      .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+        this.handleHealthAuthorizationError(error);
+      });
+  }
+
+  private showHealthAuthorizationResetDialog(): void {
+    this.getUIContext().showAlertDialog({
+      title: Localization.t('health_authorization_reset_title'),
+      message: Localization.t('health_authorization_reset_message'),
+      autoCancel: true,
+      primaryButton: {
+        value: Localization.t('action_cancel'),
+        fontColor: HaColors.PRIMARY,
+        action: (): void => {}
+      },
+      secondaryButton: {
+        value: Localization.t('action_confirm'),
+        fontColor: HaColors.ERROR,
+        action: (): void => {
+          this.cancelHealthAuthorization();
+        }
+      },
+      transition: TransitionEffect.OPACITY
+    });
+  }
+
+  private cancelHealthAuthorization(): void {
+    this.healthService.cancelAuthorization(this.context())
+      .then((state: HarmonyHealthAuthorizationState): void => {
+        this.saveHealthAuthorizationState(state, true);
+        this.refreshSensorStates();
+      })
+      .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+        this.handleHealthAuthorizationError(error);
+      });
+  }
+
+  private hasHealthAuthorization(state: HarmonyHealthAuthorizationState): boolean {
+    return state === 'authorized' || state === 'partial_authorized';
+  }
+
+  private refreshHealthAuthorizationState(): void {
+    this.healthService.checkAuthorization(this.context())
+      .then((state: HarmonyHealthAuthorizationState): void => {
+        this.saveHealthAuthorizationState(state);
+      })
+      .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+        this.handleHealthAuthorizationError(error);
+      });
+  }
+
+  private saveHealthAuthorizationState(
+    state: HarmonyHealthAuthorizationState,
+    clearUnauthorizedError: boolean = false
+  ): void {
+    this.healthAuthorizationState = state;
+    const lastError = this.hasHealthAuthorization(state) || (clearUnauthorizedError && state === 'unauthorized')
+      ? ''
+      : Localization.t(`health_authorization_${state}`);
+    AppSettingsStore.saveHealthAuthorizationState(this.context(), Date.now(), lastError).catch((): void => {});
+  }
+
+  private handleHealthAuthorizationError(error: Error | string | number | boolean | Object | ArrayBuffer): void {
+    this.message = this.stringifyError(error);
+    this.healthAuthorizationState = 'unavailable';
+    AppSettingsStore.saveHealthAuthorizationState(this.context(), Date.now(), this.message).catch((): void => {});
   }
 
   overlaySensorGroups(): SensorGroup[] {

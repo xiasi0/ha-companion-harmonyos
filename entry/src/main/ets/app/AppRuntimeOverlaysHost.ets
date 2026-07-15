@@ -41,6 +41,7 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSensorFilter: () => {},
   onToggleSensor: (_id: string, _enabled: boolean): void => {},
   onOpenHealthSensors: (_onAuthorized: () => void): void => {},
+  onRequestHealthAuthorization: () => {},
   onSelectSensorFrequency: () => {}
 };
 
@@ -96,6 +97,7 @@ export struct AppRuntimeOverlaysHost {
               onOpenHealthSensors: (): void => {
                 this.actions.onOpenHealthSensors((): void => this.actions.onRoute(AppRoute.HEALTH_SENSOR_SETTINGS));
               },
+              onRequestHealthAuthorization: this.actions.onRequestHealthAuthorization,
               onSelectFrequency: this.actions.onSelectSensorFrequency,
               onSwipeBack: this.sensorOverlayBackAction()
             })
