@@ -18,6 +18,7 @@ export struct SensorSettingsOverlayHost {
   onFilter: () => void = () => {};
   onToggleSensor: (id: string, enabled: boolean) => void = () => {};
   onOpenHealthSensors: () => void = () => {};
+  onRequestHealthAuthorization: () => void = () => {};
   onSelectFrequency: (value: string) => void = () => {};
   onSwipeBack: () => void = () => {};
 
@@ -44,6 +45,7 @@ export struct SensorSettingsOverlayHost {
         onFilter: this.onFilter,
         onToggleSensor: this.onToggleSensor,
         onOpenHealthSensors: this.onOpenHealthSensors,
+        onRequestHealthAuthorization: this.onRequestHealthAuthorization,
         onSwipeBack: this.onSwipeBack
       })
     }

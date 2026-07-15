@@ -36,6 +36,7 @@ export class AppStorageDefaults {
     AppStorage.setOrCreate<boolean>('sensorAccurateLocationEnabled', AppStorage.get<boolean>('sensorAccurateLocationEnabled') ?? false);
     AppStorage.setOrCreate<string>('sensorDirectEnabledJson', AppStorage.get<string>('sensorDirectEnabledJson') ?? '[]');
     AppStorage.setOrCreate<number>('healthAuthorizationCheckedAt', AppStorage.get<number>('healthAuthorizationCheckedAt') ?? 0);
+    AppStorage.setOrCreate<boolean>('healthDataNoticeAccepted', AppStorage.get<boolean>('healthDataNoticeAccepted') ?? false);
     AppStorage.setOrCreate<string>('healthLastError', AppStorage.get<string>('healthLastError') ?? '');
     AppStorage.setOrCreate<number>('healthLastSyncAt', AppStorage.get<number>('healthLastSyncAt') ?? 0);
     AppStorage.setOrCreate<string>('locationHistoryJson', AppStorage.get<string>('locationHistoryJson') ?? '[]');

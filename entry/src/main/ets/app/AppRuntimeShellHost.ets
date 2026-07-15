@@ -164,6 +164,7 @@ const EMPTY_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSensorFilter: () => {},
   onToggleSensor: (_id: string, _enabled: boolean): void => {},
   onOpenHealthSensors: (_onAuthorized: () => void): void => {},
+  onRequestHealthAuthorization: () => {},
   onSelectSensorFrequency: () => {}
 };
 

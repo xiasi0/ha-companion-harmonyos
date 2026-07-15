@@ -25,6 +25,7 @@ export interface AppRuntimeOverlayTarget extends AppRuntimeOverlayState {
   handleBackNavigation(): boolean;
   toggleSensor(sensorId: string, enabled?: boolean): void;
   openHealthSensors(onAuthorized: () => void): void;
+  requestHealthAuthorization(): void;
 }
 
 export class AppRuntimeOverlayService {
@@ -71,6 +72,7 @@ export class AppRuntimeOverlayService {
       },
       onToggleSensor: (id: string, enabled: boolean): void => target.toggleSensor(id, enabled),
       onOpenHealthSensors: (onAuthorized: () => void): void => target.openHealthSensors(onAuthorized),
+      onRequestHealthAuthorization: (): void => target.requestHealthAuthorization(),
       onSelectSensorFrequency: (value: string): void => {
         target.sensorUpdateFrequency = normalizeSensorUpdateFrequency(value);
       }

@@ -26,5 +26,6 @@ export interface AppRuntimeOverlayActions {
   onSensorFilter: () => void;
   onToggleSensor: (id: string, enabled: boolean) => void;
   onOpenHealthSensors: (onAuthorized: () => void) => void;
+  onRequestHealthAuthorization: () => void;
   onSelectSensorFrequency: (value: string) => void;
 }
