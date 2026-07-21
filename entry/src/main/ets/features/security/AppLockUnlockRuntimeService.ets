@@ -12,7 +12,8 @@ export class AppLockUnlockRuntimeService {
   static unlock(
     context: common.Context,
     state: AppLockUnlockRuntimeState,
-    ignoreTransitions: () => void
+    ignoreTransitions: () => void,
+    onUnlocked: () => void = () => {}
   ): void {
     if (state.appUnlocking) {
       return;
@@ -25,6 +26,7 @@ export class AppLockUnlockRuntimeService {
         if (result.success) {
           state.appLocked = false;
           state.message = '';
+          onUnlocked();
         } else {
           state.message = result.message.length > 0
             ? Localization.format('app_lock_auth_failed_with_message', 'message', result.message)

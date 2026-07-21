@@ -1096,7 +1096,8 @@ export struct AppRuntimeHost {
     AppLockUnlockRuntimeService.unlock(
       this.context(),
       this,
-      (): void => this.ignoreAppLockTransitions()
+      (): void => this.ignoreAppLockTransitions(),
+      (): void => this.openPendingAssistLaunch()
     );
   }
 
@@ -1356,7 +1357,7 @@ export struct AppRuntimeHost {
   }
 
   private openPendingAssistLaunch(): void {
-    if (this.assistPendingLaunchTick <= 0) {
+    if (this.assistPendingLaunchTick <= 0 || this.appLocked || this.appUnlocking) {
       return;
     }
     this.openAssistConversation(JSON.stringify({

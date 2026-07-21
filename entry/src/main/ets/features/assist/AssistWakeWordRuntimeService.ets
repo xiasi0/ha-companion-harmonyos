@@ -37,6 +37,12 @@ export interface AssistWakeWordRuntimeCallbacks {
   onConfigChanged?: (probabilityCutoff: number, slidingWindowSize: number) => void;
 }
 
+interface AssistWakeWordStartRequest {
+  context: common.Context;
+  snapshot: AssistWakeWordRuntimeSnapshot;
+  callbacks: AssistWakeWordRuntimeCallbacks;
+}
+
 export class AssistWakeWordRuntimeService {
   private detector: MicroWakeWordDetector | undefined = undefined;
   private callbacks: AssistWakeWordRuntimeCallbacks | undefined = undefined;
@@ -44,6 +50,8 @@ export class AssistWakeWordRuntimeService {
   private requestedKey: string = '';
   private configKey: string = '';
   private starting: boolean = false;
+  private startGeneration: number = 0;
+  private pendingStart: AssistWakeWordStartRequest | undefined = undefined;
   private detected: boolean = false;
   private context: common.UIAbilityContext | undefined = undefined;
 
@@ -54,6 +62,11 @@ export class AssistWakeWordRuntimeService {
   ): Promise<void> {
     this.callbacks = callbacks;
     this.context = context as common.UIAbilityContext;
+    if (this.starting) {
+      this.startGeneration += 1;
+      this.pendingStart = { context, snapshot, callbacks };
+      return;
+    }
     if (!snapshot.enabled) {
       await this.stop();
       this.emitStatus('disabled', 'disabled');
@@ -63,19 +76,27 @@ export class AssistWakeWordRuntimeService {
     if (this.detector && this.requestedKey === requestedKey && this.detector.getState() === 'listening') {
       return;
     }
-    if (this.starting) {
-      return;
-    }
     this.starting = true;
+    const generation = this.startGeneration + 1;
+    this.startGeneration = generation;
     this.emitStatus('starting', 'starting');
     try {
       if (!await this.ensureMicrophonePermission(context)) {
+        if (!this.isCurrentStart(generation)) {
+          return;
+        }
         await this.stop();
         this.emitStatus('permission_required', 'permission_required');
         return;
       }
       await LongRunningTaskService.ensureAudioRecordingActive(context as common.UIAbilityContext);
+      if (!this.isCurrentStart(generation)) {
+        return;
+      }
       const models = await getAvailableModels(context);
+      if (!this.isCurrentStart(generation)) {
+        return;
+      }
       this.models = models;
       callbacks.onModelsChanged(models);
       if (models.length === 0) {
@@ -93,6 +114,9 @@ export class AssistWakeWordRuntimeService {
         return;
       }
       await this.stopDetectorOnly();
+      if (!this.isCurrentStart(generation)) {
+        return;
+      }
       this.requestedKey = requestedKey;
       this.configKey = nextKey;
       this.detected = false;
@@ -107,6 +131,10 @@ export class AssistWakeWordRuntimeService {
         onError: (error: MicroWakeWordError): void => this.handleError(error)
       });
       await this.detector.start();
+      if (!this.isCurrentStart(generation)) {
+        await this.stopDetectorOnly();
+        return;
+      }
       this.emitStatus('listening', model.name);
     } catch (err) {
       await this.stopDetectorOnly();
@@ -114,6 +142,11 @@ export class AssistWakeWordRuntimeService {
       this.emitStatus('error', AssistWakeWordRuntimeService.stringifyError(err));
     } finally {
       this.starting = false;
+      const pendingStart = this.pendingStart;
+      this.pendingStart = undefined;
+      if (pendingStart) {
+        await this.start(pendingStart.context, pendingStart.snapshot, pendingStart.callbacks);
+      }
     }
   }
 
@@ -126,6 +159,8 @@ export class AssistWakeWordRuntimeService {
   }
 
   async stop(): Promise<void> {
+    this.startGeneration += 1;
+    this.pendingStart = undefined;
     await this.stopDetectorOnly();
     this.configKey = '';
     this.requestedKey = '';
@@ -135,6 +170,8 @@ export class AssistWakeWordRuntimeService {
   }
 
   async release(): Promise<void> {
+    this.startGeneration += 1;
+    this.pendingStart = undefined;
     if (this.detector) {
       try {
         await this.detector.release();
@@ -207,6 +244,10 @@ export class AssistWakeWordRuntimeService {
     }
     this.detector = undefined;
     await this.stopDetector(detector);
+  }
+
+  private isCurrentStart(generation: number): boolean {
+    return generation === this.startGeneration;
   }
 
   private async stopDetector(detector: MicroWakeWordDetector): Promise<void> {

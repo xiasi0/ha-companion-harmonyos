@@ -6,6 +6,7 @@
   "author": "Home Assistant",
   "license": "Apache-2.0",
   "dependencies": {
+    // Temporary local placeholder: the HarmonyOS micro wake-word engine is not publicly available as a consumable package or artifact yet.
     "micro-wake-word": "file:../../harmony-micro-wake-word/microwakeword/build/default/outputs/default/microwakeword.har"
   }
 }
