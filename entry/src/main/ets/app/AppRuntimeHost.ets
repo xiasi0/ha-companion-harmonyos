@@ -1373,9 +1373,13 @@ export struct AppRuntimeHost {
     const context = this.context() as common.UIAbilityContext;
     if (this.appLocked || this.appUnlocking) {
       AssistLaunchService.publishPending(true);
-      (this.nextAssistAudioCaptureReady ?? Promise.resolve())
+      const microphoneReleased = this.nextAssistAudioCaptureReady ?? Promise.resolve();
+      this.nextAssistAudioCaptureReady = undefined;
+      microphoneReleased
         .then((): void => {
-          this.refreshAssistWakeWordRuntime();
+          if (this.appLocked || this.appUnlocking) {
+            this.refreshAssistWakeWordRuntime();
+          }
         });
       return;
     }
