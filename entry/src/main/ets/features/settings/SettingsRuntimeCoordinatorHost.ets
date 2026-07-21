@@ -51,9 +51,12 @@ const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
   secureConnectionChoice: '',
   websocketMode: 'system',
   serviceCardUpdateFrequency: 'default',
-  assistWakeDetectionEnabled: true,
+  assistWakeDetectionEnabled: false,
   assistWakeWord: 'wake_word_1',
   assistProbabilityCutoff: '',
+  assistWakeWordModelsJson: '[]',
+  assistWakeWordStatusText: '',
+  assistProbabilityCutoffStatusText: '',
   dark: false,
   showDeleteServerDialog: false,
   deletingServer: false,
@@ -121,6 +124,7 @@ const DEFAULT_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   baseUrl: '',
   accessToken: '',
   refreshToken: '',
+  assistOverlayVisible: false,
   assistStartListeningSignal: 0,
   assistStartListeningRequested: false,
   profile: new DefaultDeviceProfileInfo(),
@@ -136,6 +140,10 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onBackToNativeTarget: () => {},
   onSwipeBack: () => {},
   onCloseAssist: () => {},
+  onAssistAudioCaptureStart: (): Promise<void> => Promise.resolve(),
+  onAssistSpeechComplete: () => {},
+  onAssistActivity: () => {},
+  onAssistBusy: () => {},
   onSensorHelp: () => {},
   onSensorSearch: () => {},
   onSensorFilter: () => {},
@@ -238,6 +246,9 @@ export struct SettingsRuntimeCoordinatorHost {
       left.assistWakeDetectionEnabled === right.assistWakeDetectionEnabled &&
       left.assistWakeWord === right.assistWakeWord &&
       left.assistProbabilityCutoff === right.assistProbabilityCutoff &&
+      left.assistWakeWordModelsJson === right.assistWakeWordModelsJson &&
+      left.assistWakeWordStatusText === right.assistWakeWordStatusText &&
+      left.assistProbabilityCutoffStatusText === right.assistProbabilityCutoffStatusText &&
       left.dark === right.dark &&
       left.showDeleteServerDialog === right.showDeleteServerDialog &&
       left.deletingServer === right.deletingServer &&
@@ -463,6 +474,9 @@ export struct SettingsRuntimeCoordinatorHost {
       assistWakeDetectionEnabled: this.snapshot.assistWakeDetectionEnabled,
       assistWakeWord: this.snapshot.assistWakeWord,
       assistProbabilityCutoff: this.snapshot.assistProbabilityCutoff,
+      assistWakeWordModelsJson: this.snapshot.assistWakeWordModelsJson,
+      assistWakeWordStatusText: this.snapshot.assistWakeWordStatusText,
+      assistProbabilityCutoffStatusText: this.snapshot.assistProbabilityCutoffStatusText,
       dark: this.snapshot.dark,
       onBack: this.actions.onBackToHaSettings,
       onOpen: (item: SettingsItem): void => this.openSettingsItem(item),

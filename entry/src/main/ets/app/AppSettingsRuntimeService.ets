@@ -29,6 +29,9 @@ export interface AppSettingsRuntimeTarget extends SettingsSectionRuntimeState, G
   assistWakeDetectionEnabled: boolean;
   assistWakeWord: string;
   assistProbabilityCutoff: string;
+  assistWakeWordModelsJson: string;
+  assistWakeWordStatusText: string;
+  assistProbabilityCutoffStatusText: string;
   notificationUnreadCount: number;
   settingsRefreshTick: number;
   appResolvedDark: boolean;
@@ -128,6 +131,9 @@ export class AppSettingsRuntimeService {
       assistWakeDetectionEnabled: target.assistWakeDetectionEnabled,
       assistWakeWord: target.assistWakeWord,
       assistProbabilityCutoff: target.assistProbabilityCutoff,
+      assistWakeWordModelsJson: target.assistWakeWordModelsJson,
+      assistWakeWordStatusText: target.assistWakeWordStatusText,
+      assistProbabilityCutoffStatusText: target.assistProbabilityCutoffStatusText,
       dark: target.appResolvedDark,
       showDeleteServerDialog: target.showDeleteServerDialog,
       deletingServer: target.deletingServer,
@@ -200,6 +206,7 @@ export class AppSettingsRuntimeService {
         target.settingsDetailTitle = title;
       },
       onToggleAssistWakeDetection: (value: boolean): void => {
+        AppStorage.setOrCreate<boolean>('assistWakeDetectionUserSet', true);
         target.assistWakeDetectionEnabled = value;
         target.refreshSettingsState();
       },

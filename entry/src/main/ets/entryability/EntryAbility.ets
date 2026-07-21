@@ -11,6 +11,7 @@ import { AppSettingsStore } from '../services/AppSettingsStore';
 import { DiscoveryCacheService } from '../services/DiscoveryCacheService';
 import { ServerManager } from '../services/ServerManager';
 import { CardEntityDetailLaunchService } from '../features/cards/CardEntityDetailLaunchService';
+import { AssistLaunchService } from '../features/assist/AssistLaunchService';
 
 const DOMAIN = 0x0000;
 const TAG = 'HACompanion';
@@ -21,6 +22,7 @@ export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     AppStorageDefaults.register();
     this.handleEntityDetailWant(want);
+    this.handleAssistWant(want);
     LongRunningTaskService.setRecoveryHandler((context): void => {
       if ((AppStorage.get<string>('websocketMode') ?? 'system') !== 'always') {
         return;
@@ -38,6 +40,7 @@ export default class EntryAbility extends UIAbility {
 
   onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
     this.handleEntityDetailWant(want);
+    this.handleAssistWant(want);
   }
 
   onDestroy(): void {
@@ -138,6 +141,7 @@ export default class EntryAbility extends UIAbility {
       return false;
     }
     return (AppStorage.get<string>('websocketMode') ?? 'system') === 'always' ||
+      (AppStorage.get<boolean>('assistWakeDetectionEnabled') ?? false) ||
       ((AppStorage.get<boolean>('sensorLocationEnabled') ?? false) &&
         (AppStorage.get<boolean>('sensorAccurateLocationEnabled') ?? false));
   }
@@ -154,6 +158,15 @@ export default class EntryAbility extends UIAbility {
       return;
     }
     CardEntityDetailLaunchService.publishPending(request);
+    AppStorage.setOrCreate<number>('appForegroundTick', Date.now());
+  }
+
+  private handleAssistWant(want: Want): void {
+    const startListening = AssistLaunchService.requestFromWant(want);
+    if (startListening === undefined) {
+      return;
+    }
+    AssistLaunchService.publishPending(startListening);
     AppStorage.setOrCreate<number>('appForegroundTick', Date.now());
   }
 

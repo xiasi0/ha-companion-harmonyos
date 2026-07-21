@@ -1,5 +1,6 @@
 {
   "app": {
+    // Keep local signing materials out of the repository.
     "signingConfigs": [],
     "products": [
       {

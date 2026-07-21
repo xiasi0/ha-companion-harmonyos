@@ -14,6 +14,7 @@ export interface SettingsChoiceRuntimeState {
   websocketMode: string;
   serviceCardUpdateFrequency: string;
   assistWakeWord: string;
+  assistWakeWordModelsJson: string;
   appConfigTick: number;
   step: number;
 }
@@ -149,7 +150,7 @@ export class SettingsChoiceRuntimeService {
   }
 
   private static normalizeAssistWakeWord(value: string): string {
-    if (value === 'wake_word_2' || value === 'wake_word_3') {
+    if (value.length > 0) {
       return value;
     }
     return 'wake_word_1';
