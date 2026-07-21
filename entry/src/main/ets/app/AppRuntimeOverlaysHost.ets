@@ -39,6 +39,8 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onCloseAssist: () => {},
   onAssistAudioCaptureStart: (): Promise<void> => Promise.resolve(),
   onAssistSpeechComplete: () => {},
+  onAssistActivity: () => {},
+  onAssistBusy: () => {},
   onSensorHelp: () => {},
   onSensorSearch: () => {},
   onSensorFilter: () => {},
@@ -68,7 +70,9 @@ export struct AppRuntimeOverlaysHost {
               startListeningRequested: this.snapshot.assistStartListeningRequested,
               onClose: this.actions.onCloseAssist,
               onAudioCaptureStart: this.actions.onAssistAudioCaptureStart,
-              onSpeechComplete: this.actions.onAssistSpeechComplete
+              onSpeechComplete: this.actions.onAssistSpeechComplete,
+              onActivity: this.actions.onAssistActivity,
+              onBusy: this.actions.onAssistBusy
             })
           }
           .width('100%')

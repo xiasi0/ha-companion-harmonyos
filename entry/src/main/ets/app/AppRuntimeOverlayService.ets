@@ -26,6 +26,9 @@ export interface AppRuntimeOverlayTarget extends AppRuntimeOverlayState {
   closeAssistConversation(): void;
   stopAssistWakeWordRuntime(): Promise<void>;
   prepareAssistAudioCapture(): Promise<void>;
+  markAssistOverlayActivity(): void;
+  markAssistOverlayBusy(): void;
+  armAssistOverlayDismiss(): void;
   refreshAssistWakeWordRuntime(): void;
   toggleSensor(sensorId: string, enabled?: boolean): void;
   openHealthSensors(onAuthorized: () => void): void;
@@ -70,7 +73,14 @@ export class AppRuntimeOverlayService {
         return target.prepareAssistAudioCapture();
       },
       onAssistSpeechComplete: (): void => {
+        target.armAssistOverlayDismiss();
         target.refreshAssistWakeWordRuntime();
+      },
+      onAssistActivity: (): void => {
+        target.markAssistOverlayActivity();
+      },
+      onAssistBusy: (): void => {
+        target.markAssistOverlayBusy();
       },
       onSensorHelp: (): void => {
         target.message = 'https://companion.home-assistant.io/docs/core/sensors';

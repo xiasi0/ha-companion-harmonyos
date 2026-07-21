@@ -24,6 +24,8 @@ export interface AppRuntimeOverlayActions {
   onCloseAssist: () => void;
   onAssistAudioCaptureStart: () => Promise<void>;
   onAssistSpeechComplete: () => void;
+  onAssistActivity: () => void;
+  onAssistBusy: () => void;
   onSensorHelp: () => void;
   onSensorSearch: () => void;
   onSensorFilter: () => void;

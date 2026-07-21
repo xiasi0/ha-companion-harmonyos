@@ -68,6 +68,7 @@ import {
 } from '../features/assist/AssistWakeWordRuntimeService';
 import { AssistLaunchService } from '../features/assist/AssistLaunchService';
 import { WakeWordPromptSoundService } from '../features/assist/WakeWordPromptSoundService';
+import { AssistOverlayLifecycleService } from '../features/assist/AssistOverlayLifecycleService';
 import { AppOnboardingRuntimeService } from './AppOnboardingRuntimeService';
 import { AppRuntimeShellHost } from './AppRuntimeShellHost';
 import { AppRuntimeCallbackFactory } from './AppRuntimeCallbackFactory';
@@ -273,6 +274,9 @@ export struct AppRuntimeHost {
   private healthService: HarmonyHealthService = new HarmonyHealthService();
   private assistWakeWordRuntimeService: AssistWakeWordRuntimeService = new AssistWakeWordRuntimeService();
   private wakeWordPromptSoundService: WakeWordPromptSoundService = new WakeWordPromptSoundService();
+  private assistOverlayLifecycle: AssistOverlayLifecycleService = new AssistOverlayLifecycleService((): void => {
+    this.closeAssistConversation();
+  });
   private nextAssistAudioCaptureReady: Promise<void> | undefined = undefined;
   private assistAudioCaptureReady: Promise<void> = Promise.resolve();
   private mobileAppRegistrationInFlight: boolean = false;
@@ -815,6 +819,9 @@ export struct AppRuntimeHost {
   }
 
   openAssistConversation(payload: Object | string): void {
+    if (!this.assistOverlayLifecycle.isWakeSession()) {
+      this.assistOverlayLifecycle.cancel();
+    }
     this.assistAudioCaptureReady = this.nextAssistAudioCaptureReady ?? this.stopAssistWakeWordRuntime();
     this.nextAssistAudioCaptureReady = undefined;
     this.assistStartListeningRequested = this.assistOverlayVisible
@@ -825,6 +832,7 @@ export struct AppRuntimeHost {
   }
 
   closeAssistConversation(): void {
+    this.assistOverlayLifecycle.cancel();
     this.assistOverlayVisible = false;
     this.refreshAssistWakeWordRuntime();
   }
@@ -1280,6 +1288,18 @@ export struct AppRuntimeHost {
     return this.assistAudioCaptureReady;
   }
 
+  markAssistOverlayActivity(): void {
+    this.assistOverlayLifecycle.markActivity();
+  }
+
+  markAssistOverlayBusy(): void {
+    this.assistOverlayLifecycle.markBusy();
+  }
+
+  armAssistOverlayDismiss(): void {
+    this.assistOverlayLifecycle.armDismiss();
+  }
+
   private assistWakeWordStatusMessage(status: AssistWakeWordRuntimeStatus, message: string): string {
     if (status === 'disabled') {
       return Localization.t('assist_wake_word_status_disabled');
@@ -1346,12 +1366,14 @@ export struct AppRuntimeHost {
   }
 
   private openAssistConversationFromWakeWord(): void {
+    this.assistOverlayLifecycle.beginWakeSession();
     const context = this.context() as common.UIAbilityContext;
     if (AppStorage.get<boolean>('appActive') ?? false) {
       this.openAssistConversation('{}');
       return;
     }
     AssistLaunchService.start(context, true).catch((err: Error | string | number | boolean | Object): void => {
+      this.assistOverlayLifecycle.cancel();
       this.nextAssistAudioCaptureReady = undefined;
       this.refreshAssistWakeWordRuntime();
       hilog.warn(DOMAIN, TAG, 'Failed to foreground assist conversation. Cause: %{public}s', this.stringifyError(err));
