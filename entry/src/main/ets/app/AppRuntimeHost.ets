@@ -1374,9 +1374,12 @@ export struct AppRuntimeHost {
     if (this.appLocked || this.appUnlocking) {
       AssistLaunchService.publishPending(true);
       const microphoneReleased = this.nextAssistAudioCaptureReady ?? Promise.resolve();
-      this.nextAssistAudioCaptureReady = undefined;
       microphoneReleased
         .then((): void => {
+          if (this.nextAssistAudioCaptureReady !== microphoneReleased) {
+            return;
+          }
+          this.nextAssistAudioCaptureReady = undefined;
           if (this.appLocked || this.appUnlocking) {
             this.refreshAssistWakeWordRuntime();
           }
