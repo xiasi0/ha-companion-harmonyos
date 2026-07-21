@@ -631,8 +631,6 @@ export struct AppRuntimeHost {
   }
 
   aboutToDisappear(): void {
-    this.assistWakeWordRuntimeService.release().catch((): void => {});
-    this.wakeWordPromptSoundService.release().catch((): void => {});
     AppLifecycleRuntimeService.aboutToDisappear(AppRuntimeCallbackFactory.lifecycle(this));
   }
 
@@ -1337,6 +1335,7 @@ export struct AppRuntimeHost {
 
   private onAppForegroundTick(): void {
     AppLifecycleRuntimeService.onForeground(this, AppRuntimeCallbackFactory.lifecycle(this));
+    this.refreshAssistWakeWordRuntime();
     if (this.step === AppRoute.DASHBOARD && !this.appLocked) {
       this.handleDashboardForegroundConnectionWait();
     }
