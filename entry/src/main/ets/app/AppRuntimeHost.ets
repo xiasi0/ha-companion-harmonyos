@@ -1385,7 +1385,6 @@ export struct AppRuntimeHost {
     }
     AssistLaunchService.start(context, true).catch((err: Error | string | number | boolean | Object): void => {
       this.assistOverlayLifecycle.cancel();
-      AssistLaunchService.clearPending();
       this.nextAssistAudioCaptureReady = undefined;
       this.refreshAssistWakeWordRuntime();
       hilog.warn(DOMAIN, TAG, 'Failed to foreground assist conversation. Cause: %{public}s', this.stringifyError(err));
