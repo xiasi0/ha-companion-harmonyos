@@ -819,6 +819,9 @@ export struct AppRuntimeHost {
   }
 
   openAssistConversation(payload: Object | string): void {
+    if (this.appLocked || this.appUnlocking) {
+      return;
+    }
     if (!this.assistOverlayLifecycle.isWakeSession()) {
       this.assistOverlayLifecycle.cancel();
     }
@@ -1369,6 +1372,10 @@ export struct AppRuntimeHost {
   private openAssistConversationFromWakeWord(): void {
     this.assistOverlayLifecycle.beginWakeSession();
     const context = this.context() as common.UIAbilityContext;
+    if (this.appLocked || this.appUnlocking) {
+      AssistLaunchService.publishPending(true);
+      return;
+    }
     if (AppStorage.get<boolean>('appActive') ?? false) {
       this.openAssistConversation('{}');
       return;
