@@ -1374,6 +1374,10 @@ export struct AppRuntimeHost {
     const context = this.context() as common.UIAbilityContext;
     if (this.appLocked || this.appUnlocking) {
       AssistLaunchService.publishPending(true);
+      (this.nextAssistAudioCaptureReady ?? Promise.resolve())
+        .then((): void => {
+          this.refreshAssistWakeWordRuntime();
+        });
       return;
     }
     if (AppStorage.get<boolean>('appActive') ?? false) {
