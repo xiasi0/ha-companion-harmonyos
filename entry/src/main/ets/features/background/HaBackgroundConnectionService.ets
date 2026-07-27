@@ -385,6 +385,10 @@ export class HaBackgroundConnectionService {
     }
     if (rawEntityId.startsWith('media_player.')) {
       await HaBackgroundConnectionService.syncMedia(context, rawEntityId, newState);
+      return;
+    }
+    if (rawEntityId.startsWith('camera.') || rawEntityId.startsWith('image.')) {
+      await HaBackgroundConnectionService.syncCamera(context, rawEntityId, newState);
     }
   }
 
@@ -498,6 +502,10 @@ export class HaBackgroundConnectionService {
 
   private static async syncMedia(context: common.Context, entityId: string, newState: JsonRecord): Promise<void> {
     await CardRuntimeRepository.syncMediaState(context, entityId, HaEntityParser.parseMediaPlayerStateObject(newState));
+  }
+
+  private static async syncCamera(context: common.Context, entityId: string, newState: JsonRecord): Promise<void> {
+    await CardRuntimeRepository.syncCameraState(context, entityId, HaEntityParser.parseCameraStateObject(newState));
   }
 
   private static isMissingFormError(err: Error): boolean {

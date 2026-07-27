@@ -61,6 +61,20 @@ interface MediaFormData {
   formImages: Record<string, number>;
 }
 
+interface CameraFormData {
+  formId: string;
+  bound: boolean;
+  targetId: string;
+  serverInstanceId: string;
+  openEntityDetailEnabled: boolean;
+  title: string;
+  subtitle: string;
+  coverUrl: string;
+  coverImageName: string;
+  updateFrequency: string;
+  formImages: Record<string, number>;
+}
+
 interface CardRenderedRecord {
   record: CardBindingRecord;
   data: Object;
@@ -227,6 +241,13 @@ export class CardRuntimeCoordinator {
         data: await CardRuntimeCoordinator.mediaFormData(context, formId, nextRecord)
       };
     }
+    if (cardType === CardType.CAMERA) {
+      nextRecord.displayJson = await CardRuntimeCoordinator.cameraRenderJson(context, nextRecord);
+      return {
+        record: nextRecord,
+        data: await CardRuntimeCoordinator.cameraFormData(context, formId, nextRecord)
+      };
+    }
     if (cardType === CardType.SCENE) {
       return {
         record: nextRecord,
@@ -256,6 +277,19 @@ export class CardRuntimeCoordinator {
         CardRuntimeCoordinator.displayField(display, 'mediaTitle', ''),
         CardRuntimeCoordinator.displayField(display, 'mediaArtist', ''),
         CardRuntimeCoordinator.displayField(display, 'appName', ''),
+        CardRuntimeCoordinator.displayField(display, 'entityPicture', '')
+      ].join('|');
+    }
+    if (record.cardType === CardType.CAMERA) {
+      const display = CardRuntimeCoordinator.parseDisplay(record.displayJson);
+      return [
+        record.cardType,
+        record.serverInstanceId,
+        record.targetId,
+        record.targetName,
+        record.areaId,
+        record.areaName,
+        record.state,
         CardRuntimeCoordinator.displayField(display, 'entityPicture', '')
       ].join('|');
     }
@@ -296,6 +330,29 @@ export class CardRuntimeCoordinator {
       'primaryTextColor': asset.palette.primaryTextColor,
       'disabledTextColor': asset.palette.disabledTextColor,
       'trackColor': asset.palette.trackColor
+    });
+  }
+
+  private static async cameraRenderJson(context: common.Context, record: CardBindingRecord): Promise<string> {
+    const display = CardRuntimeCoordinator.parseDisplay(record.displayJson);
+    const entityPicture = CardRuntimeCoordinator.displayField(display, 'entityPicture', '');
+    const policy = await HaConnectionPolicyService.resolveServerBaseUrl(context, record.serverInstanceId);
+    const remoteUrl = policy.allowed ? CardRuntimeCoordinator.remoteCameraUrl(policy.baseUrl, entityPicture) : '';
+    const accessToken = policy.allowed
+      ? await CardRuntimeCoordinator.coverAccessToken(context, record.serverInstanceId, policy.baseUrl, remoteUrl)
+      : '';
+    const asset = await CardMediaCacheStore.prepareCover(
+      context,
+      record.formId,
+      record.serverInstanceId,
+      record.cardType,
+      remoteUrl,
+      accessToken,
+      true
+    );
+    return JSON.stringify({
+      'entityPicture': entityPicture,
+      'coverUrl': asset.localUrl
     });
   }
 
@@ -354,11 +411,35 @@ export class CardRuntimeCoordinator {
       updateFrequency: await AppSettingsStore.loadServiceCardUpdateFrequency(context),
       formImages: {}
     };
-    CardRuntimeCoordinator.attachCoverImage(formId, data);
+    CardRuntimeCoordinator.attachCoverImage(formId, data, 'music_cover');
     return data;
   }
 
-  private static attachCoverImage(formId: string, data: MediaFormData): void {
+  private static async cameraFormData(context: common.Context, formId: string, record: CardBindingRecord): Promise<CameraFormData> {
+    const bound = CardDataStore.hasBinding(record) && record.cardType === CardType.CAMERA;
+    const display = CardRuntimeCoordinator.parseDisplay(record.displayJson);
+    const data: CameraFormData = {
+      formId,
+      bound,
+      targetId: bound ? record.targetId : '',
+      serverInstanceId: bound ? record.serverInstanceId : '',
+      openEntityDetailEnabled: bound,
+      title: bound ? record.targetName : Localization.t('card_camera_control_title'),
+      subtitle: bound ? CardRuntimeCoordinator.cameraSubtitle(record) : Localization.t('card_bind_camera'),
+      coverUrl: CardRuntimeCoordinator.displayField(display, 'coverUrl', ''),
+      coverImageName: '',
+      updateFrequency: await AppSettingsStore.loadServiceCardUpdateFrequency(context),
+      formImages: {}
+    };
+    CardRuntimeCoordinator.attachCoverImage(formId, data, 'camera_image');
+    return data;
+  }
+
+  private static attachCoverImage(
+    formId: string,
+    data: MediaFormData | CameraFormData,
+    imagePrefix: string
+  ): void {
     const path = data.coverUrl.startsWith('file://') ? data.coverUrl.substring(7) : '';
     if (path.length === 0) {
       return;
@@ -369,7 +450,7 @@ export class CardRuntimeCoordinator {
         return;
       }
       const file = fs.openSync(path, fs.OpenMode.READ_ONLY);
-      const imageName = `music_cover_${formId.replace(/[^A-Za-z0-9_]/g, '_')}_${CardRuntimeCoordinator.stableHash(data.coverUrl)}`;
+      const imageName = `${imagePrefix}_${formId.replace(/[^A-Za-z0-9_]/g, '_')}_${CardRuntimeCoordinator.stableHash(data.coverUrl)}`;
       data.coverImageName = imageName;
       data.formImages[imageName] = file.fd;
     } catch (_) {
@@ -408,6 +489,14 @@ export class CardRuntimeCoordinator {
       if (CardRuntimeCoordinator.isPrivateOrLocalUrl(picture)) {
         return CardRuntimeCoordinator.mediaProxyUrl(baseUrl, entityId, picture);
       }
+      return picture;
+    }
+    return picture.startsWith('/') ? `${baseUrl.trim().replace(/\/+$/, '')}${picture}` : picture;
+  }
+
+  private static remoteCameraUrl(baseUrl: string, entityPicture: string): string {
+    const picture = entityPicture.trim();
+    if (picture.length === 0 || picture.startsWith('file://') || UrlService.isHttpLikeUrl(picture)) {
       return picture;
     }
     return picture.startsWith('/') ? `${baseUrl.trim().replace(/\/+$/, '')}${picture}` : picture;
@@ -538,6 +627,11 @@ export class CardRuntimeCoordinator {
   private static mediaSubtitle(record: CardBindingRecord, display: Record<string, string>): string {
     const appName = CardRuntimeCoordinator.displayField(display, 'appName', '');
     return appName.length > 0 ? `${CardRuntimeCoordinator.mediaStateText(record.state)} | ${appName}` : CardRuntimeCoordinator.mediaStateText(record.state);
+  }
+
+  private static cameraSubtitle(record: CardBindingRecord): string {
+    const area = record.areaName.trim();
+    return area.length > 0 ? area : record.state.trim();
   }
 
   private static mediaStateText(state: string): string {

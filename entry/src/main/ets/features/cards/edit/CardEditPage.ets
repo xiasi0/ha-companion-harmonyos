@@ -98,7 +98,7 @@ struct CardEditPage {
 
         this.baseUrl = policy.baseUrl;
         await CardCatalogSyncService.forceSyncServer(context, server.id).catch((): boolean => false);
-        this.entityRecords = await CardDataStore.listEntityCatalog(context, server.id, this.domainForCurrentCard());
+        this.entityRecords = await this.loadEntitiesForCurrentCard(context, server.id);
         this.sections = this.entitySections();
         this.revision++;
       })
@@ -119,11 +119,17 @@ struct CardEditPage {
     if (binding.cardType === CardType.SCENE) {
       return CardType.SCENE;
     }
+    if (binding.cardType === CardType.CAMERA) {
+      return CardType.CAMERA;
+    }
     if (this.cardEditCardType === CardType.MEDIA) {
       return CardType.MEDIA;
     }
     if (this.cardEditCardType === CardType.SCENE) {
       return CardType.SCENE;
+    }
+    if (this.cardEditCardType === CardType.CAMERA) {
+      return CardType.CAMERA;
     }
     return CardType.LIGHT;
   }
@@ -135,7 +141,22 @@ struct CardEditPage {
     if (this.cardType === CardType.SCENE) {
       return 'scene';
     }
+    if (this.cardType === CardType.CAMERA) {
+      return 'camera';
+    }
     return 'light';
+  }
+
+  private async loadEntitiesForCurrentCard(context: common.Context, serverInstanceId: string): Promise<HaEntityCatalogRecord[]> {
+    if (this.cardType !== CardType.CAMERA) {
+      return CardDataStore.listEntityCatalog(context, serverInstanceId, this.domainForCurrentCard());
+    }
+    const cameras = await CardDataStore.listEntityCatalog(context, serverInstanceId, 'camera');
+    const images = await CardDataStore.listEntityCatalog(context, serverInstanceId, 'image');
+    return cameras.concat(images).sort((left: HaEntityCatalogRecord, right: HaEntityCatalogRecord): number => {
+      const nameCompare = left.entityName.localeCompare(right.entityName);
+      return nameCompare !== 0 ? nameCompare : left.entityId.localeCompare(right.entityId);
+    });
   }
 
   private iconForCurrentCard(): string {
@@ -144,6 +165,9 @@ struct CardEditPage {
     }
     if (this.cardType === CardType.SCENE) {
       return 'scene';
+    }
+    if (this.cardType === CardType.CAMERA) {
+      return 'camera';
     }
     return 'lightbulb';
   }
@@ -265,6 +289,9 @@ struct CardEditPage {
             target.areaName,
             target.state
           );
+        }
+        if (this.cardType === CardType.CAMERA) {
+          return CardRuntimeRepository.bindCameraCatalogEntity(context, this.formId, this.serverInstanceId, target);
         }
         return CardRuntimeRepository.bindLightEntity(
             context,

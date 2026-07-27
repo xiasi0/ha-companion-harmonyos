@@ -127,6 +127,14 @@ export interface HaMediaPlayerEntity {
   entityPicture: string;
 }
 
+export interface HaCameraEntity {
+  entityId: string;
+  name: string;
+  areaName: string;
+  state: string;
+  entityPicture: string;
+}
+
 export interface HaMediaPlayerEntitiesResult {
   responseCode: number;
   entities: HaMediaPlayerEntity[];
