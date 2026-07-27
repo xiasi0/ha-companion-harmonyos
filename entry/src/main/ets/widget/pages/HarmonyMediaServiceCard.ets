@@ -181,6 +181,10 @@ struct HarmonyMediaServiceCard {
       this.detailContentArea()
 
       Row() {
+        this.controlButton('volume_down', 'minus')
+        this.controlGap()
+        this.controlButton('volume_up', 'plus')
+        this.controlGap()
         this.controlButton('previous', 'previous')
         this.controlGap()
         this.playPauseButton()
