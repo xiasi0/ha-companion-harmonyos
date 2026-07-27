@@ -7,6 +7,7 @@ import { HaAssistApiService } from './HaAssistApiService';
 import { HaEntityParser } from './HaEntityParser';
 import {
   HaAssistPipelineRunResult,
+  HaCameraEntity,
   HaRegistryCatalog,
   HaConversationAgent,
   HaConversationAgentsResult,
@@ -24,6 +25,7 @@ import {
 
 export {
   HaAssistPipelineRunResult,
+  HaCameraEntity,
   HaBindableEntity,
   HaConversationAgent,
   HaConversationAgentsResult,
@@ -257,6 +259,27 @@ export class HaApiService {
         'status', resp.responseCode, 'detail', NetworkService.shortText(body)));
     }
     return HaEntityParser.parseMediaPlayerState(body);
+  }
+
+  static async fetchCameraState(
+    baseUrl: string,
+    accessToken: string,
+    entityId: string
+  ): Promise<HaCameraEntity> {
+    const resp = await NetworkService.requestText(`${baseUrl}/api/states/${encodeURIComponent(entityId)}`, {
+      method: NetworkHttpMethod.GET,
+      header: {
+        'Authorization': `Bearer ${accessToken}`
+      },
+      connectTimeout: 5000,
+      readTimeout: 5000
+    });
+    const body = resp.body;
+    if (resp.responseCode < 200 || resp.responseCode >= 300) {
+      throw new Error(Localization.format2('ha_error_fetch_media_state_http',
+        'status', resp.responseCode, 'detail', NetworkService.shortText(body)));
+    }
+    return HaEntityParser.parseCameraState(body);
   }
 
   static async controlMediaPlayer(

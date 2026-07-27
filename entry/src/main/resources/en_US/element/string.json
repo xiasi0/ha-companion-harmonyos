@@ -63,6 +63,14 @@
     {
       "name": "scene_card_description",
       "value": "Triggers a Home Assistant scene entity."
+    },
+    {
+      "name": "camera_card_display_name",
+      "value": "Camera Preview"
+    },
+    {
+      "name": "camera_card_description",
+      "value": "Shows the latest image from a Home Assistant camera or image entity."
     }
   ]
 }

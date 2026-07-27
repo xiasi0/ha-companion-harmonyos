@@ -3,6 +3,7 @@ import {
   HaDeviceRegistryItem,
   HaEntityCatalogItem,
   HaEntityRegistryItem,
+  HaCameraEntity,
   HaLightEntity,
   HaMediaPlayerEntity,
   HaRegistryCatalog
@@ -23,6 +24,14 @@ class HaMediaPlayerEntityPayload implements HaMediaPlayerEntity {
   mediaTitle: string = '';
   mediaArtist: string = '';
   appName: string = '';
+  entityPicture: string = '';
+}
+
+class HaCameraEntityPayload implements HaCameraEntity {
+  entityId: string = '';
+  name: string = '';
+  areaName: string = '';
+  state: string = 'unknown';
   entityPicture: string = '';
 }
 
@@ -229,6 +238,17 @@ export class HaEntityParser {
     return HaEntityParser.parseMediaPlayerStateRecord(item);
   }
 
+  static parseCameraState(body: string): HaCameraEntity {
+    const parsed = JSON.parse(body) as Record<string, Object | string | number | boolean | null>;
+    return HaEntityParser.parseCameraStateRecord(parsed);
+  }
+
+  static parseCameraStateObject(
+    item: Record<string, Object | string | number | boolean | null>
+  ): HaCameraEntity {
+    return HaEntityParser.parseCameraStateRecord(item);
+  }
+
   static mediaPlayerService(action: string): string {
     if (action === 'media_play_pause') {
       return 'media_play_pause';
@@ -265,6 +285,22 @@ export class HaEntityParser {
       player.entityPicture = HaEntityParser.stringAttribute(attributes, 'entity_picture');
     }
     return player;
+  }
+
+  private static parseCameraStateRecord(
+    item: Record<string, Object | string | number | boolean | null>
+  ): HaCameraEntity {
+    const camera = new HaCameraEntityPayload();
+    const rawEntityId = item['entity_id'];
+    camera.entityId = typeof rawEntityId === 'string' ? rawEntityId : '';
+    camera.state = HaEntityParser.normalizedState(item['state']);
+    camera.name = HaEntityParser.friendlyName(item);
+    camera.areaName = HaEntityParser.areaName(item);
+    const attributes = HaEntityParser.objectField(item, 'attributes');
+    if (attributes) {
+      camera.entityPicture = HaEntityParser.stringAttribute(attributes, 'entity_picture');
+    }
+    return camera;
   }
 
   private static normalizedLightState(value: Object | string | number | boolean | null): string {
