@@ -239,6 +239,12 @@ export class HaEntityParser {
     if (action === 'media_previous') {
       return 'media_previous_track';
     }
+    if (action === 'media_volume_down') {
+      return 'volume_down';
+    }
+    if (action === 'media_volume_up') {
+      return 'volume_up';
+    }
     return '';
   }
 
