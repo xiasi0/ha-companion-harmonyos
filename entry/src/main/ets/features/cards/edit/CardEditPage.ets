@@ -122,6 +122,9 @@ struct CardEditPage {
     if (binding.cardType === CardType.CAMERA) {
       return CardType.CAMERA;
     }
+    if (binding.cardType === CardType.CLIMATE) {
+      return CardType.CLIMATE;
+    }
     if (this.cardEditCardType === CardType.MEDIA) {
       return CardType.MEDIA;
     }
@@ -130,6 +133,9 @@ struct CardEditPage {
     }
     if (this.cardEditCardType === CardType.CAMERA) {
       return CardType.CAMERA;
+    }
+    if (this.cardEditCardType === CardType.CLIMATE) {
+      return CardType.CLIMATE;
     }
     return CardType.LIGHT;
   }
@@ -143,6 +149,9 @@ struct CardEditPage {
     }
     if (this.cardType === CardType.CAMERA) {
       return 'camera';
+    }
+    if (this.cardType === CardType.CLIMATE) {
+      return 'climate';
     }
     return 'light';
   }
@@ -168,6 +177,9 @@ struct CardEditPage {
     }
     if (this.cardType === CardType.CAMERA) {
       return 'camera';
+    }
+    if (this.cardType === CardType.CLIMATE) {
+      return 'thermometer';
     }
     return 'lightbulb';
   }
@@ -292,6 +304,9 @@ struct CardEditPage {
         }
         if (this.cardType === CardType.CAMERA) {
           return CardRuntimeRepository.bindCameraCatalogEntity(context, this.formId, this.serverInstanceId, target);
+        }
+        if (this.cardType === CardType.CLIMATE) {
+          return CardRuntimeRepository.bindClimateCatalogEntity(context, this.formId, this.serverInstanceId, target);
         }
         return CardRuntimeRepository.bindLightEntity(
             context,

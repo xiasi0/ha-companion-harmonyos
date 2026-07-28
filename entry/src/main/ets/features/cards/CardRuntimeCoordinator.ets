@@ -5,7 +5,7 @@ import fs from '@ohos.file.fs';
 import { formBindingData, formProvider } from '@kit.FormKit';
 import { CoverImageService } from '../../services/CoverImageService';
 import { HaConnectionPolicyService } from '../../services/HaConnectionPolicyService';
-import { HaMediaPlayerEntity } from '../../services/HaApiService';
+import { HaClimateEntity, HaMediaPlayerEntity } from '../../services/HaApiService';
 import { AppSettingsStore } from '../../services/AppSettingsStore';
 import { ServerAuthRepository } from '../../services/ServerAuthRepository';
 import { UrlService } from '../../services/UrlService';
@@ -73,6 +73,23 @@ interface CameraFormData {
   coverImageName: string;
   updateFrequency: string;
   formImages: Record<string, number>;
+}
+
+interface ClimateFormData {
+  formId: string;
+  bound: boolean;
+  targetId: string;
+  serverInstanceId: string;
+  openEntityDetailEnabled: boolean;
+  title: string;
+  subtitle: string;
+  state: string;
+  targetTemperature: string;
+  temperatureUnit: string;
+  supportsAuto: boolean;
+  supportsCool: boolean;
+  supportsHeat: boolean;
+  updateFrequency: string;
 }
 
 interface CardRenderedRecord {
@@ -179,6 +196,15 @@ export class CardRuntimeCoordinator {
     });
   }
 
+  static climateBusinessJson(entity: HaClimateEntity): string {
+    return JSON.stringify({
+      'targetTemperature': entity.targetTemperature,
+      'temperatureUnit': entity.temperatureUnit,
+      'targetTemperatureStep': entity.targetTemperatureStep,
+      'hvacModes': entity.hvacModes.join(',')
+    });
+  }
+
   static async applyCatalogMetadata(context: common.Context, record: CardBindingRecord): Promise<CardBindingRecord> {
     const catalog: HaEntityCatalogRecord = await CardDataStore.loadEntityCatalog(context, record.serverInstanceId, record.targetId);
     if (catalog.entityId.length === 0) {
@@ -248,6 +274,12 @@ export class CardRuntimeCoordinator {
         data: await CardRuntimeCoordinator.cameraFormData(context, formId, nextRecord)
       };
     }
+    if (cardType === CardType.CLIMATE) {
+      return {
+        record: nextRecord,
+        data: await CardRuntimeCoordinator.climateFormData(context, formId, nextRecord)
+      };
+    }
     if (cardType === CardType.SCENE) {
       return {
         record: nextRecord,
@@ -291,6 +323,22 @@ export class CardRuntimeCoordinator {
         record.areaName,
         record.state,
         CardRuntimeCoordinator.displayField(display, 'entityPicture', '')
+      ].join('|');
+    }
+    if (record.cardType === CardType.CLIMATE) {
+      const display = CardRuntimeCoordinator.parseDisplay(record.displayJson);
+      return [
+        record.cardType,
+        record.serverInstanceId,
+        record.targetId,
+        record.targetName,
+        record.areaId,
+        record.areaName,
+        record.state,
+        CardRuntimeCoordinator.displayField(display, 'targetTemperature', ''),
+        CardRuntimeCoordinator.displayField(display, 'temperatureUnit', ''),
+        CardRuntimeCoordinator.displayField(display, 'targetTemperatureStep', ''),
+        CardRuntimeCoordinator.displayField(display, 'hvacModes', '')
       ].join('|');
     }
     return [
@@ -433,6 +481,28 @@ export class CardRuntimeCoordinator {
     };
     CardRuntimeCoordinator.attachCoverImage(formId, data, 'camera_image');
     return data;
+  }
+
+  private static async climateFormData(context: common.Context, formId: string, record: CardBindingRecord): Promise<ClimateFormData> {
+    const bound = CardDataStore.hasBinding(record) && record.cardType === CardType.CLIMATE;
+    const display = CardRuntimeCoordinator.parseDisplay(record.displayJson);
+    const hvacModes = CardRuntimeCoordinator.displayField(display, 'hvacModes', '').split(',');
+    return {
+      formId,
+      bound,
+      targetId: bound ? record.targetId : '',
+      serverInstanceId: bound ? record.serverInstanceId : '',
+      openEntityDetailEnabled: bound,
+      title: bound ? record.targetName : Localization.t('card_climate_control_title'),
+      subtitle: bound ? CardRuntimeCoordinator.climateSubtitle(record) : Localization.t('card_bind_climate'),
+      state: bound ? record.state : 'unknown',
+      targetTemperature: bound ? CardRuntimeCoordinator.displayField(display, 'targetTemperature', '') : '',
+      temperatureUnit: bound ? CardRuntimeCoordinator.displayField(display, 'temperatureUnit', '°C') : '°C',
+      supportsAuto: bound && hvacModes.includes('auto'),
+      supportsCool: bound && hvacModes.includes('cool'),
+      supportsHeat: bound && hvacModes.includes('heat'),
+      updateFrequency: await AppSettingsStore.loadServiceCardUpdateFrequency(context)
+    };
   }
 
   private static attachCoverImage(
@@ -632,6 +702,14 @@ export class CardRuntimeCoordinator {
   private static cameraSubtitle(record: CardBindingRecord): string {
     const area = record.areaName.trim();
     return area.length > 0 ? area : record.state.trim();
+  }
+
+  private static climateSubtitle(record: CardBindingRecord): string {
+    return `${CardRuntimeCoordinator.climateStateText(record.state)} | ${CardRuntimeCoordinator.areaText(record.areaName)}`;
+  }
+
+  private static climateStateText(state: string): string {
+    return state === 'off' ? Localization.t('state_off') : Localization.t('state_on');
   }
 
   private static mediaStateText(state: string): string {
