@@ -71,6 +71,14 @@
     {
       "name": "camera_card_description",
       "value": "Shows the latest image from a Home Assistant camera or image entity."
+    },
+    {
+      "name": "climate_card_display_name",
+      "value": "Climate Control"
+    },
+    {
+      "name": "climate_card_description",
+      "value": "Controls a Home Assistant climate entity."
     }
   ]
 }

@@ -389,6 +389,10 @@ export class HaBackgroundConnectionService {
     }
     if (rawEntityId.startsWith('camera.') || rawEntityId.startsWith('image.')) {
       await HaBackgroundConnectionService.syncCamera(context, rawEntityId, newState);
+      return;
+    }
+    if (rawEntityId.startsWith('climate.')) {
+      await HaBackgroundConnectionService.syncClimate(context, rawEntityId, newState);
     }
   }
 
@@ -506,6 +510,10 @@ export class HaBackgroundConnectionService {
 
   private static async syncCamera(context: common.Context, entityId: string, newState: JsonRecord): Promise<void> {
     await CardRuntimeRepository.syncCameraState(context, entityId, HaEntityParser.parseCameraStateObject(newState));
+  }
+
+  private static async syncClimate(context: common.Context, entityId: string, newState: JsonRecord): Promise<void> {
+    await CardRuntimeRepository.syncClimateState(context, entityId, HaEntityParser.parseClimateStateObject(newState));
   }
 
   private static isMissingFormError(err: Error): boolean {

@@ -71,6 +71,14 @@
     {
       "name": "camera_card_description",
       "value": "显示 Home Assistant 相机或图片实体的最新图像。"
+    },
+    {
+      "name": "climate_card_display_name",
+      "value": "温控面板"
+    },
+    {
+      "name": "climate_card_description",
+      "value": "控制 Home Assistant 气候实体。"
     }
   ]
 }
