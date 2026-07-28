@@ -617,6 +617,7 @@ export struct AppRuntimeHost {
     this.restoreInstanceAppSettingsState()
       .then((): Promise<void> => this.loadSensorStates())
       .then((): void => this.refreshSensorLiveRows())
+      .then((): Promise<void> => this.refreshHomeNetworkStatusNow('', false))
       .catch((): void => {})
       .finally((): void => {
         AppLifecycleRuntimeService.aboutToAppear(this, AppRuntimeCallbackFactory.lifecycle(this));
