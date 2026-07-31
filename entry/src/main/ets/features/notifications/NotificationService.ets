@@ -18,6 +18,7 @@ export interface NotificationCapability {
 
 export interface LocalNotificationPayload {
   id?: number;
+  dedupeKey?: string;
   serverInstanceId?: string;
   title: string;
   text: string;
@@ -87,6 +88,21 @@ export class NotificationService {
   static async publishHomeAssistantNotification(context: common.Context, payload: LocalNotificationPayload): Promise<void> {
     await NotificationService.publishLocal(context, {
       id: payload.id,
+      dedupeKey: payload.dedupeKey,
+      serverInstanceId: payload.serverInstanceId,
+      title: payload.title,
+      text: payload.text,
+      additionalText: payload.additionalText ?? Localization.t('app_name'),
+      source: payload.source,
+      data: payload.data
+    });
+  }
+
+  static async recordHomeAssistantNotification(context: common.Context, payload: LocalNotificationPayload): Promise<void> {
+    const notificationId = payload.id ?? Date.now() % 1000000000;
+    await NotificationService.saveRecent(context, notificationId, {
+      id: notificationId,
+      dedupeKey: payload.dedupeKey,
       serverInstanceId: payload.serverInstanceId,
       title: payload.title,
       text: payload.text,
@@ -172,6 +188,7 @@ export class NotificationService {
     try {
       await NotificationRecentStore.add(context, {
         notificationId,
+        dedupeKey: payload.dedupeKey ?? '',
         serverInstanceId: payload.serverInstanceId ?? '',
         title: payload.title,
         text: payload.text,

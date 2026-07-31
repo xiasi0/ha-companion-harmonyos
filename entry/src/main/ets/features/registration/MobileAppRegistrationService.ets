@@ -21,7 +21,11 @@ export class MobileAppRegistrationService {
     return candidate.length > 0 ? candidate : 'HarmonyOS Device';
   }
 
-  static buildRequest(deviceName: string, deviceId: string): HaMobileAppRegistrationRequest {
+  static buildRequest(
+    deviceName: string,
+    deviceId: string,
+    pushKitToken: string = ''
+  ): HaMobileAppRegistrationRequest {
     return {
       appId: MobileAppRegistrationService.APP_ID,
       appName: 'Home Assistant',
@@ -32,11 +36,20 @@ export class MobileAppRegistrationService {
       osName: 'HarmonyOS',
       osVersion: MobileAppRegistrationService.osVersionLabel(),
       supportsEncryption: false,
-      appData: {
-        'push_websocket_channel': true
-      },
+      appData: MobileAppRegistrationService.appData(pushKitToken),
       deviceId
     };
+  }
+
+  static appData(pushKitToken: string = ''): Record<string, string | number | boolean> {
+    const token = pushKitToken.trim();
+    const data: Record<string, string | number | boolean> = {
+      'push_websocket_channel': true
+    };
+    if (token.length > 0) {
+      data['pushkit_token'] = token;
+    }
+    return data;
   }
 
   static async registerDevice(

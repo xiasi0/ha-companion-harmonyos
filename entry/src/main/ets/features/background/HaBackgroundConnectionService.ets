@@ -9,7 +9,9 @@ import { ServerManager } from '../../services/ServerManager';
 import { StorageService, StoredServerInfo } from '../../services/StorageService';
 import { CardFormService } from '../cards/CardFormService';
 import { CardRuntimeRepository } from '../cards/CardRuntimeRepository';
+import { HomeAssistantNotificationAdapter } from '../notifications/HomeAssistantNotificationAdapter';
 import { NotificationService } from '../notifications/NotificationService';
+import { HarmonyPushTokenService } from '../pushkit/HarmonyPushTokenService';
 import { MobileAppRegistrationService } from '../registration/MobileAppRegistrationService';
 import { LongRunningTaskService } from './LongRunningTaskService';
 
@@ -31,12 +33,8 @@ interface WebhookPostResult {
   body: string;
 }
 
-interface PushRegistrationAppData {
-  push_websocket_channel: boolean;
-}
-
 interface PushRegistrationData {
-  app_data: PushRegistrationAppData;
+  app_data: Record<string, string | number | boolean>;
 }
 
 interface PushRegistrationRequest {
@@ -306,12 +304,11 @@ export class HaBackgroundConnectionService {
     }
     const urls = HaBackgroundConnectionService.webhookUrls(baseUrl, webhookId.trim());
     let lastError = '';
+    const pushKitToken = await HarmonyPushTokenService.ensureToken();
     const body: PushRegistrationRequest = {
       type: 'update_registration',
       data: {
-        app_data: {
-          push_websocket_channel: true
-        }
+        app_data: MobileAppRegistrationService.appData(pushKitToken)
       }
     };
     for (let i = 0; i < urls.length; i++) {
@@ -401,19 +398,15 @@ export class HaBackgroundConnectionService {
     if (!context) {
       return;
     }
-    const title = HaBackgroundConnectionService.pushTitle(event);
-    const message = HaBackgroundConnectionService.pushMessage(event);
-    if (message.length === 0) {
+    const payload = HomeAssistantNotificationAdapter.fromPayload(
+      event,
+      'websocket',
+      HaBackgroundConnectionService.serverInstanceId
+    );
+    if (!payload) {
       return;
     }
-    const data = HaBackgroundConnectionService.objectField(event, 'data');
-    await NotificationService.publishHomeAssistantNotification(context, {
-      serverInstanceId: HaBackgroundConnectionService.serverInstanceId,
-      title: title.length > 0 ? title : 'Home Assistant',
-      text: message,
-      additionalText: 'Home Assistant',
-      data: HaBackgroundConnectionService.stringRecord(data)
-    });
+    await NotificationService.publishHomeAssistantNotification(context, payload);
     const confirmId = HaBackgroundConnectionService.stringField(event, 'hass_confirm_id');
     if (confirmId.length > 0) {
       HaBackgroundConnectionService.confirmPushNotification(client, confirmId);
@@ -449,53 +442,13 @@ export class HaBackgroundConnectionService {
   private static hasPushNotificationFields(value: JsonRecord): boolean {
     const message = value['message'];
     const title = value['title'];
+    const body = value['body'];
     const confirmId = value['hass_confirm_id'];
     const aps = value['aps'];
-    return typeof message === 'string' || typeof title === 'string' || typeof confirmId === 'string' ||
-      (aps !== null && typeof aps === 'object');
-  }
-
-  private static pushTitle(event: JsonRecord): string {
-    const title = HaBackgroundConnectionService.stringField(event, 'title');
-    if (title.length > 0) {
-      return title;
-    }
-    const alert = HaBackgroundConnectionService.pushAlert(event);
-    return alert ? HaBackgroundConnectionService.stringField(alert, 'title') : '';
-  }
-
-  private static pushMessage(event: JsonRecord): string {
-    const message = HaBackgroundConnectionService.stringField(event, 'message');
-    if (message.length > 0) {
-      return message;
-    }
-    const body = HaBackgroundConnectionService.stringField(event, 'body');
-    if (body.length > 0) {
-      return body;
-    }
-    const alertBody = HaBackgroundConnectionService.pushAlertBody(event);
-    if (alertBody.length > 0) {
-      return alertBody;
-    }
-    const alert = HaBackgroundConnectionService.pushAlert(event);
-    return alert ? HaBackgroundConnectionService.stringField(alert, 'body') : '';
-  }
-
-  private static pushAlertBody(event: JsonRecord): string {
-    const aps = HaBackgroundConnectionService.objectField(event, 'aps');
-    if (!aps) {
-      return '';
-    }
-    const alert = aps['alert'];
-    return typeof alert === 'string' ? alert : '';
-  }
-
-  private static pushAlert(event: JsonRecord): JsonRecord | null {
-    const aps = HaBackgroundConnectionService.objectField(event, 'aps');
-    if (!aps) {
-      return null;
-    }
-    return HaBackgroundConnectionService.objectField(aps, 'alert');
+    const notification = value['notification'];
+    return typeof message === 'string' || typeof title === 'string' || typeof body === 'string' ||
+      typeof confirmId === 'string' || (aps !== null && typeof aps === 'object') ||
+      (notification !== null && typeof notification === 'object');
   }
 
   private static async syncLight(context: common.Context, entityId: string, newState: JsonRecord): Promise<void> {
@@ -707,10 +660,11 @@ export class HaBackgroundConnectionService {
       MobileAppRegistrationService.defaultDeviceName();
     const deviceId = await MobileAppIdentityStore.getOrCreateDeviceId(context, info.mobileAppDeviceId);
     try {
+      const pushKitToken = await HarmonyPushTokenService.ensureToken();
       const registration = await MobileAppRegistrationService.registerDevice(
         connectionBaseUrl.trim().length > 0 ? connectionBaseUrl.trim() : info.baseUrl,
         info.accessToken,
-        MobileAppRegistrationService.buildRequest(deviceName, deviceId),
+        MobileAppRegistrationService.buildRequest(deviceName, deviceId, pushKitToken),
         async (): Promise<string> => {
           if (info.refreshToken.trim().length === 0) {
             return '';
@@ -775,23 +729,6 @@ export class HaBackgroundConnectionService {
   private static async reloadBoundEntityIds(context: common.Context, serverInstanceId: string): Promise<void> {
     HaBackgroundConnectionService.subscribedEntityIds = await CardRuntimeRepository.listBoundEntityIds(context, serverInstanceId);
     HaBackgroundConnectionService.subscribedEntityIdsLoadedAt = Date.now();
-  }
-
-  private static stringRecord(source: JsonRecord | null): Record<string, string> {
-    const result: Record<string, string> = {};
-    if (!source) {
-      return result;
-    }
-    const keys = Object.keys(source);
-    for (let i = 0; i < keys.length; i++) {
-      const value = source[keys[i]];
-      if (typeof value === 'string') {
-        result[keys[i]] = value;
-      } else if (typeof value === 'number' || typeof value === 'boolean') {
-        result[keys[i]] = String(value);
-      }
-    }
-    return result;
   }
 
   private static jsonRecord(value: Object | null): JsonRecord | null {

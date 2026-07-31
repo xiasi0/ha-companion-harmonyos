@@ -11,6 +11,7 @@ import { AppSettingsStore } from '../services/AppSettingsStore';
 import { DiscoveryCacheService } from '../services/DiscoveryCacheService';
 import { ServerManager } from '../services/ServerManager';
 import { CardEntityDetailLaunchService } from '../features/cards/CardEntityDetailLaunchService';
+import { PushKitPersistentMessageStore } from '../features/pushkit/PushKitPersistentMessageStore';
 import { AssistLaunchService } from '../features/assist/AssistLaunchService';
 
 const DOMAIN = 0x0000;
@@ -55,6 +56,7 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     this.enableLayoutImmersive(windowStage);
     DiscoveryCacheService.warm(this.context);
+    this.migratePushKitPersistence();
     ServerManager.restoreActiveToAppStorage(this.context)
       .then((): Promise<void> => AppSettingsStore.restoreToAppStorage(this.context))
       .then((): void => {
@@ -95,6 +97,7 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     AppStorage.setOrCreate<number>('appForegroundTick', Date.now());
+    this.migratePushKitPersistence();
     this.applyLongRunningTaskPreference(true);
   }
 
@@ -159,6 +162,12 @@ export default class EntryAbility extends UIAbility {
     }
     CardEntityDetailLaunchService.publishPending(request);
     AppStorage.setOrCreate<number>('appForegroundTick', Date.now());
+  }
+
+  private migratePushKitPersistence(): void {
+    PushKitPersistentMessageStore.migrateToNotificationHistory(this.context).catch((err: Error): void => {
+      hilog.warn(DOMAIN, TAG, 'Failed to migrate Push Kit persistence. Cause: %{public}s', err.message);
+    });
   }
 
   private handleAssistWant(want: Want): void {

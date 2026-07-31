@@ -6,6 +6,7 @@ import { MobileAppIdentityStore } from '../../services/MobileAppIdentityStore';
 import { ServerManager } from '../../services/ServerManager';
 import { StorageService, StoredServerInfo } from '../../services/StorageService';
 import { Localization } from '../../shared/i18n/Localization';
+import { HarmonyPushTokenService } from '../pushkit/HarmonyPushTokenService';
 import { MobileAppRegistrationService } from './MobileAppRegistrationService';
 
 export interface RegistrationRuntimeState {
@@ -74,20 +75,35 @@ export class RegistrationRuntimeService {
       throw new Error(Localization.t('registration_enter_device_name'));
     }
     const deviceId = await RegistrationRuntimeService.ensureMobileAppDeviceId(state, callbacks);
+    const pushKitToken = await HarmonyPushTokenService.ensureToken();
+    const serverId = await RegistrationRuntimeService.ensureCurrentServerId(callbacks);
     const registration = await MobileAppRegistrationService.registerDevice(
       baseUrl,
       token,
-      MobileAppRegistrationService.buildRequest(deviceName, deviceId),
+      MobileAppRegistrationService.buildRequest(deviceName, deviceId, pushKitToken),
       async (): Promise<string> => {
         const refreshed = await callbacks.refreshAccessToken(baseUrl);
         return refreshed ? state.haAccessToken.trim() : '';
       }
     );
     RegistrationRuntimeService.applyRegistrationInfo(registration, callbacks);
-    const serverId = ServerManager.getActiveServerIdSync(callbacks.context());
     if (serverId.length > 0) {
       await MobileAppIdentityStore.setRegistrationAppId(callbacks.context(), serverId, MobileAppRegistrationService.APP_ID);
     }
+  }
+
+  private static async ensureCurrentServerId(callbacks: RegistrationRuntimeCallbacks): Promise<string> {
+    const context = callbacks.context();
+    const currentId = ServerManager.getActiveServerIdSync(context);
+    if (currentId.length > 0) {
+      return currentId;
+    }
+    const info = callbacks.currentServerInfo();
+    if (!StorageService.hasLogin(info)) {
+      return '';
+    }
+    const saved = await ServerManager.saveActiveServerInfo(context, info);
+    return saved.id.trim();
   }
 
   static async ensureCurrentDeviceRegistered(
