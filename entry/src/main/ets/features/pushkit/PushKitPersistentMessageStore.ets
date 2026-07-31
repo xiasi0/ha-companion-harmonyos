@@ -22,10 +22,6 @@ export class PushKitPersistentMessageStore {
   private static migrationPromise: Promise<void> | undefined = undefined;
   private static schemaReady: boolean = false;
 
-  static async ensureReady(context: common.Context): Promise<void> {
-    await PushKitPersistentMessageStore.getStore(context);
-  }
-
   static async migrateToNotificationHistory(context: common.Context): Promise<void> {
     if (PushKitPersistentMessageStore.migrationPromise) {
       await PushKitPersistentMessageStore.migrationPromise;

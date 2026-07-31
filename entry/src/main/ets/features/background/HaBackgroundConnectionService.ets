@@ -308,7 +308,7 @@ export class HaBackgroundConnectionService {
     const body: PushRegistrationRequest = {
       type: 'update_registration',
       data: {
-        app_data: MobileAppRegistrationService.appData(pushKitToken, HaBackgroundConnectionService.serverInstanceId)
+        app_data: MobileAppRegistrationService.appData(pushKitToken)
       }
     };
     for (let i = 0; i < urls.length; i++) {
@@ -648,7 +648,7 @@ export class HaBackgroundConnectionService {
       const registration = await MobileAppRegistrationService.registerDevice(
         connectionBaseUrl.trim().length > 0 ? connectionBaseUrl.trim() : info.baseUrl,
         info.accessToken,
-        MobileAppRegistrationService.buildRequest(deviceName, deviceId, pushKitToken, serverInstanceId),
+        MobileAppRegistrationService.buildRequest(deviceName, deviceId, pushKitToken),
         async (): Promise<string> => {
           if (info.refreshToken.trim().length === 0) {
             return '';

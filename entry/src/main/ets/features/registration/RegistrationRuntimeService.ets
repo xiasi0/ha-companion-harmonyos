@@ -80,7 +80,7 @@ export class RegistrationRuntimeService {
     const registration = await MobileAppRegistrationService.registerDevice(
       baseUrl,
       token,
-      MobileAppRegistrationService.buildRequest(deviceName, deviceId, pushKitToken, serverId),
+      MobileAppRegistrationService.buildRequest(deviceName, deviceId, pushKitToken),
       async (): Promise<string> => {
         const refreshed = await callbacks.refreshAccessToken(baseUrl);
         return refreshed ? state.haAccessToken.trim() : '';

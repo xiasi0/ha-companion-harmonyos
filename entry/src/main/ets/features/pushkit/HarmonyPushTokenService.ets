@@ -12,10 +12,10 @@ export class HarmonyPushTokenService {
     if (HarmonyPushTokenService.cachedToken.length > 0) {
       return HarmonyPushTokenService.cachedToken;
     }
-    return HarmonyPushTokenService.refreshToken();
+    return HarmonyPushTokenService.requestToken();
   }
 
-  static async refreshToken(): Promise<string> {
+  private static async requestToken(): Promise<string> {
     try {
       const token = (await pushService.getToken()).trim();
       HarmonyPushTokenService.cachedToken = token;

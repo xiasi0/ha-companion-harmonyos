@@ -12,9 +12,6 @@ type PushKitMessageType = 'DEFAULT' | 'BACKGROUND';
 
 export default class PushKitMessageAbility extends UIAbility {
   onCreate(_want: Want, _launchParam: AbilityConstant.LaunchParam): void {
-    PushKitPersistentMessageStore.ensureReady(this.context).catch((error: Error): void => {
-      hilog.warn(DOMAIN, TAG, 'prepare Push Kit persistence failed: %{public}s', error.message);
-    });
     PushKitPersistentMessageStore.migrateToNotificationHistory(this.context).catch((error: Error): void => {
       hilog.warn(DOMAIN, TAG, 'migrate Push Kit persistence failed: %{public}s', error.message);
     });
