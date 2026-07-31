@@ -23,6 +23,9 @@ export interface SettingsRuntimeSnapshot {
   assistWakeDetectionEnabled: boolean;
   assistWakeWord: string;
   assistProbabilityCutoff: string;
+  assistWakeWordModelsJson: string;
+  assistWakeWordStatusText: string;
+  assistProbabilityCutoffStatusText: string;
   dark: boolean;
   showDeleteServerDialog: boolean;
   deletingServer: boolean;

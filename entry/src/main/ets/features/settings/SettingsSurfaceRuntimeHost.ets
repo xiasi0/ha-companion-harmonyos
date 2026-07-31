@@ -24,9 +24,12 @@ export struct CompanionSettingsSurfaceHost {
   @Prop secureConnectionChoice: string = '';
   @Prop websocketMode: string = 'system';
   @Prop serviceCardUpdateFrequency: string = 'default';
-  @Prop assistWakeDetectionEnabled: boolean = true;
+  @Prop assistWakeDetectionEnabled: boolean = false;
   @Prop assistWakeWord: string = 'wake_word_1';
   @Prop assistProbabilityCutoff: string = '';
+  @Prop assistWakeWordModelsJson: string = '[]';
+  @Prop assistWakeWordStatusText: string = '';
+  @Prop assistProbabilityCutoffStatusText: string = '';
   @Prop dark: boolean = false;
 
   onBack: () => void = () => {};
@@ -70,6 +73,7 @@ export struct CompanionSettingsSurfaceHost {
       websocketMode: this.websocketMode,
       serviceCardUpdateFrequency: this.serviceCardUpdateFrequency,
       assistWakeWord: this.assistWakeWord,
+      assistWakeWordModelsJson: this.assistWakeWordModelsJson,
       appConfigTick: 0,
       step: 0
     };
@@ -145,6 +149,7 @@ export struct ServerSettingsSurfaceHost {
       websocketMode: 'system',
       serviceCardUpdateFrequency: 'default',
       assistWakeWord: 'wake_word_1',
+      assistWakeWordModelsJson: '[]',
       appConfigTick: 0,
       step: 0
     };
@@ -187,9 +192,12 @@ export struct SettingsDetailSurfaceHost {
   @Prop appLanguage: string = 'default';
   @Prop appTheme: string = 'system';
   @Prop serviceCardUpdateFrequency: string = 'default';
-  @Prop assistWakeDetectionEnabled: boolean = true;
+  @Prop assistWakeDetectionEnabled: boolean = false;
   @Prop assistWakeWord: string = 'wake_word_1';
   @Prop assistProbabilityCutoff: string = '';
+  @Prop assistWakeWordModelsJson: string = '[]';
+  @Prop assistWakeWordStatusText: string = '';
+  @Prop assistProbabilityCutoffStatusText: string = '';
 
   gestureActionValue: (key: string) => string = () => '';
   onRoute: (route: number) => void = () => {};
@@ -232,6 +240,9 @@ export struct SettingsDetailSurfaceHost {
       assistWakeDetectionEnabled: this.assistWakeDetectionEnabled,
       assistWakeWord: this.assistWakeWord,
       assistProbabilityCutoff: this.assistProbabilityCutoff,
+      assistWakeWordModelsJson: this.assistWakeWordModelsJson,
+      assistWakeWordStatusText: this.assistWakeWordStatusText,
+      assistProbabilityCutoffStatusText: this.assistProbabilityCutoffStatusText,
       gestureActionValue: this.gestureActionValue,
       onBackToServer: (): void => {
         this.onRoute(AppRoute.SERVER_SETTINGS);

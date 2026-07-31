@@ -96,6 +96,20 @@ export class AppSettingsStore {
     await AppSettingsStore.flush(pref);
   }
 
+  static async loadHealthDataNoticeAccepted(context: common.Context): Promise<boolean> {
+    const pref = await AppSettingsStore.getPreferences(context);
+    return AppSettingsValueCodec.booleanField(
+      await AppSettingsStore.getValue(pref, '', AppSettingsKeys.HEALTH_DATA_NOTICE_ACCEPTED, false)
+    );
+  }
+
+  static async saveHealthDataNoticeAccepted(context: common.Context, accepted: boolean): Promise<void> {
+    const pref = await AppSettingsStore.getPreferences(context);
+    await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_DATA_NOTICE_ACCEPTED, accepted);
+    AppSettingsStore.setAppStorage<boolean>('healthDataNoticeAccepted', accepted);
+    await AppSettingsStore.flush(pref);
+  }
+
   static async saveHealthSyncState(context: common.Context, syncedAt: number, lastError: string): Promise<void> {
     const pref = await AppSettingsStore.getPreferences(context);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.HEALTH_LAST_SYNC_AT, syncedAt);
@@ -225,6 +239,7 @@ export class AppSettingsStore {
       )
     );
     await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_AUTHORIZATION_CHECKED_AT, AppStorage.get<number>('healthAuthorizationCheckedAt') ?? 0);
+    await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_DATA_NOTICE_ACCEPTED, AppStorage.get<boolean>('healthDataNoticeAccepted') ?? false);
     await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_LAST_ERROR, AppStorage.get<string>('healthLastError') ?? '');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.HEALTH_LAST_SYNC_AT, AppStorage.get<number>('healthLastSyncAt') ?? 0);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_HISTORY_JSON, AppStorage.get<string>('locationHistoryJson') ?? '[]');
@@ -253,7 +268,8 @@ export class AppSettingsStore {
     );
     AppSettingsStore.setAppStorage<string>('serviceCardUpdateFrequency', serviceCardUpdateFrequency);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SERVICE_CARD_UPDATE_FREQUENCY, serviceCardUpdateFrequency);
-    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED, AppStorage.get<boolean>('assistWakeDetectionEnabled') ?? true);
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED, AppStorage.get<boolean>('assistWakeDetectionEnabled') ?? false);
+    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.ASSIST_WAKE_DETECTION_USER_SET, AppStorage.get<boolean>('assistWakeDetectionUserSet') ?? false);
     await AppSettingsStore.putActiveValue(
       context,
       pref,
@@ -357,6 +373,10 @@ export class AppSettingsStore {
       'healthAuthorizationCheckedAt',
       AppSettingsValueCodec.numberField(await AppSettingsStore.getValue(pref, '', AppSettingsKeys.HEALTH_AUTHORIZATION_CHECKED_AT, 0), 0)
     );
+    AppSettingsStore.setAppStorage<boolean>(
+      'healthDataNoticeAccepted',
+      AppSettingsValueCodec.booleanField(await AppSettingsStore.getValue(pref, '', AppSettingsKeys.HEALTH_DATA_NOTICE_ACCEPTED, false))
+    );
     AppSettingsStore.setAppStorage<string>(
       'healthLastError',
       AppSettingsValueCodec.stringField(await AppSettingsStore.getValue(pref, '', AppSettingsKeys.HEALTH_LAST_ERROR, ''))
@@ -434,9 +454,14 @@ export class AppSettingsStore {
       await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.SERVICE_CARD_UPDATE_FREQUENCY, serviceCardUpdateFrequency);
       await AppSettingsStore.flush(pref);
     }
+    const assistWakeDetectionUserSet = AppSettingsValueCodec.booleanField(
+      await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.ASSIST_WAKE_DETECTION_USER_SET, false)
+    );
+    AppSettingsStore.setAppStorage<boolean>('assistWakeDetectionUserSet', assistWakeDetectionUserSet);
     AppSettingsStore.setAppStorage<boolean>(
       'assistWakeDetectionEnabled',
-      AppSettingsValueCodec.booleanField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED, true))
+      assistWakeDetectionUserSet &&
+        AppSettingsValueCodec.booleanField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED, false))
     );
     AppSettingsStore.setAppStorage<string>(
       'assistWakeWord',
@@ -534,7 +559,7 @@ export class AppSettingsStore {
   }
 
   private static normalizeAssistWakeWord(value: preferences.ValueType | string): string {
-    if (value === 'wake_word_2' || value === 'wake_word_3') {
+    if (typeof value === 'string' && value.trim().length > 0) {
       return value;
     }
     return 'wake_word_1';

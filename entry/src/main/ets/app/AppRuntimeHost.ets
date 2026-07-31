@@ -60,6 +60,15 @@ import { AppRuntimeOverlayService } from './AppRuntimeOverlayService';
 import { AppWebRuntimeService } from './AppWebRuntimeService';
 import { AppSettingsRuntimeService } from './AppSettingsRuntimeService';
 import { SettingsRuntimeActions } from '../features/settings/SettingsRuntimeCoordinatorModels';
+import {
+  AssistWakeWordRuntimeCallbacks,
+  AssistWakeWordRuntimeService,
+  AssistWakeWordRuntimeSnapshot,
+  AssistWakeWordRuntimeStatus
+} from '../features/assist/AssistWakeWordRuntimeService';
+import { AssistLaunchService } from '../features/assist/AssistLaunchService';
+import { WakeWordPromptSoundService } from '../features/assist/WakeWordPromptSoundService';
+import { AssistOverlayLifecycleService } from '../features/assist/AssistOverlayLifecycleService';
 import { AppOnboardingRuntimeService } from './AppOnboardingRuntimeService';
 import { AppRuntimeShellHost } from './AppRuntimeShellHost';
 import { AppRuntimeCallbackFactory } from './AppRuntimeCallbackFactory';
@@ -68,6 +77,7 @@ import { AppDeviceRuntimeService } from './AppDeviceRuntimeService';
 import { AppLifecycleRuntimeService } from './AppLifecycleRuntimeService';
 import { AppNavigationRuntimeService } from './AppNavigationRuntimeService';
 import { AppSessionRuntimeService } from './AppSessionRuntimeService';
+import { HaColors } from '../shared/constants/HaStyle';
 import { AppWindowRuntimeService } from './AppWindowRuntimeService';
 import { ServerOption } from '../features/settings/SettingsSectionRuntimeService';
 
@@ -133,9 +143,13 @@ export struct AppRuntimeHost {
   @StorageLink('appLanguage') @Watch('onAppSettingChanged') appLanguage: string = 'default';
   @StorageLink('appTheme') @Watch('onAppSettingChanged') appTheme: string = 'system';
   @StorageLink('serviceCardUpdateFrequency') @Watch('onAppSettingChanged') serviceCardUpdateFrequency: string = 'default';
-  @StorageLink('assistWakeDetectionEnabled') @Watch('onAppSettingChanged') assistWakeDetectionEnabled: boolean = true;
+  @StorageLink('assistWakeDetectionEnabled') @Watch('onAppSettingChanged') assistWakeDetectionEnabled: boolean = false;
   @StorageLink('assistWakeWord') @Watch('onAppSettingChanged') assistWakeWord: string = 'wake_word_1';
   @StorageLink('assistProbabilityCutoff') @Watch('onAppSettingChanged') assistProbabilityCutoff: string = '';
+  @StorageLink('assistWakeWordModelsJson') assistWakeWordModelsJson: string = '[]';
+  @StorageLink('assistWakeWordStatus') assistWakeWordStatus: string = 'disabled';
+  @StorageLink('assistWakeWordStatusText') assistWakeWordStatusText: string = '';
+  @StorageLink('assistProbabilityCutoffStatusText') assistProbabilityCutoffStatusText: string = '';
   @StorageLink('notificationUnreadCount') @Watch('onNotificationUnreadCountChanged') notificationUnreadCount: number = 0;
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   @StorageLink('gestureSwipeLeftTwoAction') @Watch('onAppSettingChanged') gestureSwipeLeftTwoAction: string = 'none';
@@ -152,6 +166,8 @@ export struct AppRuntimeHost {
   @StorageLink('cardPendingEntityDetailEntityId') cardPendingEntityDetailEntityId: string = '';
   @StorageLink('cardPendingEntityDetailServerInstanceId') cardPendingEntityDetailServerInstanceId: string = '';
   @StorageLink('cardPendingEntityDetailTick') @Watch('onCardPendingEntityDetailTick') cardPendingEntityDetailTick: number = 0;
+  @StorageLink('assistPendingStartListening') assistPendingStartListening: boolean = true;
+  @StorageLink('assistPendingLaunchTick') @Watch('onAssistPendingLaunchTick') assistPendingLaunchTick: number = 0;
 
   @State @Watch('onStepChanged') step: number = initialRuntimeRoute();
   @State loading: boolean = false;
@@ -237,6 +253,7 @@ export struct AppRuntimeHost {
   @State serverSettingsScrollOffset: number = 0;
   @State showCompanionChoiceDialog: boolean = false;
   @State companionChoiceDialogKey: string = '';
+  @State assistOverlayVisible: boolean = false;
   @State assistStartListeningSignal: number = 0;
   @State assistStartListeningRequested: boolean = false;
   @State healthAuthorizationState: string = 'unknown';
@@ -255,6 +272,13 @@ export struct AppRuntimeHost {
   private systemEventService: SystemEventService = new SystemEventService();
   private sensorRuntimeService: SensorRuntimeService = new SensorRuntimeService();
   private healthService: HarmonyHealthService = new HarmonyHealthService();
+  private assistWakeWordRuntimeService: AssistWakeWordRuntimeService = new AssistWakeWordRuntimeService();
+  private wakeWordPromptSoundService: WakeWordPromptSoundService = new WakeWordPromptSoundService();
+  private assistOverlayLifecycle: AssistOverlayLifecycleService = new AssistOverlayLifecycleService((): void => {
+    this.closeAssistConversation();
+  });
+  private nextAssistAudioCaptureReady: Promise<void> | undefined = undefined;
+  private assistAudioCaptureReady: Promise<void> = Promise.resolve();
   private mobileAppRegistrationInFlight: boolean = false;
   private pendingEntityDetailProcessingTick: number = 0;
 
@@ -353,6 +377,7 @@ export struct AppRuntimeHost {
     this.refreshSettingsState();
     this.refreshHomeNetworkStatus();
     this.refreshPeriodicSensorTimer();
+    this.refreshAssistWakeWordRuntime();
   }
 
   private onSensorDirectEnabledChanged(): void {
@@ -592,6 +617,7 @@ export struct AppRuntimeHost {
     this.restoreInstanceAppSettingsState()
       .then((): Promise<void> => this.loadSensorStates())
       .then((): void => this.refreshSensorLiveRows())
+      .then((): Promise<void> => this.refreshHomeNetworkStatusNow('', false))
       .catch((): void => {})
       .finally((): void => {
         AppLifecycleRuntimeService.aboutToAppear(this, AppRuntimeCallbackFactory.lifecycle(this));
@@ -599,11 +625,15 @@ export struct AppRuntimeHost {
           this.handleDashboardConnectionLoadStarted();
         }
         this.refreshHomeNetworkStatus();
+        this.refreshAssistWakeWordRuntime();
         this.openPendingEntityDetailFromCard();
+        this.openPendingAssistLaunch();
       });
   }
 
-  aboutToDisappear(): void { AppLifecycleRuntimeService.aboutToDisappear(AppRuntimeCallbackFactory.lifecycle(this)); }
+  aboutToDisappear(): void {
+    AppLifecycleRuntimeService.aboutToDisappear(AppRuntimeCallbackFactory.lifecycle(this));
+  }
 
   startLocationSensorsIfNeeded(): void { this.sensorRuntimeService.startLocationSensorsIfNeeded(AppRuntimeCallbackFactory.sensors(this)); }
 
@@ -678,6 +708,13 @@ export struct AppRuntimeHost {
     }
   }
 
+  handleDashboardForegroundConnectionWait(): void {
+    if (this.dashboardInsecureBlocked || this.step !== AppRoute.DASHBOARD || this.dashboardConnectionErrorVisible) {
+      return;
+    }
+    this.scheduleDashboardConnectionWait();
+  }
+
   handleDashboardConnectionStatus(connected: boolean): void {
     if (connected) {
       this.dashboardFrontendConnected = true;
@@ -734,11 +771,19 @@ export struct AppRuntimeHost {
     this.dashboardConnectionWaitToken = token;
     setTimeout((): void => {
       if (this.dashboardConnectionWaitToken !== token || this.dashboardFrontendConnected ||
-        this.shouldSkipDashboardConnectionWait()) {
+        !this.isAppActive() || this.shouldSkipDashboardConnectionWait()) {
         return;
       }
       this.dashboardConnectionErrorVisible = true;
     }, DASHBOARD_CONNECTION_WAIT_MS);
+  }
+
+  private cancelDashboardConnectionWait(): void {
+    this.dashboardConnectionWaitToken += 1;
+  }
+
+  private isAppActive(): boolean {
+    return AppStorage.get<boolean>('appActive') ?? false;
   }
 
   private shouldSkipDashboardConnectionWait(): boolean {
@@ -773,9 +818,25 @@ export struct AppRuntimeHost {
   }
 
   openAssistConversation(payload: Object | string): void {
-    this.assistStartListeningRequested = ExternalBusService.booleanPayload(payload, 'start_listening', true);
+    if (this.appLocked || this.appUnlocking) {
+      return;
+    }
+    if (!this.assistOverlayLifecycle.isWakeSession()) {
+      this.assistOverlayLifecycle.cancel();
+    }
+    this.assistAudioCaptureReady = this.nextAssistAudioCaptureReady ?? this.stopAssistWakeWordRuntime();
+    this.nextAssistAudioCaptureReady = undefined;
+    this.assistStartListeningRequested = this.assistOverlayVisible
+      ? true
+      : ExternalBusService.booleanPayload(payload, 'start_listening', true);
     this.assistStartListeningSignal += 1;
-    this.step = AppRoute.ASSIST_CONVERSATION;
+    this.assistOverlayVisible = true;
+  }
+
+  closeAssistConversation(): void {
+    this.assistOverlayLifecycle.cancel();
+    this.assistOverlayVisible = false;
+    this.refreshAssistWakeWordRuntime();
   }
   openCompanionSettings(): void {
     this.settingsDetailTitle = '';
@@ -1002,6 +1063,10 @@ export struct AppRuntimeHost {
   }
 
   handleBackNavigation(): boolean {
+    if (this.assistOverlayVisible) {
+      this.closeAssistConversation();
+      return true;
+    }
     if (this.shouldCloseCardEntityDetailBeforeDashboardBack()) {
       this.entityDetailOpenedFromCard = false;
       this.tryRunWebScript(CardEntityDetailLaunchService.closeMoreInfoScript());
@@ -1033,7 +1098,8 @@ export struct AppRuntimeHost {
     AppLockUnlockRuntimeService.unlock(
       this.context(),
       this,
-      (): void => this.ignoreAppLockTransitions()
+      (): void => this.ignoreAppLockTransitions(),
+      (): void => this.openPendingAssistLaunch()
     );
   }
 
@@ -1165,17 +1231,173 @@ export struct AppRuntimeHost {
 
   refreshSettingsState(): void { this.settingsRefreshTick += 1; }
 
+  private assistWakeWordSnapshot(): AssistWakeWordRuntimeSnapshot {
+    return {
+      enabled: this.assistWakeDetectionEnabled,
+      wakeWord: this.assistWakeWord,
+      probabilityCutoff: this.assistProbabilityCutoff
+    };
+  }
+
+  private assistWakeWordCallbacks(): AssistWakeWordRuntimeCallbacks {
+    return {
+      onDetected: (_wakeWordName: string, microphoneReleased: Promise<void>): void => {
+        this.wakeWordPromptSoundService.play(this.context());
+        this.nextAssistAudioCaptureReady = microphoneReleased
+          .then((): void => {})
+          .catch((): void => {});
+        setTimeout((): void => {
+          this.openAssistConversationFromWakeWord();
+        }, 0);
+      },
+      onModelsChanged: (models): void => {
+        this.assistWakeWordModelsJson = AssistWakeWordRuntimeService.modelsToJson(models);
+        this.refreshSettingsState();
+      },
+      onStatus: (status: AssistWakeWordRuntimeStatus, message: string): void => {
+        this.assistWakeWordStatus = status;
+        this.assistWakeWordStatusText = this.assistWakeWordStatusMessage(status, message);
+        this.refreshSettingsState();
+      },
+      onConfigChanged: (probabilityCutoff: number): void => {
+        this.assistProbabilityCutoffStatusText = Localization.format(
+          'assist_probability_cutoff_effective',
+          'value',
+          probabilityCutoff.toFixed(2)
+        );
+        this.refreshSettingsState();
+      }
+    };
+  }
+
+  refreshAssistWakeWordRuntime(): void {
+    if (this.assistWakeDetectionEnabled) {
+      this.wakeWordPromptSoundService.prepare(this.context());
+    }
+    this.assistWakeWordRuntimeService
+      .refresh(this.context(), this.assistWakeWordSnapshot(), this.assistWakeWordCallbacks())
+      .catch((err: Error | string | number | boolean | Object): void => {
+        this.assistWakeWordStatus = 'error';
+        this.assistWakeWordStatusText = this.stringifyError(err);
+        this.refreshSettingsState();
+      });
+  }
+
+  stopAssistWakeWordRuntime(): Promise<void> {
+    return this.assistWakeWordRuntimeService.stop().catch((): void => {});
+  }
+
+  prepareAssistAudioCapture(): Promise<void> {
+    return this.assistAudioCaptureReady;
+  }
+
+  markAssistOverlayActivity(): void {
+    this.assistOverlayLifecycle.markActivity();
+  }
+
+  markAssistOverlayBusy(): void {
+    this.assistOverlayLifecycle.markBusy();
+  }
+
+  armAssistOverlayDismiss(): void {
+    this.assistOverlayLifecycle.armDismiss();
+  }
+
+  private assistWakeWordStatusMessage(status: AssistWakeWordRuntimeStatus, message: string): string {
+    if (status === 'disabled') {
+      return Localization.t('assist_wake_word_status_disabled');
+    }
+    if (status === 'starting') {
+      return Localization.t('assist_wake_word_status_starting');
+    }
+    if (status === 'listening') {
+      return message.length > 0
+        ? Localization.format('assist_wake_word_status_listening_model', 'model', message)
+        : Localization.t('assist_wake_word_status_listening');
+    }
+    if (status === 'stopped') {
+      return Localization.t('assist_wake_word_status_stopped');
+    }
+    if (status === 'no_model') {
+      return Localization.t('assist_wake_word_status_no_model');
+    }
+    if (status === 'permission_required') {
+      return Localization.t('assist_wake_word_status_permission_required');
+    }
+    if (message.length > 0) {
+      return Localization.format('assist_wake_word_status_error_detail', 'error', message);
+    }
+    return Localization.t('assist_wake_word_status_error');
+  }
+
   ignoreAppLockTransitions(durationMs: number = 8000): void { this.appLockIgnoreTransitionsUntil = Date.now() + durationMs; }
 
   isIgnoringAppLockTransitions(): boolean { return this.appLockAuthPending || this.appUnlocking || Date.now() < this.appLockIgnoreTransitionsUntil; }
 
-  private onAppForegroundTick(): void { AppLifecycleRuntimeService.onForeground(this, AppRuntimeCallbackFactory.lifecycle(this)); }
+  private onAppForegroundTick(): void {
+    AppLifecycleRuntimeService.onForeground(this, AppRuntimeCallbackFactory.lifecycle(this));
+    this.refreshAssistWakeWordRuntime();
+    if (this.step === AppRoute.DASHBOARD && !this.appLocked) {
+      this.handleDashboardForegroundConnectionWait();
+    }
+    this.openPendingAssistLaunch();
+  }
 
-  private onAppBackgroundTick(): void { AppLifecycleRuntimeService.onBackground(this, AppRuntimeCallbackFactory.lifecycle(this)); }
+  private onAppBackgroundTick(): void {
+    AppLifecycleRuntimeService.onBackground(this, AppRuntimeCallbackFactory.lifecycle(this));
+    this.cancelDashboardConnectionWait();
+  }
 
   private onAppConfigurationTick(): void { AppLifecycleRuntimeService.onConfiguration(this, AppRuntimeCallbackFactory.lifecycle(this)); }
 
   private onCardPendingEntityDetailTick(): void { this.openPendingEntityDetailFromCard(); }
+
+  private onAssistPendingLaunchTick(): void {
+    if (!(AppStorage.get<boolean>('appActive') ?? false)) {
+      return;
+    }
+    this.openPendingAssistLaunch();
+  }
+
+  private openPendingAssistLaunch(): void {
+    if (this.assistPendingLaunchTick <= 0 || this.appLocked || this.appUnlocking) {
+      return;
+    }
+    this.openAssistConversation(JSON.stringify({
+      start_listening: this.assistPendingStartListening
+    }));
+    this.assistPendingLaunchTick = 0;
+  }
+
+  private openAssistConversationFromWakeWord(): void {
+    this.assistOverlayLifecycle.beginWakeSession();
+    const context = this.context() as common.UIAbilityContext;
+    if (this.appLocked || this.appUnlocking) {
+      AssistLaunchService.publishPending(true);
+      const microphoneReleased = this.nextAssistAudioCaptureReady ?? Promise.resolve();
+      microphoneReleased
+        .then((): void => {
+          if (this.nextAssistAudioCaptureReady !== microphoneReleased) {
+            return;
+          }
+          this.nextAssistAudioCaptureReady = undefined;
+          if (this.appLocked || this.appUnlocking) {
+            this.refreshAssistWakeWordRuntime();
+          }
+        });
+      return;
+    }
+    if (AppStorage.get<boolean>('appActive') ?? false) {
+      this.openAssistConversation('{}');
+      return;
+    }
+    AssistLaunchService.start(context, true).catch((err: Error | string | number | boolean | Object): void => {
+      this.assistOverlayLifecycle.cancel();
+      this.nextAssistAudioCaptureReady = undefined;
+      this.refreshAssistWakeWordRuntime();
+      hilog.warn(DOMAIN, TAG, 'Failed to foreground assist conversation. Cause: %{public}s', this.stringifyError(err));
+    });
+  }
 
   private openPendingEntityDetailFromCard(): void {
     const entityId = this.cardPendingEntityDetailEntityId.trim();
@@ -1963,27 +2185,149 @@ export struct AppRuntimeHost {
   }
 
   openHealthSensors(onAuthorized: () => void): void {
-    this.healthService.ensureAuthorized(this.context() as common.UIAbilityContext)
-      .then((state: HarmonyHealthAuthorizationState): void => {
-        this.healthAuthorizationState = state;
-        AppSettingsStore.saveHealthAuthorizationState(
-          this.context(),
-          Date.now(),
-          state === 'authorized' ? '' : Localization.t(`health_authorization_${state}`)
-        ).catch((): void => {});
-        if (state === 'authorized') {
-          this.step = AppRoute.HEALTH_SENSOR_SETTINGS;
-          onAuthorized();
-          this.refreshSensorStates();
+    if (AppStorage.get<boolean>('healthDataNoticeAccepted') === true) {
+      this.enterHealthSensors(onAuthorized);
+      return;
+    }
+    AppSettingsStore.loadHealthDataNoticeAccepted(this.context())
+      .then((accepted: boolean): void => {
+        if (accepted) {
+          AppStorage.setOrCreate<boolean>('healthDataNoticeAccepted', true);
+          this.enterHealthSensors(onAuthorized);
           return;
         }
-        this.message = Localization.t(`health_authorization_${state}`);
+        this.showHealthDataNoticeDialog(onAuthorized);
+      })
+      .catch((): void => {
+        this.showHealthDataNoticeDialog(onAuthorized);
+      });
+  }
+
+  private enterHealthSensors(onAuthorized: () => void): void {
+    onAuthorized();
+    this.refreshHealthAuthorizationState();
+    this.refreshSensorStates();
+  }
+
+  private showHealthDataNoticeDialog(onAuthorized: () => void): void {
+    this.getUIContext().showAlertDialog({
+      title: Localization.t('health_data_notice_title'),
+      message: Localization.t('health_data_notice_message'),
+      autoCancel: true,
+      primaryButton: {
+        value: Localization.t('action_cancel'),
+        fontColor: HaColors.PRIMARY,
+        action: (): void => {}
+      },
+      secondaryButton: {
+        value: Localization.t('health_data_notice_accept'),
+        fontColor: HaColors.PRIMARY,
+        action: (): void => {
+          AppSettingsStore.saveHealthDataNoticeAccepted(this.context(), true)
+            .then((): void => {
+              this.enterHealthSensors(onAuthorized);
+            })
+            .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+              this.message = this.stringifyError(error);
+            });
+        }
+      },
+      transition: TransitionEffect.OPACITY
+    });
+  }
+
+  requestHealthAuthorization(): void {
+    this.healthService.checkAuthorization(this.context())
+      .then((state: HarmonyHealthAuthorizationState): void => {
+        if (this.hasHealthAuthorization(state)) {
+          this.saveHealthAuthorizationState(state);
+          this.showHealthAuthorizationResetDialog();
+          return;
+        }
+        if (state !== 'unauthorized') {
+          this.saveHealthAuthorizationState(state);
+          this.message = Localization.t(`health_authorization_${state}`);
+          return;
+        }
+        this.requestHealthAuthorizationPage();
       })
       .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
-        this.message = this.stringifyError(error);
-        this.healthAuthorizationState = 'unavailable';
-        AppSettingsStore.saveHealthAuthorizationState(this.context(), Date.now(), this.message).catch((): void => {});
+        this.handleHealthAuthorizationError(error);
       });
+  }
+
+  private requestHealthAuthorizationPage(): void {
+    this.healthService.requestAuthorization(this.context() as common.UIAbilityContext)
+      .then((state: HarmonyHealthAuthorizationState): void => {
+        this.saveHealthAuthorizationState(state);
+        this.refreshSensorStates();
+      })
+      .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+        this.handleHealthAuthorizationError(error);
+      });
+  }
+
+  private showHealthAuthorizationResetDialog(): void {
+    this.getUIContext().showAlertDialog({
+      title: Localization.t('health_authorization_reset_title'),
+      message: Localization.t('health_authorization_reset_message'),
+      autoCancel: true,
+      primaryButton: {
+        value: Localization.t('action_cancel'),
+        fontColor: HaColors.PRIMARY,
+        action: (): void => {}
+      },
+      secondaryButton: {
+        value: Localization.t('action_confirm'),
+        fontColor: HaColors.ERROR,
+        action: (): void => {
+          this.cancelHealthAuthorization();
+        }
+      },
+      transition: TransitionEffect.OPACITY
+    });
+  }
+
+  private cancelHealthAuthorization(): void {
+    this.healthService.cancelAuthorization(this.context())
+      .then((state: HarmonyHealthAuthorizationState): void => {
+        this.saveHealthAuthorizationState(state, true);
+        this.refreshSensorStates();
+      })
+      .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+        this.handleHealthAuthorizationError(error);
+      });
+  }
+
+  private hasHealthAuthorization(state: HarmonyHealthAuthorizationState): boolean {
+    return state === 'authorized' || state === 'partial_authorized';
+  }
+
+  private refreshHealthAuthorizationState(): void {
+    this.healthService.checkAuthorization(this.context())
+      .then((state: HarmonyHealthAuthorizationState): void => {
+        this.saveHealthAuthorizationState(state);
+      })
+      .catch((error: Error | string | number | boolean | Object | ArrayBuffer): void => {
+        this.handleHealthAuthorizationError(error);
+      });
+  }
+
+  private saveHealthAuthorizationState(
+    state: HarmonyHealthAuthorizationState,
+    clearUnauthorizedError: boolean = false
+  ): void {
+    this.healthAuthorizationState = state;
+    const lastError = this.hasHealthAuthorization(state) || (clearUnauthorizedError && state === 'unauthorized')
+      ? ''
+      : Localization.t(`health_authorization_${state}`);
+    AppSettingsStore.saveHealthAuthorizationState(this.context(), Date.now(), lastError).catch((): void => {});
+  }
+
+  private handleHealthAuthorizationError(error: Error | string | number | boolean | Object | ArrayBuffer): void {
+    this.message = this.stringifyError(error);
+    this.healthAuthorizationState = 'unavailable';
+    AppSettingsStore.saveHealthAuthorizationState(this.context(), Date.now(), this.message).catch((): void => {});
   }
 
   overlaySensorGroups(): SensorGroup[] {
@@ -2034,6 +2378,7 @@ export struct AppRuntimeHost {
       this.haBaseUrl,
       this.haAccessToken,
       this.haRefreshToken,
+      this.assistOverlayVisible ? '1' : '0',
       this.assistStartListeningSignal.toString(),
       this.assistStartListeningRequested ? '1' : '0',
       this.healthAuthorizationState,

@@ -124,7 +124,11 @@
           ],
           "when": "always"
         }
-      }
+      },
+      // System permission. Enable only when Huawei grants the app profile/signing entitlement.
+      // {
+      //   "name": "ohos.permission.START_ABILITIES_FROM_BACKGROUND"
+      // }
     ],
     "pages": "$profile:main_pages",
     "routerMap": "$profile:route_map",
@@ -141,6 +145,7 @@
         "launchType": "singleton",
         "backgroundModes": [
           "dataTransfer",
+          "audioRecording",
           "location"
         ],
         "skills": [

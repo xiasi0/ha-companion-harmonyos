@@ -3,6 +3,8 @@ import {
   HaDeviceRegistryItem,
   HaEntityCatalogItem,
   HaEntityRegistryItem,
+  HaCameraEntity,
+  HaClimateEntity,
   HaLightEntity,
   HaMediaPlayerEntity,
   HaRegistryCatalog
@@ -24,6 +26,26 @@ class HaMediaPlayerEntityPayload implements HaMediaPlayerEntity {
   mediaArtist: string = '';
   appName: string = '';
   entityPicture: string = '';
+}
+
+class HaCameraEntityPayload implements HaCameraEntity {
+  entityId: string = '';
+  name: string = '';
+  areaName: string = '';
+  state: string = 'unknown';
+  entityPicture: string = '';
+}
+
+class HaClimateEntityPayload implements HaClimateEntity {
+  entityId: string = '';
+  name: string = '';
+  areaName: string = '';
+  state: string = 'unknown';
+  currentTemperature: string = '';
+  targetTemperature: string = '';
+  temperatureUnit: string = '';
+  targetTemperatureStep: string = '';
+  hvacModes: string[] = [];
 }
 
 class HaEntityCatalogItemPayload implements HaEntityCatalogItem {
@@ -229,6 +251,28 @@ export class HaEntityParser {
     return HaEntityParser.parseMediaPlayerStateRecord(item);
   }
 
+  static parseCameraState(body: string): HaCameraEntity {
+    const parsed = JSON.parse(body) as Record<string, Object | string | number | boolean | null>;
+    return HaEntityParser.parseCameraStateRecord(parsed);
+  }
+
+  static parseCameraStateObject(
+    item: Record<string, Object | string | number | boolean | null>
+  ): HaCameraEntity {
+    return HaEntityParser.parseCameraStateRecord(item);
+  }
+
+  static parseClimateState(body: string): HaClimateEntity {
+    const parsed = JSON.parse(body) as Record<string, Object | string | number | boolean | null>;
+    return HaEntityParser.parseClimateStateRecord(parsed);
+  }
+
+  static parseClimateStateObject(
+    item: Record<string, Object | string | number | boolean | null>
+  ): HaClimateEntity {
+    return HaEntityParser.parseClimateStateRecord(item);
+  }
+
   static mediaPlayerService(action: string): string {
     if (action === 'media_play_pause') {
       return 'media_play_pause';
@@ -238,6 +282,12 @@ export class HaEntityParser {
     }
     if (action === 'media_previous') {
       return 'media_previous_track';
+    }
+    if (action === 'media_volume_down') {
+      return 'volume_down';
+    }
+    if (action === 'media_volume_up') {
+      return 'volume_up';
     }
     return '';
   }
@@ -259,6 +309,42 @@ export class HaEntityParser {
       player.entityPicture = HaEntityParser.stringAttribute(attributes, 'entity_picture');
     }
     return player;
+  }
+
+  private static parseCameraStateRecord(
+    item: Record<string, Object | string | number | boolean | null>
+  ): HaCameraEntity {
+    const camera = new HaCameraEntityPayload();
+    const rawEntityId = item['entity_id'];
+    camera.entityId = typeof rawEntityId === 'string' ? rawEntityId : '';
+    camera.state = HaEntityParser.normalizedState(item['state']);
+    camera.name = HaEntityParser.friendlyName(item);
+    camera.areaName = HaEntityParser.areaName(item);
+    const attributes = HaEntityParser.objectField(item, 'attributes');
+    if (attributes) {
+      camera.entityPicture = HaEntityParser.stringAttribute(attributes, 'entity_picture');
+    }
+    return camera;
+  }
+
+  private static parseClimateStateRecord(
+    item: Record<string, Object | string | number | boolean | null>
+  ): HaClimateEntity {
+    const climate = new HaClimateEntityPayload();
+    const rawEntityId = item['entity_id'];
+    climate.entityId = typeof rawEntityId === 'string' ? rawEntityId : '';
+    climate.state = HaEntityParser.normalizedState(item['state']);
+    climate.name = HaEntityParser.friendlyName(item);
+    climate.areaName = HaEntityParser.areaName(item);
+    const attributes = HaEntityParser.objectField(item, 'attributes');
+    if (attributes) {
+      climate.currentTemperature = HaEntityParser.stringOrNumberAttribute(attributes, 'current_temperature');
+      climate.targetTemperature = HaEntityParser.stringOrNumberAttribute(attributes, 'temperature');
+      climate.temperatureUnit = HaEntityParser.stringAttribute(attributes, 'temperature_unit');
+      climate.targetTemperatureStep = HaEntityParser.stringOrNumberAttribute(attributes, 'target_temp_step');
+      climate.hvacModes = HaEntityParser.stringArrayAttribute(attributes, 'hvac_modes');
+    }
+    return climate;
   }
 
   private static normalizedLightState(value: Object | string | number | boolean | null): string {
@@ -299,6 +385,34 @@ export class HaEntityParser {
   private static stringAttribute(source: Record<string, Object | string | number | boolean | null>, key: string): string {
     const value = source[key];
     return typeof value === 'string' ? value.trim() : '';
+  }
+
+  private static stringOrNumberAttribute(
+    source: Record<string, Object | string | number | boolean | null>,
+    key: string
+  ): string {
+    const value = source[key];
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    return typeof value === 'number' ? String(value) : '';
+  }
+
+  private static stringArrayAttribute(
+    source: Record<string, Object | string | number | boolean | null>,
+    key: string
+  ): string[] {
+    const value = source[key];
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    const modes: string[] = [];
+    for (let i = 0; i < value.length; i++) {
+      if (typeof value[i] === 'string' && value[i].trim().length > 0) {
+        modes.push(value[i].trim());
+      }
+    }
+    return modes;
   }
 
   private static recordValue(value: Object | string | number | boolean | null): Record<string, Object | string | number | boolean | null> | null {

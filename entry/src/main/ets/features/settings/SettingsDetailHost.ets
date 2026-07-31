@@ -29,9 +29,12 @@ export struct SettingsDetailHost {
   @Prop appLanguage: string = 'default';
   @Prop appTheme: string = 'system';
   @Prop serviceCardUpdateFrequency: string = 'default';
-  @Prop assistWakeDetectionEnabled: boolean = true;
+  @Prop assistWakeDetectionEnabled: boolean = false;
   @Prop assistWakeWord: string = 'wake_word_1';
   @Prop assistProbabilityCutoff: string = '';
+  @Prop assistWakeWordModelsJson: string = '[]';
+  @Prop assistWakeWordStatusText: string = '';
+  @Prop assistProbabilityCutoffStatusText: string = '';
   onBackToServer: () => void = () => {};
   onBackToCompanion: () => void = () => {};
   onBackToGestures: () => void = () => {};
@@ -153,10 +156,13 @@ export struct SettingsDetailHost {
       })
     } else if (this.detailKey === 'assist_voice') {
       AssistVoiceSettingsPage({
-        groups: CompanionSettingsData.assistWakeWordOptions(),
+        groups: CompanionSettingsData.assistWakeWordOptions(this.assistWakeWordModelsJson),
         selectedWakeWord: this.assistWakeWord,
         wakeDetectionEnabled: this.assistWakeDetectionEnabled,
-        probabilityCutoffSummary: CompanionSettingsData.assistProbabilityCutoffSummary(this.assistProbabilityCutoff),
+        statusText: this.assistWakeWordStatusText,
+        probabilityCutoffSummary: this.assistProbabilityCutoffStatusText.length > 0
+          ? this.assistProbabilityCutoffStatusText
+          : CompanionSettingsData.assistProbabilityCutoffSummary(this.assistProbabilityCutoff),
         contentMaxWidth: this.contentMaxWidth,
         onBack: this.onBackToCompanion,
         onSelectWakeWord: (value: string): void => {

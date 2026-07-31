@@ -10,7 +10,7 @@ import { SettingsCategory } from '../settings/components/SettingsCategory';
 import { SettingsRow } from '../settings/components/SettingsRow';
 import { SettingsSearchControl } from '../settings/components/SettingsSearchControl';
 import { SettingsUiConfig } from '../settings/components/SettingsUiConfig';
-import { SettingsItem, actionSettingsItem, infoSettingsItem } from '../../models/SettingsItem';
+import { SettingsItem, actionSettingsItem } from '../../models/SettingsItem';
 import { materialIcon } from '../../shared/icons/AppIconModels';
 import { SensorEntry, SensorGroup } from './SensorModels';
 import { SensorSettingsSwitchRow } from './SensorSettingsSwitchRow';
@@ -46,6 +46,7 @@ export struct SensorSettingsPage {
   onFilter: () => void = () => {};
   onToggleSensor: (id: string, enabled: boolean) => void = () => {};
   onOpenHealthSensors: () => void = () => {};
+  onRequestHealthAuthorization: () => void = () => {};
   onSwipeBack: () => void = () => {};
 
   aboutToAppear(): void {
@@ -197,11 +198,12 @@ export struct SensorSettingsPage {
   }
 
   private healthAuthorizationItem(): SettingsItem {
-    return infoSettingsItem(
+    return actionSettingsItem(
       materialIcon('approval_delegation'),
-      Localization.t('health_authorization_status_title'),
+      Localization.t('health_authorization_management_title'),
+      this.healthAuthorizationStatus(),
       '',
-      this.healthAuthorizationStatus()
+      'manage_health_authorization'
     );
   }
 
@@ -209,20 +211,10 @@ export struct SensorSettingsPage {
     switch (this.healthAuthorizationState) {
       case 'authorized':
         return Localization.t('health_authorization_authorized');
-      case 'unauthorized':
-        return Localization.t('health_authorization_unauthorized');
-      case 'not_logged_in':
-        return Localization.t('health_authorization_not_logged_in');
-      case 'network_error':
-        return Localization.t('health_authorization_network_error');
-      case 'privacy_not_agreed':
-        return Localization.t('health_authorization_privacy_not_agreed');
-      case 'unavailable':
-        return Localization.t('health_authorization_unavailable');
-      case 'unknown':
-        return Localization.t('health_authorization_unknown');
+      case 'partial_authorized':
+        return Localization.t('health_authorization_partial_authorized');
       default:
-        return Localization.t('health_authorization_unavailable');
+        return Localization.t('health_authorization_unauthorized');
     }
   }
 
@@ -330,7 +322,12 @@ export struct SensorSettingsPage {
   @Builder
   private renderHealthAuthorizationGroup(): void {
     Column() {
-      SettingsRow({ item: this.healthAuthorizationItem() })
+      SettingsRow({
+        item: this.healthAuthorizationItem(),
+        onAction: (_actionId: string): void => {
+          this.onRequestHealthAuthorization();
+        }
+      })
     }
     .width('100%')
     .borderRadius(SettingsUiConfig.groupRadius)

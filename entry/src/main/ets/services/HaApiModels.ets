@@ -127,6 +127,26 @@ export interface HaMediaPlayerEntity {
   entityPicture: string;
 }
 
+export interface HaCameraEntity {
+  entityId: string;
+  name: string;
+  areaName: string;
+  state: string;
+  entityPicture: string;
+}
+
+export interface HaClimateEntity {
+  entityId: string;
+  name: string;
+  areaName: string;
+  state: string;
+  currentTemperature: string;
+  targetTemperature: string;
+  temperatureUnit: string;
+  targetTemperatureStep: string;
+  hvacModes: string[];
+}
+
 export interface HaMediaPlayerEntitiesResult {
   responseCode: number;
   entities: HaMediaPlayerEntity[];

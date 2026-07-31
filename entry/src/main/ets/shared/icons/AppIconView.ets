@@ -314,6 +314,14 @@ export struct AppIconView {
       SymbolGlyph($r('sys.symbol.lightbulb'))
         .fontSize(this.iconSize)
         .fontColor([this.color])
+    } else if (this.icon.name === 'camera') {
+      SymbolGlyph($r('sys.symbol.camera'))
+        .fontSize(this.iconSize)
+        .fontColor([this.color])
+    } else if (this.icon.name === 'thermometer') {
+      SymbolGlyph($r('sys.symbol.thermometer'))
+        .fontSize(this.iconSize)
+        .fontColor([this.color])
     } else if (this.icon.name === 'music') {
       SymbolGlyph($r('sys.symbol.play_fill'))
         .fontSize(this.iconSize)

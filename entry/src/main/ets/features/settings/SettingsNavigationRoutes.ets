@@ -61,9 +61,12 @@ const DEFAULT_SETTINGS_RUNTIME_SNAPSHOT: SettingsRuntimeSnapshot = {
   secureConnectionChoice: '',
   websocketMode: 'system',
   serviceCardUpdateFrequency: 'default',
-  assistWakeDetectionEnabled: true,
+  assistWakeDetectionEnabled: false,
   assistWakeWord: 'wake_word_1',
   assistProbabilityCutoff: '',
+  assistWakeWordModelsJson: '[]',
+  assistWakeWordStatusText: '',
+  assistProbabilityCutoffStatusText: '',
   dark: false,
   showDeleteServerDialog: false,
   deletingServer: false,
@@ -122,11 +125,16 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onBackToNativeTarget: () => {},
   onSwipeBack: () => {},
   onCloseAssist: () => {},
+  onAssistAudioCaptureStart: (): Promise<void> => Promise.resolve(),
+  onAssistSpeechComplete: () => {},
+  onAssistActivity: () => {},
+  onAssistBusy: () => {},
   onSensorHelp: () => {},
   onSensorSearch: () => {},
   onSensorFilter: () => {},
   onToggleSensor: (_id: string, _enabled: boolean): void => {},
   onOpenHealthSensors: (_onAuthorized: () => void): void => {},
+  onRequestHealthAuthorization: () => {},
   onSelectSensorFrequency: () => {}
 };
 
@@ -420,6 +428,7 @@ struct CompanionHealthSensorSettingsRoute {
         onBack: (): void => routeToSensors(this.pathStack, this.actions, this.navSyncActions.onSynced),
         onHelp: this.overlayActions.onSensorHelp,
         onToggleSensor: this.overlayActions.onToggleSensor,
+        onRequestHealthAuthorization: this.overlayActions.onRequestHealthAuthorization,
         onSwipeBack: (): void => routeToSensors(this.pathStack, this.actions, this.navSyncActions.onSynced)
       })
     }
@@ -579,6 +588,9 @@ struct CompanionSettingsDetailRoute {
         assistWakeDetectionEnabled: this.snapshot.assistWakeDetectionEnabled,
         assistWakeWord: this.snapshot.assistWakeWord,
         assistProbabilityCutoff: this.snapshot.assistProbabilityCutoff,
+        assistWakeWordModelsJson: this.snapshot.assistWakeWordModelsJson,
+        assistWakeWordStatusText: this.snapshot.assistWakeWordStatusText,
+        assistProbabilityCutoffStatusText: this.snapshot.assistProbabilityCutoffStatusText,
         gestureActionValue: this.actions.gestureActionValue,
         onRoute: (route: number): void => {
           if (route === AppRoute.SERVER_SETTINGS) {

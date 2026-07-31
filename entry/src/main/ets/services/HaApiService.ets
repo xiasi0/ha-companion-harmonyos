@@ -7,6 +7,8 @@ import { HaAssistApiService } from './HaAssistApiService';
 import { HaEntityParser } from './HaEntityParser';
 import {
   HaAssistPipelineRunResult,
+  HaCameraEntity,
+  HaClimateEntity,
   HaRegistryCatalog,
   HaConversationAgent,
   HaConversationAgentsResult,
@@ -24,6 +26,8 @@ import {
 
 export {
   HaAssistPipelineRunResult,
+  HaCameraEntity,
+  HaClimateEntity,
   HaBindableEntity,
   HaConversationAgent,
   HaConversationAgentsResult,
@@ -259,6 +263,83 @@ export class HaApiService {
     return HaEntityParser.parseMediaPlayerState(body);
   }
 
+  static async fetchCameraState(
+    baseUrl: string,
+    accessToken: string,
+    entityId: string
+  ): Promise<HaCameraEntity> {
+    const resp = await NetworkService.requestText(`${baseUrl}/api/states/${encodeURIComponent(entityId)}`, {
+      method: NetworkHttpMethod.GET,
+      header: {
+        'Authorization': `Bearer ${accessToken}`
+      },
+      connectTimeout: 5000,
+      readTimeout: 5000
+    });
+    const body = resp.body;
+    if (resp.responseCode < 200 || resp.responseCode >= 300) {
+      throw new Error(Localization.format2('ha_error_fetch_media_state_http',
+        'status', resp.responseCode, 'detail', NetworkService.shortText(body)));
+    }
+    return HaEntityParser.parseCameraState(body);
+  }
+
+  static async fetchClimateState(
+    baseUrl: string,
+    accessToken: string,
+    entityId: string
+  ): Promise<HaClimateEntity> {
+    const resp = await NetworkService.requestText(`${baseUrl}/api/states/${encodeURIComponent(entityId)}`, {
+      method: NetworkHttpMethod.GET,
+      header: {
+        'Authorization': `Bearer ${accessToken}`
+      },
+      connectTimeout: 5000,
+      readTimeout: 5000
+    });
+    const body = resp.body;
+    if (resp.responseCode < 200 || resp.responseCode >= 300) {
+      throw new Error(Localization.format2('ha_error_fetch_media_state_http',
+        'status', resp.responseCode, 'detail', NetworkService.shortText(body)));
+    }
+    return HaEntityParser.parseClimateState(body);
+  }
+
+  static async setClimateTemperature(
+    baseUrl: string,
+    accessToken: string,
+    entityId: string,
+    temperature: number
+  ): Promise<HaLightActionResult> {
+    return HaApiService.callClimateService(baseUrl, accessToken, 'set_temperature', {
+      'entity_id': entityId,
+      'temperature': temperature
+    });
+  }
+
+  static async setClimateHvacMode(
+    baseUrl: string,
+    accessToken: string,
+    entityId: string,
+    hvacMode: string
+  ): Promise<HaLightActionResult> {
+    return HaApiService.callClimateService(baseUrl, accessToken, 'set_hvac_mode', {
+      'entity_id': entityId,
+      'hvac_mode': hvacMode
+    });
+  }
+
+  static async setClimatePower(
+    baseUrl: string,
+    accessToken: string,
+    entityId: string,
+    turnOn: boolean
+  ): Promise<HaLightActionResult> {
+    return HaApiService.callClimateService(baseUrl, accessToken, turnOn ? 'turn_on' : 'turn_off', {
+      'entity_id': entityId
+    });
+  }
+
   static async controlMediaPlayer(
     baseUrl: string,
     accessToken: string,
@@ -345,6 +426,42 @@ export class HaApiService {
         responseCode: resp.responseCode,
         state: '',
         failureSummary: NetworkService.shortText(body)
+      };
+    } catch (err) {
+      return {
+        success: false,
+        responseCode: 0,
+        state: '',
+        failureSummary: NetworkService.errorText(err as Error | string | number | boolean)
+      };
+    }
+  }
+
+  private static async callClimateService(
+    baseUrl: string,
+    accessToken: string,
+    service: string,
+    payload: Record<string, string | number>
+  ): Promise<HaLightActionResult> {
+    try {
+      const resp = await NetworkService.requestText(`${baseUrl}/api/services/climate/${service}`, {
+        method: NetworkHttpMethod.POST,
+        header: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        extraData: JSON.stringify(payload),
+        connectTimeout: 12000,
+        readTimeout: 12000
+      });
+      if (resp.responseCode >= 200 && resp.responseCode < 300) {
+        return { success: true, responseCode: resp.responseCode, state: '', failureSummary: '' };
+      }
+      return {
+        success: false,
+        responseCode: resp.responseCode,
+        state: '',
+        failureSummary: NetworkService.shortText(resp.body)
       };
     } catch (err) {
       return {

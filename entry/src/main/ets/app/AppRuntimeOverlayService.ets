@@ -1,7 +1,6 @@
 import { DeviceProfileInfo } from '../shared/device/DeviceProfile';
 import { Localization } from '../shared/i18n/Localization';
 import { normalizeSensorUpdateFrequency, SensorGroup } from '../features/sensors/SensorModels';
-import { AppRoute } from './AppRoute';
 import { AppRuntimeOverlayActions, AppRuntimeOverlaySnapshot } from './AppRuntimeOverlayModels';
 
 export interface AppRuntimeOverlayState {
@@ -9,6 +8,7 @@ export interface AppRuntimeOverlayState {
   haBaseUrl: string;
   haAccessToken: string;
   haRefreshToken: string;
+  assistOverlayVisible: boolean;
   assistStartListeningSignal: number;
   assistStartListeningRequested: boolean;
   sensorUpdateFrequency: string;
@@ -23,8 +23,16 @@ export interface AppRuntimeOverlayTarget extends AppRuntimeOverlayState {
   overlayDirectSensorIds(): string[];
   healthAuthorizationState: string;
   handleBackNavigation(): boolean;
+  closeAssistConversation(): void;
+  stopAssistWakeWordRuntime(): Promise<void>;
+  prepareAssistAudioCapture(): Promise<void>;
+  markAssistOverlayActivity(): void;
+  markAssistOverlayBusy(): void;
+  armAssistOverlayDismiss(): void;
+  refreshAssistWakeWordRuntime(): void;
   toggleSensor(sensorId: string, enabled?: boolean): void;
   openHealthSensors(onAuthorized: () => void): void;
+  requestHealthAuthorization(): void;
 }
 
 export class AppRuntimeOverlayService {
@@ -35,6 +43,7 @@ export class AppRuntimeOverlayService {
       baseUrl: target.haBaseUrl,
       accessToken: target.haAccessToken,
       refreshToken: target.haRefreshToken,
+      assistOverlayVisible: target.assistOverlayVisible,
       assistStartListeningSignal: target.assistStartListeningSignal,
       assistStartListeningRequested: target.assistStartListeningRequested,
       profile: profile,
@@ -58,7 +67,20 @@ export class AppRuntimeOverlayService {
         target.handleBackNavigation();
       },
       onCloseAssist: (): void => {
-        target.step = AppRoute.DASHBOARD;
+        target.closeAssistConversation();
+      },
+      onAssistAudioCaptureStart: (): Promise<void> => {
+        return target.prepareAssistAudioCapture();
+      },
+      onAssistSpeechComplete: (): void => {
+        target.armAssistOverlayDismiss();
+        target.refreshAssistWakeWordRuntime();
+      },
+      onAssistActivity: (): void => {
+        target.markAssistOverlayActivity();
+      },
+      onAssistBusy: (): void => {
+        target.markAssistOverlayBusy();
       },
       onSensorHelp: (): void => {
         target.message = 'https://companion.home-assistant.io/docs/core/sensors';
@@ -71,6 +93,7 @@ export class AppRuntimeOverlayService {
       },
       onToggleSensor: (id: string, enabled: boolean): void => target.toggleSensor(id, enabled),
       onOpenHealthSensors: (onAuthorized: () => void): void => target.openHealthSensors(onAuthorized),
+      onRequestHealthAuthorization: (): void => target.requestHealthAuthorization(),
       onSelectSensorFrequency: (value: string): void => {
         target.sensorUpdateFrequency = normalizeSensorUpdateFrequency(value);
       }

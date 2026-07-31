@@ -40,9 +40,16 @@ export struct AssistRuntimeHost {
   private voiceInputMessageId: number = 0;
   private handledStartListeningSignal: number = 0;
   private pendingStartListening: boolean = false;
+  private ttsRequestId: number = 0;
+  private voiceStartRequestId: number = 0;
+  private pipelineRequestId: number = 0;
   private speechService: HarmonySpeechService = new HarmonySpeechService();
 
   onClose: () => void = () => {};
+  onAudioCaptureStart: () => Promise<void> = () => Promise.resolve();
+  onSpeechComplete: () => void = () => {};
+  onActivity: () => void = () => {};
+  onBusy: () => void = () => {};
 
   aboutToAppear(): void {
     this.ensureConversationState();
@@ -78,6 +85,10 @@ export struct AssistRuntimeHost {
       return;
     }
     this.handledStartListeningSignal = this.startListeningSignal;
+    if (this.startListeningRequested && this.messages.length > 0) {
+      this.startListeningInCurrentConversation();
+      return;
+    }
     this.resetConversation(this.startListeningRequested);
   }
 
@@ -104,6 +115,21 @@ export struct AssistRuntimeHost {
       this.pendingStartListening = false;
       this.requestMicrophonePermission();
     }
+  }
+
+  private startListeningInCurrentConversation(): void {
+    if (this.listening) {
+      return;
+    }
+    this.pendingStartListening = true;
+    if (!this.isPipelineReady()) {
+      this.statusText = Localization.t('assist_loading');
+      this.refreshAgents(false);
+      this.onSpeechComplete();
+      return;
+    }
+    this.pendingStartListening = false;
+    this.requestMicrophonePermission();
   }
 
   private isPipelineReady(): boolean {
@@ -158,6 +184,7 @@ export struct AssistRuntimeHost {
   }
 
   private selectAgent(agentId: string): void {
+    this.onActivity();
     this.assistAgentId = agentId;
     this.statusText = '';
   }
@@ -182,9 +209,11 @@ export struct AssistRuntimeHost {
   }
 
   private requestMicrophonePermission(): void {
+    this.onBusy();
     if (!this.isPipelineReady()) {
       this.statusText = Localization.t('assist_loading');
       this.refreshAgents(false);
+      this.onSpeechComplete();
       return;
     }
     abilityAccessCtrl.createAtManager()
@@ -194,16 +223,20 @@ export struct AssistRuntimeHost {
         this.errorText = this.microphoneGranted ? '' : Localization.t('assist_microphone_denied');
         if (this.microphoneGranted) {
           this.startVoice();
+        } else {
+          this.onSpeechComplete();
         }
       })
       .catch((err: Error | string | number | boolean | Object): void => {
         this.microphoneGranted = false;
         this.listening = false;
         this.errorText = Localization.format('assist_microphone_request_failed', 'error', this.stringifyError(err));
+        this.onSpeechComplete();
       });
   }
 
   private toggleMicrophone(): void {
+    this.onBusy();
     if (this.listening) {
       this.stopVoice(true);
       return;
@@ -211,6 +244,7 @@ export struct AssistRuntimeHost {
     if (!this.isPipelineReady()) {
       this.statusText = Localization.t('assist_loading');
       this.refreshAgents(false);
+      this.onSpeechComplete();
       return;
     }
     this.requestMicrophonePermission();
@@ -218,23 +252,56 @@ export struct AssistRuntimeHost {
 
   private toggleTextMode(): void {
     if (!this.isPipelineReady()) {
+      this.onActivity();
       this.statusText = Localization.t('assist_loading');
       this.refreshAgents(false);
       return;
     }
     if (!this.textMode && this.listening) {
+      this.onBusy();
       this.stopVoice(false);
+    } else {
+      this.onActivity();
     }
     this.textMode = !this.textMode;
   }
 
   private startVoice(): void {
+    this.onBusy();
     if (!this.isPipelineReady()) {
       this.statusText = Localization.t('assist_loading');
       this.refreshAgents(false);
+      this.onSpeechComplete();
       return;
     }
+    const requestId = this.voiceStartRequestId + 1;
+    this.voiceStartRequestId = requestId;
+    this.ttsRequestId += 1;
     this.speechService.stopSpeaking();
+    this.onAudioCaptureStart()
+      .then((): void => {
+        if (requestId !== this.voiceStartRequestId) {
+          return;
+        }
+        this.startVoiceAfterAudioReady();
+      })
+      .catch((): void => {
+        if (requestId !== this.voiceStartRequestId) {
+          return;
+        }
+        this.listening = false;
+        this.statusText = '';
+        this.onSpeechComplete();
+      });
+  }
+
+  private startVoiceAfterAudioReady(): void {
+    if (!this.isPipelineReady()) {
+      this.statusText = Localization.t('assist_loading');
+      this.refreshAgents(false);
+      this.onSpeechComplete();
+      return;
+    }
     this.textMode = false;
     this.errorText = '';
     this.responseText = '';
@@ -264,6 +331,7 @@ export struct AssistRuntimeHost {
           this.statusText = '';
           this.updateMessage(this.voiceInputMessageId, '');
           this.voiceInputMessageId = 0;
+          this.onSpeechComplete();
           return;
         }
         this.updateMessage(this.voiceInputMessageId, recognized);
@@ -276,6 +344,7 @@ export struct AssistRuntimeHost {
         this.voiceInputMessageId = 0;
         this.listening = false;
         this.statusText = '';
+        this.onSpeechComplete();
       }
     }).catch((): void => {
       this.errorText = '';
@@ -283,24 +352,29 @@ export struct AssistRuntimeHost {
       this.voiceInputMessageId = 0;
       this.listening = false;
       this.statusText = '';
+      this.onSpeechComplete();
     });
   }
 
   private stopVoice(sendEnd: boolean): void {
+    this.voiceStartRequestId += 1;
     this.listening = false;
     if (!sendEnd) {
+      this.ttsRequestId += 1;
       this.speechService.stopSpeaking();
       this.updateMessage(this.voiceInputMessageId, '');
       this.voiceInputMessageId = 0;
     }
     this.speechService.stopRecognition(sendEnd).catch((err: Error | string | number | boolean | Object): void => {
       this.errorText = Localization.format('assist_stop_failed', 'error', this.stringifyError(err));
+      this.onSpeechComplete();
     });
   }
 
   private sendText(): void {
     const text = this.inputText.trim();
     if (text.length === 0 || this.pending || !this.isPipelineReady()) {
+      this.onActivity();
       if (!this.isPipelineReady()) {
         this.statusText = Localization.t('assist_loading');
         this.refreshAgents(false);
@@ -314,19 +388,28 @@ export struct AssistRuntimeHost {
     if (!this.isPipelineReady()) {
       this.statusText = Localization.t('assist_loading');
       this.refreshAgents(false);
+      this.onSpeechComplete();
       return;
     }
     const normalizedBaseUrl = UrlService.normalizeBaseUrl(this.baseUrl);
     const token = this.accessToken.trim();
     if (normalizedBaseUrl.length === 0 || token.length === 0) {
       this.errorText = Localization.t('assist_connection_unavailable');
+      this.onSpeechComplete();
       return;
     }
 
+    const requestId = this.pipelineRequestId + 1;
+    this.pipelineRequestId = requestId;
+    this.onBusy();
     this.resolveAllowedBaseUrl()
       .then((baseUrl: string): void => {
+        if (requestId !== this.pipelineRequestId) {
+          return;
+        }
         if (baseUrl.length === 0) {
           this.errorText = Localization.t('assist_connection_unavailable');
+          this.onSpeechComplete();
           return;
         }
         if (appendUserMessage) {
@@ -340,11 +423,15 @@ export struct AssistRuntimeHost {
         const assistantMessageId = this.appendPlaceholder('assistant');
         AssistRuntimeService.runTextPipeline(baseUrl, token, text, this.assistAgentId, this.conversationId)
           .then((result): void => {
+            if (requestId !== this.pipelineRequestId) {
+              return;
+            }
             this.pending = false;
             if (result.failureSummary.length > 0) {
               this.updateMessage(assistantMessageId, '');
               this.statusText = '';
               this.errorText = result.failureSummary;
+              this.onSpeechComplete();
               return;
             }
             this.conversationId = result.conversationId;
@@ -353,41 +440,78 @@ export struct AssistRuntimeHost {
             this.statusText = '';
             if (speakResponse && result.text.trim().length > 0) {
               this.speakResponse(result.text);
+            } else {
+              this.onSpeechComplete();
             }
           })
           .catch((err: Error | string | number | boolean | Object): void => {
+            if (requestId !== this.pipelineRequestId) {
+              return;
+            }
             this.pending = false;
             this.updateMessage(assistantMessageId, '');
             this.statusText = '';
             this.errorText = this.stringifyError(err);
+            this.onSpeechComplete();
           });
       })
       .catch((err: Error | string | number | boolean | Object): void => {
+        if (requestId !== this.pipelineRequestId) {
+          return;
+        }
         this.errorText = this.stringifyError(err);
+        this.onSpeechComplete();
       });
   }
 
   private speakResponse(text: string): void {
+    this.onBusy();
+    const requestId = this.ttsRequestId + 1;
+    this.ttsRequestId = requestId;
+    let completed = false;
+    const completeOnce = (): boolean => {
+      if (completed || requestId !== this.ttsRequestId) {
+        return false;
+      }
+      completed = true;
+      return true;
+    };
     this.speechService.speak(text, {
       onStart: (): void => {
+        if (requestId !== this.ttsRequestId) {
+          return;
+        }
         this.statusText = '';
       },
       onComplete: (): void => {
+        if (!completeOnce()) {
+          return;
+        }
         if (this.statusText === Localization.t('assist_speaking')) {
           this.statusText = '';
         }
+        this.onSpeechComplete();
       },
       onError: (message: string): void => {
+        if (!completeOnce()) {
+          return;
+        }
         this.statusText = '';
         this.errorText = message;
+        this.onSpeechComplete();
       }
     }).catch((err: Error | string | number | boolean | Object): void => {
+      if (!completeOnce()) {
+        return;
+      }
       this.statusText = '';
       this.errorText = Localization.format('assist_speak_failed', 'error', this.stringifyError(err));
+      this.onSpeechComplete();
     });
   }
 
   private closeConversation(): void {
+    this.pipelineRequestId += 1;
     this.stopVoice(false);
     this.pending = false;
     this.statusText = '';
@@ -448,12 +572,14 @@ export struct AssistRuntimeHost {
         this.toggleTextMode();
       },
       onInputChange: (value: string): void => {
+        this.onActivity();
         this.inputText = value;
       },
       onSendText: (): void => {
         this.sendText();
       },
       onRefreshAgents: (): void => {
+        this.onActivity();
         this.refreshAgents(true);
       },
       onSelectAgent: (agentId: string): void => {

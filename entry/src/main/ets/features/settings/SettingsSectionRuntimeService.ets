@@ -21,6 +21,8 @@ export interface CompanionSettingsSectionInput {
   serviceCardUpdateFrequency: string;
   assistWakeDetectionEnabled: boolean;
   assistWakeWord: string;
+  assistWakeWordModelsJson: string;
+  assistWakeWordStatusText: string;
   appLanguage: string;
   appTheme: string;
   notificationUnreadCount: number;
@@ -66,6 +68,8 @@ export interface SettingsSectionRuntimeState {
   serviceCardUpdateFrequency: string;
   assistWakeDetectionEnabled: boolean;
   assistWakeWord: string;
+  assistWakeWordModelsJson: string;
+  assistWakeWordStatusText: string;
   appLanguage: string;
   appTheme: string;
   serverOptions: ServerOption[];
@@ -109,6 +113,8 @@ export class SettingsSectionRuntimeService {
       serviceCardUpdateFrequency: state.serviceCardUpdateFrequency,
       assistWakeDetectionEnabled: state.assistWakeDetectionEnabled,
       assistWakeWord: state.assistWakeWord,
+      assistWakeWordModelsJson: state.assistWakeWordModelsJson,
+      assistWakeWordStatusText: state.assistWakeWordStatusText,
       appLanguage: state.appLanguage,
       appTheme: state.appTheme,
       notificationUnreadCount: state.notificationUnreadCount
@@ -161,6 +167,8 @@ export class SettingsSectionRuntimeService {
       serviceCardUpdateFrequency: input.serviceCardUpdateFrequency,
       assistWakeDetectionEnabled: input.assistWakeDetectionEnabled,
       assistWakeWord: input.assistWakeWord,
+      assistWakeWordModelsJson: input.assistWakeWordModelsJson,
+      assistWakeWordStatusText: input.assistWakeWordStatusText,
       appLanguage: input.appLanguage,
       appTheme: input.appTheme,
       notificationUnreadCount: input.notificationUnreadCount

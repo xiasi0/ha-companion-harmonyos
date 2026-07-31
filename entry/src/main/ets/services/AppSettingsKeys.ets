@@ -22,6 +22,7 @@ export interface AppSettingsKeySet {
   SENSOR_ACCURATE_LOCATION: string;
   SENSOR_DIRECT_ENABLED_JSON: string;
   HEALTH_AUTHORIZATION_CHECKED_AT: string;
+  HEALTH_DATA_NOTICE_ACCEPTED: string;
   HEALTH_LAST_ERROR: string;
   HEALTH_LAST_SYNC_AT: string;
   LOCATION_HISTORY_JSON: string;
@@ -41,6 +42,7 @@ export interface AppSettingsKeySet {
   APP_THEME: string;
   SERVICE_CARD_UPDATE_FREQUENCY: string;
   ASSIST_WAKE_DETECTION_ENABLED: string;
+  ASSIST_WAKE_DETECTION_USER_SET: string;
   ASSIST_WAKE_WORD: string;
   ASSIST_PROBABILITY_CUTOFF: string;
   GESTURE_SWIPE_LEFT_TWO: string;
@@ -77,6 +79,7 @@ export const AppSettingsKeys: AppSettingsKeySet = {
   SENSOR_ACCURATE_LOCATION: 'sensor_accurate_location_enabled',
   SENSOR_DIRECT_ENABLED_JSON: 'sensor_direct_enabled_json',
   HEALTH_AUTHORIZATION_CHECKED_AT: 'health_authorization_checked_at',
+  HEALTH_DATA_NOTICE_ACCEPTED: 'health_data_notice_accepted',
   HEALTH_LAST_ERROR: 'health_last_error',
   HEALTH_LAST_SYNC_AT: 'health_last_sync_at',
   LOCATION_HISTORY_JSON: 'location_history_json',
@@ -96,6 +99,7 @@ export const AppSettingsKeys: AppSettingsKeySet = {
   APP_THEME: 'app_theme',
   SERVICE_CARD_UPDATE_FREQUENCY: 'service_card_update_frequency',
   ASSIST_WAKE_DETECTION_ENABLED: 'assist_wake_detection_enabled',
+  ASSIST_WAKE_DETECTION_USER_SET: 'assist_wake_detection_user_set',
   ASSIST_WAKE_WORD: 'assist_wake_word',
   ASSIST_PROBABILITY_CUTOFF: 'assist_probability_cutoff',
   GESTURE_SWIPE_LEFT_TWO: 'gesture_swipe_left_two',
@@ -148,6 +152,7 @@ export const AppSettingsScopedKeys: string[] = [
   AppSettingsKeys.APP_THEME,
   AppSettingsKeys.SERVICE_CARD_UPDATE_FREQUENCY,
   AppSettingsKeys.ASSIST_WAKE_DETECTION_ENABLED,
+  AppSettingsKeys.ASSIST_WAKE_DETECTION_USER_SET,
   AppSettingsKeys.ASSIST_WAKE_WORD,
   AppSettingsKeys.ASSIST_PROBABILITY_CUTOFF,
   AppSettingsKeys.GESTURE_SWIPE_LEFT_TWO,

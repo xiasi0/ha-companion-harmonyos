@@ -7,6 +7,8 @@ export class CardType {
   static readonly LIGHT: string = 'light';
   static readonly MEDIA: string = 'media';
   static readonly SCENE: string = 'scene';
+  static readonly CAMERA: string = 'camera';
+  static readonly CLIMATE: string = 'climate';
 }
 
 export class CardTargetType {

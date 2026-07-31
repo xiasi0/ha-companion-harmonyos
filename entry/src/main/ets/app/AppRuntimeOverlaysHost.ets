@@ -21,6 +21,7 @@ const DEFAULT_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   baseUrl: '',
   accessToken: '',
   refreshToken: '',
+  assistOverlayVisible: false,
   assistStartListeningSignal: 0,
   assistStartListeningRequested: false,
   profile: new DefaultDeviceProfileInfo(),
@@ -36,11 +37,16 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onBackToNativeTarget: () => {},
   onSwipeBack: () => {},
   onCloseAssist: () => {},
+  onAssistAudioCaptureStart: (): Promise<void> => Promise.resolve(),
+  onAssistSpeechComplete: () => {},
+  onAssistActivity: () => {},
+  onAssistBusy: () => {},
   onSensorHelp: () => {},
   onSensorSearch: () => {},
   onSensorFilter: () => {},
   onToggleSensor: (_id: string, _enabled: boolean): void => {},
   onOpenHealthSensors: (_onAuthorized: () => void): void => {},
+  onRequestHealthAuthorization: () => {},
   onSelectSensorFrequency: () => {}
 };
 
@@ -48,20 +54,25 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
 export struct AppRuntimeOverlaysHost {
   @Prop snapshot: AppRuntimeOverlaySnapshot = DEFAULT_OVERLAY_SNAPSHOT;
   @Prop route: number = AppRoute.DASHBOARD;
+  @Prop routeOverlaysEnabled: boolean = true;
   actions: AppRuntimeOverlayActions = DEFAULT_OVERLAY_ACTIONS;
 
   build() {
     if (this.shouldRenderOverlay()) {
       Stack() {
-        if (this.snapshot.route === AppRoute.ASSIST_CONVERSATION) {
+        if (this.snapshot.assistOverlayVisible) {
           Column() {
             AssistRuntimeHost({
-              route: this.snapshot.route,
+              route: AppRoute.ASSIST_CONVERSATION,
               baseUrl: this.snapshot.baseUrl,
               accessToken: this.snapshot.accessToken,
               startListeningSignal: this.snapshot.assistStartListeningSignal,
               startListeningRequested: this.snapshot.assistStartListeningRequested,
-              onClose: this.actions.onCloseAssist
+              onClose: this.actions.onCloseAssist,
+              onAudioCaptureStart: this.actions.onAssistAudioCaptureStart,
+              onSpeechComplete: this.actions.onAssistSpeechComplete,
+              onActivity: this.actions.onAssistActivity,
+              onBusy: this.actions.onAssistBusy
             })
           }
           .width('100%')
@@ -96,6 +107,7 @@ export struct AppRuntimeOverlaysHost {
               onOpenHealthSensors: (): void => {
                 this.actions.onOpenHealthSensors((): void => this.actions.onRoute(AppRoute.HEALTH_SENSOR_SETTINGS));
               },
+              onRequestHealthAuthorization: this.actions.onRequestHealthAuthorization,
               onSelectFrequency: this.actions.onSelectSensorFrequency,
               onSwipeBack: this.sensorOverlayBackAction()
             })
@@ -111,9 +123,11 @@ export struct AppRuntimeOverlaysHost {
   }
 
   private shouldRenderOverlay(): boolean {
-    return this.snapshot.route === AppRoute.ASSIST_CONVERSATION ||
-      this.isNativeSettingsRoute() ||
-      this.isSensorOverlayRoute();
+    return (this.snapshot.assistOverlayVisible || this.snapshot.route === AppRoute.ASSIST_CONVERSATION) ||
+      (this.routeOverlaysEnabled && (
+        this.isNativeSettingsRoute() ||
+        this.isSensorOverlayRoute()
+      ));
   }
 
   private isNativeSettingsRoute(): boolean {

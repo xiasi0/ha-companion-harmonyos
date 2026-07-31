@@ -9,6 +9,7 @@ const TAG = 'HALongRunningTask';
 type LongRunningRecoveryHandler = (context: common.UIAbilityContext) => void;
 
 export class LongRunningTaskService {
+  private static readonly AUDIO_RECORDING_MODE: string = 'audioRecording';
   private static readonly DATA_TRANSFER_MODE: string = 'dataTransfer';
   private static readonly LOCATION_MODE: string = 'location';
   private static running = false;
@@ -31,6 +32,14 @@ export class LongRunningTaskService {
 
   static async ensureLocationActive(context: common.UIAbilityContext): Promise<void> {
     await LongRunningTaskService.ensureMode(context, LongRunningTaskService.LOCATION_MODE);
+  }
+
+  static async ensureAudioRecordingActive(context: common.UIAbilityContext): Promise<void> {
+    await LongRunningTaskService.ensureMode(context, LongRunningTaskService.AUDIO_RECORDING_MODE);
+  }
+
+  static async stopAudioRecording(context: common.UIAbilityContext): Promise<void> {
+    await LongRunningTaskService.stopMode(context, LongRunningTaskService.AUDIO_RECORDING_MODE);
   }
 
   static async stopLocation(context: common.UIAbilityContext): Promise<void> {
@@ -76,7 +85,7 @@ export class LongRunningTaskService {
     LongRunningTaskService.context = context;
     await LongRunningTaskService.stopNative(context);
     LongRunningTaskService.clearState();
-    await LongRunningTaskService.start(context);
+    await LongRunningTaskService.startInternal(context);
   }
 
   static async stop(context: common.UIAbilityContext): Promise<void> {
@@ -222,7 +231,7 @@ export class LongRunningTaskService {
     LongRunningTaskService.recovering = true;
     setTimeout((): void => {
       LongRunningTaskService.recovering = false;
-      LongRunningTaskService.start(context)
+      LongRunningTaskService.startInternal(context)
         .then((): void => {
           if (LongRunningTaskService.recoveryHandler) {
             LongRunningTaskService.recoveryHandler(context);

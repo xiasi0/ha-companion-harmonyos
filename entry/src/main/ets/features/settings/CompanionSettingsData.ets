@@ -11,6 +11,11 @@ export interface SettingChoiceGroup {
   options: SettingChoiceOption[];
 }
 
+export interface AssistWakeWordModelOption {
+  name: string;
+  version: string;
+}
+
 export interface GestureSettingItem {
   key: string;
   title: string;
@@ -98,12 +103,19 @@ export class CompanionSettingsData {
     return groups;
   }
 
-  static assistWakeWordOptions(): SettingChoiceGroup[] {
-    const options: SettingChoiceOption[] = [
-      { value: 'wake_word_1', title: Localization.t('assist_wake_word_1'), summary: '' },
-      { value: 'wake_word_2', title: Localization.t('assist_wake_word_2'), summary: '' },
-      { value: 'wake_word_3', title: Localization.t('assist_wake_word_3'), summary: '' }
-    ];
+  static assistWakeWordOptions(modelsJson: string = '[]'): SettingChoiceGroup[] {
+    const models = CompanionSettingsData.assistWakeWordModels(modelsJson);
+    const options: SettingChoiceOption[] = models.length > 0
+      ? models.map((model: AssistWakeWordModelOption, index: number): SettingChoiceOption => {
+        return {
+          value: `wake_word_${index + 1}`,
+          title: model.name,
+          summary: model.version.length > 0 ? `v${model.version}` : ''
+        };
+      })
+      : [
+        { value: 'wake_word_1', title: Localization.t('assist_wake_word_default'), summary: Localization.t('assist_wake_word_models_loading') }
+      ];
     const groups: SettingChoiceGroup[] = [{ title: Localization.t('assist_wake_word'), options }];
     return groups;
   }
@@ -253,25 +265,67 @@ export class CompanionSettingsData {
     return Localization.t('service_card_update_frequency_default');
   }
 
-  static assistWakeWordSummary(value: string): string {
-    if (value === 'wake_word_2') {
-      return Localization.t('assist_wake_word_2');
+  static assistWakeWordSummary(value: string, modelsJson: string = '[]'): string {
+    const models = CompanionSettingsData.assistWakeWordModels(modelsJson);
+    const selected = CompanionSettingsData.assistWakeWordModel(value, models);
+    if (selected) {
+      return selected.name;
     }
-    if (value === 'wake_word_3') {
-      return Localization.t('assist_wake_word_3');
-    }
-    return Localization.t('assist_wake_word_1');
+    return Localization.t('assist_wake_word_default');
   }
 
-  static assistSummary(wakeDetectionEnabled: boolean, wakeWord: string): string {
-    if (!wakeDetectionEnabled) {
-      return Localization.t('assist_wake_word_disabled');
-    }
-    return CompanionSettingsData.assistWakeWordSummary(wakeWord);
+  static assistSummary(
+    wakeDetectionEnabled: boolean
+  ): string {
+    return wakeDetectionEnabled ? Localization.t('assist_voice_enabled') : Localization.t('assist_voice_disabled');
   }
 
   static assistProbabilityCutoffSummary(value: string): string {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : Localization.t('common_not_set');
+  }
+
+  private static assistWakeWordModels(modelsJson: string): AssistWakeWordModelOption[] {
+    try {
+      const raw = JSON.parse(modelsJson) as Object[];
+      if (!Array.isArray(raw)) {
+        return [];
+      }
+      const models: AssistWakeWordModelOption[] = [];
+      for (let i = 0; i < raw.length; i += 1) {
+        const item = raw[i] as Record<string, Object | string | number | boolean | null>;
+        const name = item['name'];
+        if (typeof name !== 'string' || name.trim().length === 0) {
+          continue;
+        }
+        const version = item['version'];
+        models.push({
+          name: name.trim(),
+          version: typeof version === 'string' ? version.trim() : ''
+        });
+      }
+      return models;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  private static assistWakeWordModel(value: string, models: AssistWakeWordModelOption[]): AssistWakeWordModelOption | undefined {
+    if (models.length === 0) {
+      return undefined;
+    }
+    const exact = models.find((model: AssistWakeWordModelOption): boolean => model.name === value);
+    if (exact) {
+      return exact;
+    }
+    const match = /^wake_word_(\d+)$/.exec(value);
+    if (!match) {
+      return undefined;
+    }
+    const index = Number.parseInt(match[1], 10) - 1;
+    if (index >= 0 && index < models.length) {
+      return models[index];
+    }
+    return models[0];
   }
 }

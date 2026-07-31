@@ -27,7 +27,8 @@ export class CardMediaCacheStore {
     serverInstanceId: string,
     cardType: string,
     remoteUrl: string,
-    accessToken: string = ''
+    accessToken: string = '',
+    forceReload: boolean = false
   ): Promise<CardCachedAsset> {
     await CardMediaCacheStore.ensureSchema(context);
     const normalizedUrl = remoteUrl.trim();
@@ -37,7 +38,7 @@ export class CardMediaCacheStore {
     }
     const cacheKey = CardMediaCacheStore.cacheKey(formId, serverInstanceId, normalizedUrl);
     const cached = await CardMediaCacheStore.loadCachedAsset(context, cacheKey, normalizedUrl);
-    if (cached.localUrl.length > 0) {
+    if (!forceReload && cached.localUrl.length > 0) {
       return cached;
     }
     let header: Record<string, string> | undefined = undefined;
@@ -45,9 +46,10 @@ export class CardMediaCacheStore {
       header = {};
       header['Authorization'] = `Bearer ${accessToken.trim()}`;
     }
-    const localUrl = await CoverImageService.cacheCover(context, normalizedUrl, cacheKey, header);
+    const downloadKey = forceReload ? `${cacheKey}_${Date.now()}` : cacheKey;
+    const localUrl = await CoverImageService.cacheCover(context, normalizedUrl, downloadKey, header);
     if (localUrl.length === 0) {
-      return new CardCachedAssetPayload();
+      return cached;
     }
     const palette = await CoverImageService.extractPalette(localUrl);
     await CardMediaCacheStore.clearByForm(context, formId);

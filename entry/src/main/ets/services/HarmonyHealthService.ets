@@ -5,9 +5,22 @@ import { isHealthSensorId } from './HarmonyHealthSensorModels';
 
 const HEALTH_ICON = 'mdi:heart-pulse';
 const HEALTH_TEXT_UNAVAILABLE = 'unavailable';
+const HEALTH_TEXT_UNAUTHORIZED = 'unauthorized';
+const HEALTH_CALORIES_PER_KILOCALORIE = 1000;
+const HEALTH_MILLISECONDS_PER_MINUTE = 60 * 1000;
+const HEALTH_MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+const HEALTH_TODAY_WORKOUT_READ_COUNT = 50;
+const HEALTH_RECENT_WORKOUT_READ_COUNT = 20;
+const HEALTH_RECENT_WORKOUT_LOOKBACK_DAYS = 7;
 
 export type HarmonyHealthAuthorizationState =
-  'authorized' | 'unauthorized' | 'not_logged_in' | 'network_error' | 'privacy_not_agreed' | 'unavailable';
+  'authorized' | 'partial_authorized' | 'unauthorized' | 'not_logged_in' | 'network_error' | 'privacy_not_agreed' | 'unavailable';
+
+interface HarmonyHealthAuthorizationScope {
+  state: HarmonyHealthAuthorizationState;
+  dailyActivityAuthorized: boolean;
+  workoutsAuthorized: boolean;
+}
 
 export interface HarmonyHealthDailyActivity {
   steps: number | null;
@@ -25,6 +38,8 @@ export interface HarmonyHealthWorkoutSummary {
 
 export interface HarmonyHealthSnapshot {
   authorizationState: HarmonyHealthAuthorizationState;
+  dailyActivityAuthorized: boolean;
+  workoutsAuthorized: boolean;
   dailyActivity: HarmonyHealthDailyActivity;
   workouts: HarmonyHealthWorkoutSummary;
   errorSummary: string;
@@ -38,25 +53,12 @@ export class HarmonyHealthService {
     return isHealthSensorId(sensorId);
   }
 
-  async ensureAuthorized(context: common.UIAbilityContext): Promise<HarmonyHealthAuthorizationState> {
-    await this.init(context);
-    const current = await this.checkAuthorization();
-    if (current === 'authorized') {
-      return current;
-    }
-    if (current !== 'unauthorized') {
-      return current;
-    }
-    return this.requestAuthorization(context);
-  }
-
   async checkAuthorization(context?: common.Context): Promise<HarmonyHealthAuthorizationState> {
     if (context) {
       await this.init(context);
     }
     try {
-      const response = await healthStore.getAuthorizations(HarmonyHealthService.authorizationRequest());
-      return HarmonyHealthService.hasRequiredReadTypes(response.readDataTypes) ? 'authorized' : 'unauthorized';
+      return (await this.authorizationScope()).state;
     } catch (error) {
       return HarmonyHealthService.authorizationStateFromError(error);
     }
@@ -66,9 +68,16 @@ export class HarmonyHealthService {
     await this.init(context);
     try {
       const response = await healthStore.requestAuthorizations(context, HarmonyHealthService.authorizationRequest());
-      if (HarmonyHealthService.hasRequiredReadTypes(response.readDataTypes)) {
-        return 'authorized';
-      }
+      return HarmonyHealthService.authorizationScopeFromTypes(response.readDataTypes).state;
+    } catch (error) {
+      return HarmonyHealthService.authorizationStateFromError(error);
+    }
+  }
+
+  async cancelAuthorization(context: common.Context): Promise<HarmonyHealthAuthorizationState> {
+    await this.init(context);
+    try {
+      await healthStore.cancelAuthorizations();
       return this.checkAuthorization();
     } catch (error) {
       return HarmonyHealthService.authorizationStateFromError(error);
@@ -78,14 +87,21 @@ export class HarmonyHealthService {
   async readSnapshot(context: common.Context): Promise<HarmonyHealthSnapshot> {
     const updatedAt = Date.now();
     try {
-      const state = await this.checkAuthorization(context);
-      if (state !== 'authorized') {
-        return HarmonyHealthService.emptySnapshot(state, '', updatedAt);
+      await this.init(context);
+      const scope = await this.authorizationScope();
+      if (!scope.dailyActivityAuthorized && !scope.workoutsAuthorized) {
+        return HarmonyHealthService.emptySnapshot(scope, '', updatedAt);
       }
-      const dailyActivity = await this.readDailyActivity(new Date());
-      const workouts = await this.readWorkouts(updatedAt);
+      const dailyActivity = scope.dailyActivityAuthorized
+        ? await this.readDailyActivity(new Date())
+        : HarmonyHealthService.emptyDailyActivity();
+      const workouts = scope.workoutsAuthorized
+        ? await this.readWorkouts(updatedAt)
+        : HarmonyHealthService.emptyWorkoutSummary();
       return {
-        authorizationState: state,
+        authorizationState: scope.state,
+        dailyActivityAuthorized: scope.dailyActivityAuthorized,
+        workoutsAuthorized: scope.workoutsAuthorized,
         dailyActivity,
         workouts,
         errorSummary: '',
@@ -93,7 +109,7 @@ export class HarmonyHealthService {
       };
     } catch (error) {
       return HarmonyHealthService.emptySnapshot(
-        HarmonyHealthService.authorizationStateFromError(error),
+        HarmonyHealthService.emptyAuthorizationScope(HarmonyHealthService.authorizationStateFromError(error)),
         HarmonyHealthService.errorSummary(error),
         updatedAt
       );
@@ -104,6 +120,8 @@ export class HarmonyHealthService {
     const enabled = (id: string): boolean => HarmonyHealthService.contains(enabledSensorIds, id);
     const attrs: SensorAttributes = {
       health_authorization: snapshot.authorizationState,
+      health_daily_activity_authorized: snapshot.dailyActivityAuthorized,
+      health_workouts_authorized: snapshot.workoutsAuthorized,
       health_error: snapshot.errorSummary,
       sensor_updated_at: snapshot.updatedAt,
       health_last_workout_started_at: snapshot.workouts.lastStartedAt,
@@ -117,7 +135,7 @@ export class HarmonyHealthService {
         name: 'Health steps today',
         type: 'sensor',
         icon: 'mdi:walk',
-        state: HarmonyHealthService.numberState(snapshot.dailyActivity.steps),
+        state: HarmonyHealthService.categoryNumberState(snapshot.dailyActivity.steps, snapshot.dailyActivityAuthorized),
         attributes: attrs,
         enabled: enabled('health_steps_today'),
         unitOfMeasurement: 'steps',
@@ -128,7 +146,7 @@ export class HarmonyHealthService {
         name: 'Health calories today',
         type: 'sensor',
         icon: HEALTH_ICON,
-        state: HarmonyHealthService.numberState(snapshot.dailyActivity.calories),
+        state: HarmonyHealthService.categoryNumberState(snapshot.dailyActivity.calories, snapshot.dailyActivityAuthorized),
         attributes: attrs,
         enabled: enabled('health_calories_today'),
         unitOfMeasurement: 'kcal',
@@ -139,7 +157,7 @@ export class HarmonyHealthService {
         name: 'Health distance today',
         type: 'sensor',
         icon: 'mdi:map-marker-distance',
-        state: HarmonyHealthService.numberState(snapshot.dailyActivity.distance),
+        state: HarmonyHealthService.categoryNumberState(snapshot.dailyActivity.distance, snapshot.dailyActivityAuthorized),
         attributes: attrs,
         enabled: enabled('health_distance_today'),
         unitOfMeasurement: 'm',
@@ -150,7 +168,7 @@ export class HarmonyHealthService {
         name: 'Health workouts today',
         type: 'sensor',
         icon: 'mdi:run',
-        state: snapshot.workouts.todayCount,
+        state: snapshot.workoutsAuthorized ? snapshot.workouts.todayCount : HEALTH_TEXT_UNAUTHORIZED,
         attributes: attrs,
         enabled: enabled('health_workout_count_today'),
         stateClass: 'measurement'
@@ -160,7 +178,9 @@ export class HarmonyHealthService {
         name: 'Health last workout',
         type: 'sensor',
         icon: 'mdi:calendar-clock',
-        state: HarmonyHealthService.timeState(snapshot.workouts.lastStartedAt),
+        state: snapshot.workoutsAuthorized
+          ? HarmonyHealthService.timeState(snapshot.workouts.lastStartedAt)
+          : HEALTH_TEXT_UNAUTHORIZED,
         attributes: attrs,
         enabled: enabled('health_last_workout')
       },
@@ -169,7 +189,7 @@ export class HarmonyHealthService {
         name: 'Health last workout duration',
         type: 'sensor',
         icon: 'mdi:timer-outline',
-        state: HarmonyHealthService.numberState(snapshot.workouts.lastDuration),
+        state: HarmonyHealthService.categoryNumberState(snapshot.workouts.lastDuration, snapshot.workoutsAuthorized),
         attributes: attrs,
         enabled: enabled('health_last_workout_duration'),
         unitOfMeasurement: 'min',
@@ -180,7 +200,7 @@ export class HarmonyHealthService {
         name: 'Health last workout calories',
         type: 'sensor',
         icon: HEALTH_ICON,
-        state: HarmonyHealthService.numberState(snapshot.workouts.lastCalories),
+        state: HarmonyHealthService.categoryNumberState(snapshot.workouts.lastCalories, snapshot.workoutsAuthorized),
         attributes: attrs,
         enabled: enabled('health_last_workout_calories'),
         unitOfMeasurement: 'kcal',
@@ -191,7 +211,7 @@ export class HarmonyHealthService {
         name: 'Health last workout distance',
         type: 'sensor',
         icon: 'mdi:map-marker-distance',
-        state: HarmonyHealthService.numberState(snapshot.workouts.lastDistance),
+        state: HarmonyHealthService.categoryNumberState(snapshot.workouts.lastDistance, snapshot.workoutsAuthorized),
         attributes: attrs,
         enabled: enabled('health_last_workout_distance'),
         unitOfMeasurement: 'm',
@@ -245,13 +265,21 @@ export class HarmonyHealthService {
   }
 
   private async readWorkouts(endTime: number): Promise<HarmonyHealthWorkoutSummary> {
-    const todayRows = await this.readWorkoutRows(HarmonyHealthService.startOfDay(endTime), endTime, 50);
-    const recentRows = await this.readWorkoutRows(endTime - 7 * 24 * 60 * 60 * 1000, endTime, 20);
+    const todayRows = await this.readWorkoutRows(
+      HarmonyHealthService.startOfDay(endTime),
+      endTime,
+      HEALTH_TODAY_WORKOUT_READ_COUNT
+    );
+    const recentRows = await this.readWorkoutRows(
+      endTime - HEALTH_RECENT_WORKOUT_LOOKBACK_DAYS * HEALTH_MILLISECONDS_PER_DAY,
+      endTime,
+      HEALTH_RECENT_WORKOUT_READ_COUNT
+    );
     const latest = recentRows.length > 0 ? recentRows[0] : undefined;
     return {
       todayCount: todayRows.length,
       lastStartedAt: latest ? latest.startTime : null,
-      lastDuration: latest && typeof latest.duration === 'number' ? Math.round(latest.duration / 60000) : null,
+      lastDuration: latest && typeof latest.duration === 'number' ? Math.round(latest.duration / HEALTH_MILLISECONDS_PER_MINUTE) : null,
       lastCalories: latest ? HarmonyHealthService.caloriesToKilocalories(
         HarmonyHealthService.summaryNumber(latest.summaries, 'calorie', 'totalCalories')
       ) : null,
@@ -284,11 +312,27 @@ export class HarmonyHealthService {
     };
   }
 
-  private static hasRequiredReadTypes(granted: healthStore.DataType[]): boolean {
+  private async authorizationScope(): Promise<HarmonyHealthAuthorizationScope> {
+    const response = await healthStore.getAuthorizations(HarmonyHealthService.authorizationRequest());
+    return HarmonyHealthService.authorizationScopeFromTypes(response.readDataTypes);
+  }
+
+  private static authorizationScopeFromTypes(granted: healthStore.DataType[]): HarmonyHealthAuthorizationScope {
     const dailyId = healthStore.samplePointHelper.dailyActivities.DATA_TYPE.id;
     const exerciseId = healthStore.exerciseSequenceHelper.DATA_TYPE.id;
-    return HarmonyHealthService.hasDataTypeId(granted, dailyId) &&
-      HarmonyHealthService.hasDataTypeId(granted, exerciseId);
+    const dailyActivityAuthorized = HarmonyHealthService.hasDataTypeId(granted, dailyId);
+    const workoutsAuthorized = HarmonyHealthService.hasDataTypeId(granted, exerciseId);
+    let state: HarmonyHealthAuthorizationState = 'unauthorized';
+    if (dailyActivityAuthorized && workoutsAuthorized) {
+      state = 'authorized';
+    } else if (dailyActivityAuthorized || workoutsAuthorized) {
+      state = 'partial_authorized';
+    }
+    return {
+      state,
+      dailyActivityAuthorized,
+      workoutsAuthorized
+    };
   }
 
   private static hasDataTypeId(types: healthStore.DataType[], id: number): boolean {
@@ -328,11 +372,15 @@ export class HarmonyHealthService {
   }
 
   private static caloriesToKilocalories(value: number | null): number | null {
-    return typeof value === 'number' && Number.isFinite(value) ? Math.round(value / 1000) : null;
+    return typeof value === 'number' && Number.isFinite(value) ? Math.round(value / HEALTH_CALORIES_PER_KILOCALORIE) : null;
   }
 
   private static numberState(value: number | null): number | string {
     return typeof value === 'number' ? value : HEALTH_TEXT_UNAVAILABLE;
+  }
+
+  private static categoryNumberState(value: number | null, authorized: boolean): number | string {
+    return authorized ? HarmonyHealthService.numberState(value) : HEALTH_TEXT_UNAUTHORIZED;
   }
 
   private static timeState(value: number | null): string {
@@ -349,26 +397,44 @@ export class HarmonyHealthService {
   }
 
   private static emptySnapshot(
-    state: HarmonyHealthAuthorizationState,
+    scope: HarmonyHealthAuthorizationScope,
     errorSummary: string,
     updatedAt: number
   ): HarmonyHealthSnapshot {
     return {
-      authorizationState: state,
-      dailyActivity: {
-        steps: null,
-        calories: null,
-        distance: null
-      },
-      workouts: {
-        todayCount: 0,
-        lastStartedAt: null,
-        lastDuration: null,
-        lastCalories: null,
-        lastDistance: null
-      },
+      authorizationState: scope.state,
+      dailyActivityAuthorized: scope.dailyActivityAuthorized,
+      workoutsAuthorized: scope.workoutsAuthorized,
+      dailyActivity: HarmonyHealthService.emptyDailyActivity(),
+      workouts: HarmonyHealthService.emptyWorkoutSummary(),
       errorSummary,
       updatedAt
+    };
+  }
+
+  private static emptyAuthorizationScope(state: HarmonyHealthAuthorizationState): HarmonyHealthAuthorizationScope {
+    return {
+      state,
+      dailyActivityAuthorized: false,
+      workoutsAuthorized: false
+    };
+  }
+
+  private static emptyDailyActivity(): HarmonyHealthDailyActivity {
+    return {
+      steps: null,
+      calories: null,
+      distance: null
+    };
+  }
+
+  private static emptyWorkoutSummary(): HarmonyHealthWorkoutSummary {
+    return {
+      todayCount: 0,
+      lastStartedAt: null,
+      lastDuration: null,
+      lastCalories: null,
+      lastDistance: null
     };
   }
 
