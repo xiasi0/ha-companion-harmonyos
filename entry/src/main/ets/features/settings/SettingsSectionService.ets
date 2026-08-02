@@ -97,7 +97,8 @@ export class SettingsSectionService {
       SettingsSectionService.policySection(input.profile, Localization.t('settings_section_app_info'), [
         SettingsSectionService.capabilityItem(detailSettingsItem('info', Localization.t('settings_app_version'), AppVersionService.versionLabel(), Localization.t('common_available'), Localization.t('settings_app_version_body')), SettingsCapability.APP_INFO),
         SettingsSectionService.capabilityItem(SettingsSectionService.detailActionItem('license', Localization.t('settings_open_source_licenses'), Localization.t('settings_open_source_licenses_summary'), '', '', 'open_source_licenses'), SettingsCapability.APP_INFO),
-        SettingsSectionService.capabilityItem(SettingsSectionService.detailActionItem('privacy', Localization.t('settings_privacy_policy'), Localization.t('settings_privacy_policy_summary'), '', '', 'privacy_policy'), SettingsCapability.APP_INFO)
+        SettingsSectionService.capabilityItem(SettingsSectionService.detailActionItem('privacy', Localization.t('settings_privacy_policy'), Localization.t('settings_privacy_policy_summary'), '', '', 'privacy_policy'), SettingsCapability.APP_INFO),
+        SettingsSectionService.capabilityItem(actionSettingsItem('question', Localization.t('settings_report_issue'), Localization.t('settings_report_issue_summary'), '', 'report_issue'), SettingsCapability.APP_INFO)
       ])
     ];
   }

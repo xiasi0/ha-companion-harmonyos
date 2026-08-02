@@ -208,6 +208,8 @@ export const EN_US: Map<string, string> = new Map<string, string>([
   ['license_harmony_sdk', 'The app is built with HarmonyOS SDK and system capabilities. Related terms follow the agreements bundled with the Huawei developer toolchain.'],
   ['settings_privacy_policy', 'Privacy policy'],
   ['settings_privacy_policy_summary', 'View the Home Assistant privacy policy and Huawei privacy statement'],
+  ['settings_report_issue', 'Report an issue'],
+  ['settings_report_issue_summary', 'Open GitHub to report an issue.'],
   ['privacy_home_assistant_statement', 'Home Assistant privacy statement'],
   ['privacy_huawei_statement', 'Huawei privacy statement'],
   ['capability_companion_layout', 'This device form factor needs separate information architecture, so the companion app entry is kept for now.'],
