@@ -2412,6 +2412,16 @@ export struct AppRuntimeHost {
   openAssistSettings(): void { this.step = 13; }
 
   handleSettingsAction(actionId: string): void {
+    if (actionId === 'report_issue') {
+      const url = 'https://github.com/xiasi0/ha-companion-harmonyos/issues';
+      (this.context() as common.UIAbilityContext).startAbility({
+        action: 'ohos.want.action.viewData',
+        uri: url
+      }).catch((): void => {
+        this.message = url;
+      });
+      return;
+    }
     if (actionId.startsWith('open_server_detail:')) {
       this.openServerSettingsFor(actionId.substring('open_server_detail:'.length));
       return;

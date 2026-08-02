@@ -261,6 +261,10 @@ export function openSettingsNavigationItem(
   actions: SettingsRuntimeActions,
   onSynced?: (target: SettingsNavSyncTarget) => void
 ): void {
+  if (item.actionId === 'report_issue') {
+    actions.onAction(item.actionId);
+    return;
+  }
   actions.onOpen(item);
   if (item.type === SettingsItemType.SWITCH ||
     usesServerEditDialog(item.actionId) ||

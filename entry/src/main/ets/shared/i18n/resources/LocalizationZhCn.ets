@@ -208,6 +208,8 @@ export const ZH_CN: Map<string, string> = new Map<string, string>([
   ['license_harmony_sdk', '应用使用 HarmonyOS SDK 和系统能力构建，相关许可和条款以华为开发者工具链随附协议为准。'],
   ['settings_privacy_policy', '隐私政策'],
   ['settings_privacy_policy_summary', '查看 Home Assistant 隐私政策和华为隐私声明'],
+  ['settings_report_issue', '问题报告'],
+  ['settings_report_issue_summary', '前往 GitHub 提交问题报告。'],
   ['privacy_home_assistant_statement', 'Home Assistant 隐私声明'],
   ['privacy_huawei_statement', '华为隐私声明'],
   ['capability_companion_layout', '该设备形态需要单独的信息架构，当前保留伴侣应用入口。'],
