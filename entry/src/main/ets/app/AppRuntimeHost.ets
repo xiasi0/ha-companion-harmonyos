@@ -2,6 +2,8 @@
 // It coordinates navigation, server selection, overlays, WebView state, and feature services.
 import common from '@ohos.app.ability.common';
 import web_webview from '@ohos.web.webview';
+import { commentManager } from '@kit.AppGalleryKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { HaServerItem } from '../models/HaServerItem';
 import { UrlGuardResult } from '../models/UrlGuardResult';
@@ -40,6 +42,7 @@ import { ManagedServer, ServerManager } from '../services/ServerManager';
 import { ServerInstanceStore, ServerRuntimeState } from '../services/ServerInstanceStore';
 import { ServerAuthRepository, ServerAuthSession } from '../services/ServerAuthRepository';
 import { AppSettingsStore } from '../services/AppSettingsStore';
+import { AppReviewPromptService } from '../services/AppReviewPromptService';
 import { ExternalBusService } from '../services/ExternalBusService';
 import { HaConnectionPolicyService } from '../services/HaConnectionPolicyService';
 import { SystemEventService } from '../services/SystemEventService';
@@ -86,6 +89,7 @@ AppStorageDefaults.register();
 const DOMAIN = 0x0000;
 const TAG = 'HACompanion';
 const DASHBOARD_CONNECTION_WAIT_MS = 10000;
+const APP_REVIEW_PROMPT_DELAY_MS = 3000;
 
 function initialRuntimeRoute(): AppRoute {
   const baseUrl = AppStorage.get<string>('haBaseUrl') ?? '';
@@ -245,6 +249,8 @@ export struct AppRuntimeHost {
   private applyingSensorFlags: boolean = false;
   private lastSensorPreferenceKey: string = '';
   private dashboardConnectionWaitToken: number = 0;
+  private appReviewPromptToken: number = 0;
+  private appReviewPromptInFlight: boolean = false;
   private dashboardFrontendConnected: boolean = false;
   @State viewportWidth: number = AppDeviceRuntimeService.defaultViewportWidth();
   @State viewportHeight: number = 0;
@@ -720,12 +726,14 @@ export struct AppRuntimeHost {
       this.dashboardFrontendConnected = true;
       this.dashboardConnectionWaitToken += 1;
       this.dashboardConnectionErrorVisible = false;
+      this.scheduleAppReviewPrompt();
       return;
     }
     if (this.dashboardInsecureBlocked || this.step !== AppRoute.DASHBOARD) {
       return;
     }
     this.dashboardFrontendConnected = false;
+    this.cancelAppReviewPrompt();
     this.scheduleDashboardConnectionWait();
   }
 
@@ -780,6 +788,59 @@ export struct AppRuntimeHost {
 
   private cancelDashboardConnectionWait(): void {
     this.dashboardConnectionWaitToken += 1;
+  }
+
+  private scheduleAppReviewPrompt(): void {
+    AppReviewPromptService.isEligibleAfterDashboardConnection(this.context())
+      .then((eligible: boolean): void => {
+        if (!eligible || !this.canShowAppReviewPrompt()) {
+          return;
+        }
+        const token = this.appReviewPromptToken + 1;
+        this.appReviewPromptToken = token;
+        setTimeout((): void => {
+          if (this.appReviewPromptToken !== token || this.appReviewPromptInFlight || !this.canShowAppReviewPrompt()) {
+            return;
+          }
+          this.appReviewPromptInFlight = true;
+          this.showAppReviewPrompt();
+        }, APP_REVIEW_PROMPT_DELAY_MS);
+      });
+  }
+
+  private showAppReviewPrompt(): void {
+    try {
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      commentManager.showCommentDialog(context)
+        .then((): void => this.finishAppReviewPrompt())
+        .catch((error: BusinessError): void => this.finishAppReviewPrompt(error));
+    } catch (error) {
+      this.finishAppReviewPrompt(error as BusinessError);
+    }
+  }
+
+  private finishAppReviewPrompt(error?: BusinessError): void {
+    if (error && error.code !== 1021500007 && error.code !== 1021500008 && error.code !== 1021500009) {
+      this.appReviewPromptInFlight = false;
+      return;
+    }
+    AppReviewPromptService.markPromptHandled(this.context())
+      .then((): void => {
+        this.appReviewPromptInFlight = false;
+      });
+  }
+
+  private cancelAppReviewPrompt(): void {
+    this.appReviewPromptToken += 1;
+  }
+
+  private canShowAppReviewPrompt(): boolean {
+    return this.step === AppRoute.DASHBOARD &&
+      this.dashboardFrontendConnected &&
+      !this.dashboardInsecureBlocked &&
+      this.isAppActive() &&
+      !this.appLocked &&
+      !this.dashboardConnectionErrorVisible;
   }
 
   private isAppActive(): boolean {
@@ -1148,6 +1209,7 @@ export struct AppRuntimeHost {
       this.refreshCurrentLocationForDiagnostics('sensor_settings_opened');
     } else {
       this.dashboardConnectionWaitToken += 1;
+      this.cancelAppReviewPrompt();
       this.dashboardConnectionErrorVisible = false;
     }
   }
@@ -1346,6 +1408,7 @@ export struct AppRuntimeHost {
   private onAppBackgroundTick(): void {
     AppLifecycleRuntimeService.onBackground(this, AppRuntimeCallbackFactory.lifecycle(this));
     this.cancelDashboardConnectionWait();
+    this.cancelAppReviewPrompt();
   }
 
   private onAppConfigurationTick(): void { AppLifecycleRuntimeService.onConfiguration(this, AppRuntimeCallbackFactory.lifecycle(this)); }

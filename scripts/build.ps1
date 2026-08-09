@@ -21,7 +21,7 @@ $devecoHome = if ($env:DEVECO_STUDIO_HOME) { $env:DEVECO_STUDIO_HOME } else { 'D
 $hvigorw = if ($env:DEVECO_HVIGORW) { $env:DEVECO_HVIGORW } else { Join-Path $devecoHome 'tools\hvigor\bin\hvigorw.bat' }
 $devecoSdk = if ($env:DEVECO_SDK_HOME) { $env:DEVECO_SDK_HOME } else { Join-Path $devecoHome 'sdk' }
 $devecoJavaHome = if ($env:DEVECO_JAVA_HOME) { $env:DEVECO_JAVA_HOME } else { Join-Path $devecoHome 'jbr' }
-$targetSdkVersion = '6.1.0(23)'
+$targetSdkVersion = '6.1.1(24)'
 $compatibleSdkVersion = '6.1.0(23)'
 $profileSdkChanged = $false
 
