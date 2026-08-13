@@ -41,6 +41,10 @@
       "value": "Allows Home Assistant to keep background data in sync after persistent connection is enabled, for refreshing home screen cards."
     },
     {
+      "name": "nfc_permission_reason",
+      "value": "Used to read and write NFC tags, and trigger an event when a Home Assistant tag is scanned."
+    },
+    {
       "name": "light_card_display_name",
       "value": "Light Control"
     },

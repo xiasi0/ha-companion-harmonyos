@@ -11,6 +11,10 @@ export interface AppRuntimeOverlayState {
   assistOverlayVisible: boolean;
   assistStartListeningSignal: number;
   assistStartListeningRequested: boolean;
+  nfcOverlayVisible: boolean;
+  nfcCompleted: boolean;
+  nfcError: string;
+  nfcTick: number;
   sensorUpdateFrequency: string;
 }
 
@@ -24,6 +28,7 @@ export interface AppRuntimeOverlayTarget extends AppRuntimeOverlayState {
   healthAuthorizationState: string;
   handleBackNavigation(): boolean;
   closeAssistConversation(): void;
+  closeNfcOverlay(): void;
   stopAssistWakeWordRuntime(): Promise<void>;
   prepareAssistAudioCapture(): Promise<void>;
   markAssistOverlayActivity(): void;
@@ -46,6 +51,10 @@ export class AppRuntimeOverlayService {
       assistOverlayVisible: target.assistOverlayVisible,
       assistStartListeningSignal: target.assistStartListeningSignal,
       assistStartListeningRequested: target.assistStartListeningRequested,
+      nfcOverlayVisible: target.nfcOverlayVisible,
+      nfcCompleted: target.nfcCompleted,
+      nfcError: target.nfcError,
+      nfcTick: target.nfcTick,
       profile: profile,
       sensorGroups: target.overlaySensorGroups(),
       directSensorIds: target.overlayDirectSensorIds(),
@@ -68,6 +77,9 @@ export class AppRuntimeOverlayService {
       },
       onCloseAssist: (): void => {
         target.closeAssistConversation();
+      },
+      onCloseNfc: (): void => {
+        target.closeNfcOverlay();
       },
       onAssistAudioCaptureStart: (): Promise<void> => {
         return target.prepareAssistAudioCapture();

@@ -49,7 +49,8 @@ export class SettingsRouteService {
     return route === AppRoute.NOTIFICATION_SETTINGS ||
       route === AppRoute.SENSOR_SETTINGS ||
       route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
-      route === AppRoute.HEALTH_SENSOR_SETTINGS;
+      route === AppRoute.HEALTH_SENSOR_SETTINGS ||
+      route === AppRoute.NFC_TAG;
   }
 
   static companionChoiceKey(actionId: string): string {
@@ -83,6 +84,9 @@ export class SettingsRouteService {
     }
     if (actionId === 'open_notification_settings') {
       return AppRoute.NOTIFICATION_SETTINGS;
+    }
+    if (actionId === 'open_nfc_tags') {
+      return AppRoute.NFC_TAG;
     }
     return AppRoute.WELCOME;
   }

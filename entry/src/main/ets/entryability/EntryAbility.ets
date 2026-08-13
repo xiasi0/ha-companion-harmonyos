@@ -13,6 +13,7 @@ import { ServerManager } from '../services/ServerManager';
 import { CardEntityDetailLaunchService } from '../features/cards/CardEntityDetailLaunchService';
 import { PushKitPersistentMessageStore } from '../features/pushkit/PushKitPersistentMessageStore';
 import { AssistLaunchService } from '../features/assist/AssistLaunchService';
+import { NfcTagReaderService } from '../features/nfc/NfcTagReaderService';
 
 const DOMAIN = 0x0000;
 const TAG = 'HACompanion';
@@ -22,6 +23,8 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     AppStorageDefaults.register();
+    AppStorage.setOrCreate<boolean>('nfcReaderPending', false);
+    this.handleNfcTagWant(want);
     this.handleEntityDetailWant(want);
     this.handleAssistWant(want);
     LongRunningTaskService.setRecoveryHandler((context): void => {
@@ -40,6 +43,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+    this.handleNfcTagWant(want);
     this.handleEntityDetailWant(want);
     this.handleAssistWant(want);
   }
@@ -177,6 +181,10 @@ export default class EntryAbility extends UIAbility {
     }
     AssistLaunchService.publishPending(startListening);
     AppStorage.setOrCreate<number>('appForegroundTick', Date.now());
+  }
+
+  private handleNfcTagWant(want: Want): void {
+    NfcTagReaderService.handleWant(want, this.context);
   }
 
   private saveCurrentAppStorageIfRestored(): void {

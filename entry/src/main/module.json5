@@ -116,6 +116,16 @@
         "name": "ohos.permission.ACCESS_BIOMETRIC"
       },
       {
+        "name": "ohos.permission.NFC_TAG",
+        "reason": "$string:nfc_permission_reason",
+        "usedScene": {
+          "abilities": [
+            "EntryAbility"
+          ],
+          "when": "always"
+        }
+      },
+      {
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
         "reason": "$string:background_refresh_permission_reason",
         "usedScene": {
@@ -155,6 +165,16 @@
             ],
             "actions": [
               "ohos.want.action.home"
+            ]
+          },
+          {
+            "actions": [
+              "ohos.nfc.tag.action.TAG_FOUND"
+            ],
+            "uris": [
+              {
+                "type": "tag-tech/Ndef"
+              }
             ]
           }
         ]

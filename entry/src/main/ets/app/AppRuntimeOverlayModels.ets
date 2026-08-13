@@ -9,6 +9,10 @@ export interface AppRuntimeOverlaySnapshot {
   assistOverlayVisible: boolean;
   assistStartListeningSignal: number;
   assistStartListeningRequested: boolean;
+  nfcOverlayVisible: boolean;
+  nfcCompleted: boolean;
+  nfcError: string;
+  nfcTick: number;
   profile: DeviceProfileInfo;
   sensorGroups: SensorGroup[];
   directSensorIds: string[];
@@ -22,6 +26,7 @@ export interface AppRuntimeOverlayActions {
   onBackToNativeTarget: () => void;
   onSwipeBack: () => void;
   onCloseAssist: () => void;
+  onCloseNfc: () => void;
   onAssistAudioCaptureStart: () => Promise<void>;
   onAssistSpeechComplete: () => void;
   onAssistActivity: () => void;

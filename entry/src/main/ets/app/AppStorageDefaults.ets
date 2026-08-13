@@ -67,6 +67,10 @@ export class AppStorageDefaults {
     AppStorage.setOrCreate<string>('assistProbabilityCutoffStatusText', AppStorage.get<string>('assistProbabilityCutoffStatusText') ?? '');
     AppStorage.setOrCreate<boolean>('assistPendingStartListening', AppStorage.get<boolean>('assistPendingStartListening') ?? true);
     AppStorage.setOrCreate<number>('assistPendingLaunchTick', AppStorage.get<number>('assistPendingLaunchTick') ?? 0);
+    AppStorage.setOrCreate<boolean>('nfcReaderCompleted', AppStorage.get<boolean>('nfcReaderCompleted') ?? false);
+    AppStorage.setOrCreate<string>('nfcReaderError', AppStorage.get<string>('nfcReaderError') ?? '');
+    AppStorage.setOrCreate<number>('nfcReaderTick', AppStorage.get<number>('nfcReaderTick') ?? 0);
+    AppStorage.setOrCreate<boolean>('nfcReaderPending', AppStorage.get<boolean>('nfcReaderPending') ?? false);
     AppStorage.setOrCreate<boolean>('appResolvedDark', AppStorage.get<boolean>('appResolvedDark') ?? false);
     AppStorage.setOrCreate<number>('appConfigTick', AppStorage.get<number>('appConfigTick') ?? 0);
     AppStorage.setOrCreate<number>('notificationUnreadCount', AppStorage.get<number>('notificationUnreadCount') ?? 0);
