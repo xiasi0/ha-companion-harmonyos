@@ -12,6 +12,7 @@ import { SettingsRuntimeActions, SettingsRuntimeSnapshot } from './SettingsRunti
 import {
   CompanionNotificationHistoryBuilder,
   CompanionNotificationSettingsBuilder,
+  CompanionNfcSettingsBuilder,
   CompanionHealthSensorSettingsBuilder,
   CompanionSensorFrequencyBuilder,
   CompanionSensorSettingsBuilder,
@@ -21,6 +22,7 @@ import {
   SETTINGS_NAV_HEALTH_SENSOR,
   SETTINGS_NAV_NOTIFICATION,
   SETTINGS_NAV_NOTIFICATION_HISTORY,
+  SETTINGS_NAV_NFC,
   SETTINGS_NAV_SENSOR,
   SETTINGS_NAV_SENSOR_FREQUENCY,
   SETTINGS_NAV_SERVER,
@@ -127,6 +129,10 @@ const DEFAULT_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   assistOverlayVisible: false,
   assistStartListeningSignal: 0,
   assistStartListeningRequested: false,
+  nfcOverlayVisible: false,
+  nfcCompleted: false,
+  nfcError: '',
+  nfcTick: 0,
   profile: new DefaultDeviceProfileInfo(),
   sensorGroups: [],
   directSensorIds: [],
@@ -140,6 +146,7 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onBackToNativeTarget: () => {},
   onSwipeBack: () => {},
   onCloseAssist: () => {},
+  onCloseNfc: () => {},
   onAssistAudioCaptureStart: (): Promise<void> => Promise.resolve(),
   onAssistSpeechComplete: () => {},
   onAssistActivity: () => {},
@@ -362,7 +369,8 @@ export struct SettingsRuntimeCoordinatorHost {
       this.route === AppRoute.SENSOR_SETTINGS ||
       this.route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
       this.route === AppRoute.HEALTH_SENSOR_SETTINGS ||
-      this.route === AppRoute.NOTIFICATION_SETTINGS;
+      this.route === AppRoute.NOTIFICATION_SETTINGS ||
+      this.route === AppRoute.NFC_TAG;
   }
 
   private restorePathStackForSnapshot(animated: boolean): void {
@@ -391,6 +399,9 @@ export struct SettingsRuntimeCoordinatorHost {
     } else if (this.route === AppRoute.NOTIFICATION_SETTINGS) {
       const notificationParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_NOTIFICATION };
       this.pathStack.pushPath({ name: SETTINGS_NAV_NOTIFICATION, param: notificationParam }, animated);
+    } else if (this.route === AppRoute.NFC_TAG) {
+      const nfcParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_NFC };
+      this.pathStack.pushPath({ name: SETTINGS_NAV_NFC, param: nfcParam }, animated);
     } else if (this.route === AppRoute.SETTINGS_DETAIL && this.detailKey.length > 0) {
       if (this.isServerDetail()) {
         const serverParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_SERVER };
@@ -504,6 +515,8 @@ export struct SettingsRuntimeCoordinatorHost {
       CompanionNotificationSettingsBuilder()
     } else if (name === SETTINGS_NAV_NOTIFICATION_HISTORY) {
       CompanionNotificationHistoryBuilder()
+    } else if (name === SETTINGS_NAV_NFC) {
+      CompanionNfcSettingsBuilder()
     }
   }
 

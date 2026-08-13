@@ -15,6 +15,7 @@ import { SensorGroup } from '../sensors/SensorModels';
 import { HealthSensorCatalog } from '../sensors/HealthSensorCatalog';
 import { NotificationHistoryPage } from '../notifications/NotificationHistoryPage';
 import { NotificationService } from '../notifications/NotificationService';
+import { NfcTagPage } from '../nfc/NfcTagPage';
 import { SettingsUiConfig } from './components/SettingsUiConfig';
 import { HaTheme } from '../../shared/theme/HaTheme';
 import { Localization } from '../../shared/i18n/Localization';
@@ -28,6 +29,7 @@ export const SETTINGS_NAV_SENSOR_FREQUENCY: string = 'CompanionSensorFrequency';
 export const SETTINGS_NAV_HEALTH_SENSOR: string = 'CompanionHealthSensorSettings';
 export const SETTINGS_NAV_NOTIFICATION: string = 'CompanionNotificationSettings';
 export const SETTINGS_NAV_NOTIFICATION_HISTORY: string = 'CompanionNotificationHistory';
+export const SETTINGS_NAV_NFC: string = 'CompanionNfcSettings';
 
 export interface SettingsNavDestinationParam {
   key: string;
@@ -125,6 +127,7 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onBackToNativeTarget: () => {},
   onSwipeBack: () => {},
   onCloseAssist: () => {},
+  onCloseNfc: () => {},
   onAssistAudioCaptureStart: (): Promise<void> => Promise.resolve(),
   onAssistSpeechComplete: () => {},
   onAssistActivity: () => {},
@@ -251,6 +254,9 @@ function routeAction(
     } else if (actionId === 'open_notification_settings') {
       pathStack.pushPath({ name: SETTINGS_NAV_NOTIFICATION, param: navParam(SETTINGS_NAV_NOTIFICATION) }, true);
       notifySynced(onSynced, AppRoute.NOTIFICATION_SETTINGS);
+    } else if (actionId === 'open_nfc_tags') {
+      pathStack.pushPath({ name: SETTINGS_NAV_NFC, param: navParam(SETTINGS_NAV_NFC) }, true);
+      notifySynced(onSynced, AppRoute.NFC_TAG);
     }
   }, 0);
 }
@@ -276,6 +282,9 @@ export function openSettingsNavigationItem(
       routeToDetail(pathStack, item.actionId, onSynced);
     } else if (item.actionId === 'open_server' || item.actionId.startsWith('open_server_detail:')) {
       routeToServer(pathStack, actions, onSynced);
+    } else if (item.actionId === 'open_nfc_tags') {
+      pathStack.pushPath({ name: SETTINGS_NAV_NFC, param: navParam(SETTINGS_NAV_NFC) }, true);
+      notifySynced(onSynced, AppRoute.NFC_TAG);
     } else if (item.actionId.length > 0) {
       routeToDetail(pathStack, item.actionId, onSynced);
     }
@@ -325,6 +334,12 @@ export function CompanionNotificationSettingsBuilder(): void {
 export function CompanionNotificationHistoryBuilder(): void {
   CompanionNotificationHistoryRoute()
 }
+
+@Builder
+export function CompanionNfcSettingsBuilder(): void {
+  CompanionNfcSettingsRoute()
+}
+
 
 @Component
 struct CompanionServerSettingsRoute {
@@ -549,6 +564,34 @@ struct CompanionNotificationHistoryRoute {
     })
   }
 }
+
+@Component
+struct CompanionNfcSettingsRoute {
+  @Consume('settingsRuntimeActions') actions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
+  @Consume('settingsOverlaySnapshot') overlaySnapshot: AppRuntimeOverlaySnapshot;
+  @Consume('settingsPathStack') pathStack: NavPathStack;
+  @Consume('settingsNavSyncActions') navSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
+
+  private backToSettings(): void {
+    routeToRoot(this.pathStack, this.actions, this.navSyncActions.onSynced);
+  }
+
+  build() {
+    NavDestination() {
+      NfcTagPage({
+        contentMaxWidth: this.overlaySnapshot.contentMaxWidth,
+        onBack: (): void => this.backToSettings(),
+        onSwipeBack: (): void => this.backToSettings()
+      })
+    }
+    .hideTitleBar(true)
+    .onBackPressed((): boolean => {
+      this.backToSettings();
+      return true;
+    })
+  }
+}
+
 
 @Component
 struct CompanionSettingsDetailRoute {

@@ -56,7 +56,7 @@ export class CapabilityPolicy {
     if (profile.formFactor === DeviceFormFactor.WEARABLE || profile.formFactor === DeviceFormFactor.CAR) {
       return CapabilityPolicy.hidden(Localization.t('capability_nfc_hidden'));
     }
-    return CapabilityPolicy.placeholder(Localization.t('capability_nfc_pending'));
+    return CapabilityPolicy.available();
   }
 
   static settingsCapability(capability: SettingsCapability, profile: DeviceProfileInfo): CapabilityDecision {

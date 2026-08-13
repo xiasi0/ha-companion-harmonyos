@@ -41,6 +41,10 @@
       "value": "允许 Home Assistant 在启用持久连接后保持后台数据同步，用于刷新桌面卡片。"
     },
     {
+      "name": "nfc_permission_reason",
+      "value": "用于读取和写入 NFC 标签，并在扫描 Home Assistant 标签时触发相应事件。"
+    },
+    {
       "name": "light_card_display_name",
       "value": "灯光控制"
     },

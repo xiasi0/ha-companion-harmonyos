@@ -81,6 +81,9 @@ export class AppSettingsRuntimeService {
     if (route === AppRoute.NOTIFICATION_SETTINGS) {
       return 'open_notification_settings';
     }
+    if (route === AppRoute.NFC_TAG) {
+      return 'open_nfc_tags';
+    }
     if (route !== AppRoute.SETTINGS_DETAIL) {
       return '';
     }

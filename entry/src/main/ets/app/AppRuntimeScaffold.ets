@@ -17,7 +17,8 @@ function isSettingsNativeFeatureRoute(route: number): boolean {
   return route === AppRoute.NOTIFICATION_SETTINGS ||
     route === AppRoute.SENSOR_SETTINGS ||
     route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
-    route === AppRoute.HEALTH_SENSOR_SETTINGS;
+    route === AppRoute.HEALTH_SENSOR_SETTINGS ||
+    route === AppRoute.NFC_TAG;
 }
 
 @Component

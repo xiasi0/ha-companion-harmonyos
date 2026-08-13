@@ -172,6 +172,10 @@ export struct AppRuntimeHost {
   @StorageLink('cardPendingEntityDetailTick') @Watch('onCardPendingEntityDetailTick') cardPendingEntityDetailTick: number = 0;
   @StorageLink('assistPendingStartListening') assistPendingStartListening: boolean = true;
   @StorageLink('assistPendingLaunchTick') @Watch('onAssistPendingLaunchTick') assistPendingLaunchTick: number = 0;
+  @StorageLink('nfcReaderCompleted') nfcCompleted: boolean = false;
+  @StorageLink('nfcReaderError') nfcError: string = '';
+  @StorageLink('nfcReaderTick') @Watch('onNfcReaderTick') nfcTick: number = 0;
+  @StorageLink('nfcReaderPending') nfcReaderPending: boolean = false;
 
   @State @Watch('onStepChanged') step: number = initialRuntimeRoute();
   @State loading: boolean = false;
@@ -262,6 +266,7 @@ export struct AppRuntimeHost {
   @State assistOverlayVisible: boolean = false;
   @State assistStartListeningSignal: number = 0;
   @State assistStartListeningRequested: boolean = false;
+  @State nfcOverlayVisible: boolean = false;
   @State healthAuthorizationState: string = 'unknown';
   private pendingEntityDetailEntityId: string = '';
   private pendingEntityDetailRequestTick: number = 0;
@@ -634,6 +639,7 @@ export struct AppRuntimeHost {
         this.refreshAssistWakeWordRuntime();
         this.openPendingEntityDetailFromCard();
         this.openPendingAssistLaunch();
+        this.openPendingNfcOverlay();
       });
   }
 
@@ -899,6 +905,10 @@ export struct AppRuntimeHost {
     this.assistOverlayVisible = false;
     this.refreshAssistWakeWordRuntime();
   }
+
+  closeNfcOverlay(): void {
+    this.nfcOverlayVisible = false;
+  }
   openCompanionSettings(): void {
     this.settingsDetailTitle = '';
     this.settingsDetailSummary = '';
@@ -1128,6 +1138,10 @@ export struct AppRuntimeHost {
       this.closeAssistConversation();
       return true;
     }
+    if (this.nfcOverlayVisible) {
+      this.closeNfcOverlay();
+      return true;
+    }
     if (this.shouldCloseCardEntityDetailBeforeDashboardBack()) {
       this.entityDetailOpenedFromCard = false;
       this.tryRunWebScript(CardEntityDetailLaunchService.closeMoreInfoScript());
@@ -1160,7 +1174,10 @@ export struct AppRuntimeHost {
       this.context(),
       this,
       (): void => this.ignoreAppLockTransitions(),
-      (): void => this.openPendingAssistLaunch()
+      (): void => {
+        this.openPendingAssistLaunch();
+        this.openPendingNfcOverlay();
+      }
     );
   }
 
@@ -1409,6 +1426,9 @@ export struct AppRuntimeHost {
     AppLifecycleRuntimeService.onBackground(this, AppRuntimeCallbackFactory.lifecycle(this));
     this.cancelDashboardConnectionWait();
     this.cancelAppReviewPrompt();
+    if (this.appLocked) {
+      this.closeNfcOverlay();
+    }
   }
 
   private onAppConfigurationTick(): void { AppLifecycleRuntimeService.onConfiguration(this, AppRuntimeCallbackFactory.lifecycle(this)); }
@@ -1420,6 +1440,18 @@ export struct AppRuntimeHost {
       return;
     }
     this.openPendingAssistLaunch();
+    this.openPendingNfcOverlay();
+  }
+
+  private onNfcReaderTick(): void {
+    this.openPendingNfcOverlay();
+  }
+
+  private openPendingNfcOverlay(): void {
+    if (this.nfcTick > 0 && this.nfcReaderPending && !this.appLocked && !this.appUnlocking) {
+      this.nfcOverlayVisible = true;
+      this.nfcReaderPending = false;
+    }
   }
 
   private openPendingAssistLaunch(): void {
@@ -2444,6 +2476,10 @@ export struct AppRuntimeHost {
       this.assistOverlayVisible ? '1' : '0',
       this.assistStartListeningSignal.toString(),
       this.assistStartListeningRequested ? '1' : '0',
+      this.nfcOverlayVisible ? '1' : '0',
+      this.nfcCompleted ? '1' : '0',
+      this.nfcError,
+      this.nfcTick.toString(),
       this.healthAuthorizationState,
       profile.widthVp.toString(),
       profile.heightVp.toString(),

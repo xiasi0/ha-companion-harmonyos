@@ -1,5 +1,6 @@
 import { DeviceFormFactor, DeviceProfileInfo, DisplaySizeClass } from '../shared/device/DeviceProfile';
 import { AssistRuntimeHost } from '../features/assist/AssistRuntimeHost';
+import { TagReaderPage } from '../features/nfc/TagReaderPage';
 import { NativeSettingsOverlayHost } from '../features/settings/NativeSettingsOverlayHost';
 import { HealthSensorCatalog } from '../features/sensors/HealthSensorCatalog';
 import { SensorSettingsOverlayHost } from '../features/sensors/SensorSettingsOverlayHost';
@@ -24,6 +25,10 @@ const DEFAULT_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   assistOverlayVisible: false,
   assistStartListeningSignal: 0,
   assistStartListeningRequested: false,
+  nfcOverlayVisible: false,
+  nfcCompleted: false,
+  nfcError: '',
+  nfcTick: 0,
   profile: new DefaultDeviceProfileInfo(),
   sensorGroups: [],
   directSensorIds: [],
@@ -37,6 +42,7 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onBackToNativeTarget: () => {},
   onSwipeBack: () => {},
   onCloseAssist: () => {},
+  onCloseNfc: () => {},
   onAssistAudioCaptureStart: (): Promise<void> => Promise.resolve(),
   onAssistSpeechComplete: () => {},
   onAssistActivity: () => {},
@@ -77,6 +83,15 @@ export struct AppRuntimeOverlaysHost {
           }
           .width('100%')
           .height('100%')
+        } else if (this.snapshot.nfcOverlayVisible) {
+          TagReaderPage({
+            completed: this.snapshot.nfcCompleted,
+            error: this.snapshot.nfcError,
+            readerTick: this.snapshot.nfcTick,
+            onClose: this.actions.onCloseNfc
+          })
+            .width('100%')
+            .height('100%')
         } else if (this.isNativeSettingsRoute()) {
           Column() {
             NativeSettingsOverlayHost({
@@ -123,7 +138,7 @@ export struct AppRuntimeOverlaysHost {
   }
 
   private shouldRenderOverlay(): boolean {
-    return (this.snapshot.assistOverlayVisible || this.snapshot.route === AppRoute.ASSIST_CONVERSATION) ||
+    return (this.snapshot.assistOverlayVisible || this.snapshot.nfcOverlayVisible || this.snapshot.route === AppRoute.ASSIST_CONVERSATION) ||
       (this.routeOverlaysEnabled && (
         this.isNativeSettingsRoute() ||
         this.isSensorOverlayRoute()
