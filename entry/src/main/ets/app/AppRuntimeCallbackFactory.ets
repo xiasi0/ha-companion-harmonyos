@@ -11,7 +11,7 @@ import { SensorRuntimeFlags } from '../features/sensors/SensorRuntimePresenter';
 import { DashboardRuntimeCallbacks } from '../features/dashboard/DashboardRuntimeService';
 import { RegistrationRuntimeCallbacks } from '../features/registration/RegistrationRuntimeService';
 import { AuthFlowRuntimeCallbacks } from '../features/auth/AuthFlowRuntimeService';
-import { ExternalAuthRuntimeCallbacks } from '../features/auth/ExternalAuthRuntimeService';
+import { ExternalAuthRuntimeCallbacks, ExternalAuthToken } from '../features/auth/ExternalAuthRuntimeService';
 import { DiscoveryFlowRuntimeCallbacks } from '../features/discovery/DiscoveryFlowRuntimeService';
 import { AppLifecycleRuntimeCallbacks } from './AppLifecycleRuntimeService';
 import { AppNavigationRuntimeCallbacks } from './AppNavigationRuntimeService';
@@ -32,7 +32,7 @@ export interface AppRuntimeCallbackTarget {
   updateSettingsServerName(name: string, info: StoredServerInfo): void;
   syncSettingsServerNameToHomeAssistant(name: string, info: StoredServerInfo): void;
   refreshAccessToken(baseUrl: string): Promise<boolean>;
-  loadExternalAuthAccessToken(baseUrl: string, forceRefresh: boolean): Promise<string>;
+  loadExternalAuthAccessToken(baseUrl: string, forceRefresh: boolean): Promise<ExternalAuthToken>;
   syncPublicSensors(reason: string): void;
   refreshHomeNetworkStatus(allowDashboardUrlReload?: boolean): void;
   ensureMobileAppRegistration(reason: string): void;
@@ -159,7 +159,7 @@ export class AppRuntimeCallbackFactory {
       isWebMounted: (): boolean => target.isWebControllerMounted(),
       runScript: (script: string): void => target.tryRunWebScript(script),
       refreshAccessToken: (baseUrl: string): Promise<boolean> => target.refreshAccessToken(baseUrl),
-      loadAccessToken: (baseUrl: string, forceRefresh: boolean): Promise<string> =>
+      loadAccessToken: (baseUrl: string, forceRefresh: boolean): Promise<ExternalAuthToken> =>
         target.loadExternalAuthAccessToken(baseUrl, forceRefresh),
       currentServerInfo: (): StoredServerInfo => target.currentStoredServerInfo(),
       applyServerInfo: (info: StoredServerInfo): void => target.applyStoredServerInfo(info),

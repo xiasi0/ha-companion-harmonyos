@@ -81,11 +81,17 @@ export class ExternalBusService {
       type === 'scan_barcode';
   }
 
-  static buildExternalAuthCallbackScript(callback: string, success: boolean, token: string = ''): string {
+  static buildExternalAuthCallbackScript(
+    callback: string,
+    success: boolean,
+    token: string = '',
+    expiresIn: number = 0
+  ): string {
     const safeCallback = ExternalBusService.jsQuoted(callback);
     const safeToken = ExternalBusService.jsQuoted(token);
+    const safeExpiresIn = Number.isFinite(expiresIn) && expiresIn > 0 ? Math.ceil(expiresIn) : 0;
     return success
-      ? `(function(){var fn=window['${safeCallback}'];if(typeof fn==='function'){fn(true,{access_token:'${safeToken}',expires_in:1800});}})();`
+      ? `(function(){var fn=window['${safeCallback}'];if(typeof fn==='function'){fn(true,{access_token:'${safeToken}',expires_in:${safeExpiresIn}});}})();`
       : `(function(){var fn=window['${safeCallback}'];if(typeof fn==='function'){fn(false);}})();`;
   }
 

@@ -13,7 +13,7 @@ import {
   AuthRuntimeService
 } from '../features/auth/AuthRuntimeService';
 import { AuthFlowRuntimeService } from '../features/auth/AuthFlowRuntimeService';
-import { ExternalAuthRuntimeService } from '../features/auth/ExternalAuthRuntimeService';
+import { ExternalAuthRuntimeService, ExternalAuthToken } from '../features/auth/ExternalAuthRuntimeService';
 import { DiscoveryFlowRuntimeService } from '../features/discovery/DiscoveryFlowRuntimeService';
 import { ServerAccountRuntimeService } from '../features/settings/ServerAccountRuntimeService';
 import { SettingsSummaryService } from '../features/settings/SettingsSummaryService';
@@ -1044,7 +1044,7 @@ export struct AppRuntimeHost {
 
   async refreshAccessToken(baseUrl: string): Promise<boolean> { return AuthFlowRuntimeService.refreshAccessToken(this, AppRuntimeCallbackFactory.authFlow(this), baseUrl); }
 
-  async loadExternalAuthAccessToken(baseUrl: string, forceRefresh: boolean): Promise<string> {
+  async loadExternalAuthAccessToken(baseUrl: string, forceRefresh: boolean): Promise<ExternalAuthToken> {
     const context = this.context();
     const activeId = ServerManager.getActiveServerIdSync(context);
     const normalizedBaseUrl = UrlService.normalizeBaseUrl(baseUrl);
@@ -1053,7 +1053,7 @@ export struct AppRuntimeHost {
       targetId = activeId;
     }
     if (targetId.length === 0) {
-      return this.haAccessToken.trim();
+      return { accessToken: '', expiresIn: 0 };
     }
     const session: ServerAuthSession = forceRefresh
       ? await ServerAuthRepository.refreshWithBaseUrl(context, targetId, normalizedBaseUrl)
@@ -1062,10 +1062,11 @@ export struct AppRuntimeHost {
     if (targetId === activeId && StorageService.hasLogin(latestInfo)) {
       AppSessionRuntimeService.applyServerInfoToState(this, latestInfo);
     }
-    if (forceRefresh) {
-      return session.accessToken.trim();
-    }
-    return session.accessToken.trim().length > 0 ? session.accessToken.trim() : latestInfo.accessToken.trim();
+    const accessToken = session.accessToken.trim();
+    const expiresIn = accessToken.length === 0 ? 0 : latestInfo.accessTokenExpiresAt > 0
+      ? Math.max(0, Math.ceil((latestInfo.accessTokenExpiresAt - Date.now()) / 1000))
+      : 1800;
+    return { accessToken, expiresIn };
   }
 
   private hasRegisteredCurrentDevice(): boolean { return RegistrationRuntimeService.hasRegisteredCurrentDevice(this); }

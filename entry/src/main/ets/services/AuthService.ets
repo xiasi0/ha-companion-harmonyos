@@ -1,7 +1,11 @@
 // Home Assistant OAuth helper for authorization URL and token exchange.
 // Keep OAuth request construction and response validation in this service.
 import { Localization } from '../shared/i18n/Localization';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { NetworkHttpMethod, NetworkService } from './NetworkService';
+
+const DOMAIN = 0x0000;
+const TAG = 'HAAuth';
 
 export interface AuthTokenResult {
   accessToken: string;
@@ -100,6 +104,7 @@ export class AuthService {
       });
 
       if (resp.responseCode < 200 || resp.responseCode >= 300) {
+        hilog.warn(DOMAIN, TAG, 'refresh token request rejected. status=%{public}d', resp.responseCode);
         return {
           success: false,
           accessToken: '',
@@ -111,6 +116,7 @@ export class AuthService {
       const parsed = JSON.parse(resp.body) as Record<string, string>;
       const accessToken = parsed['access_token'];
       if (!accessToken) {
+        hilog.warn(DOMAIN, TAG, 'refresh token response missing access token');
         return {
           success: false,
           accessToken: '',
@@ -126,6 +132,7 @@ export class AuthService {
         expiresIn: AuthService.expiresIn(parsed)
       };
     } catch (_) {
+      hilog.warn(DOMAIN, TAG, 'refresh token request failed');
       return {
         success: false,
         accessToken: '',
