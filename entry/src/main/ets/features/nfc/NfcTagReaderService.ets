@@ -23,7 +23,7 @@ export class NfcTagReaderService {
     } catch (_) {
       return false;
     }
-    if (!tagInfo) {
+    if (!tagInfo || !Array.isArray(tagInfo.technology) || tagInfo.technology.length === 0) {
       return false;
     }
     NfcTagReaderService.reading = true;
