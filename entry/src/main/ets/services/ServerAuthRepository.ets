@@ -20,8 +20,6 @@ class ServerAuthSessionPayload implements ServerAuthSession {
 }
 
 export class ServerAuthRepository {
-  private static readonly REFRESH_SKEW_MS: number = 2 * 60 * 1000;
-
   static loadSync(context: common.Context, serverInstanceId: string): ServerAuthSession {
     const id = serverInstanceId.trim();
     if (id.length === 0) {
@@ -57,8 +55,7 @@ export class ServerAuthRepository {
     const session = ServerAuthRepository.session(id, info);
     if (session.accessToken.length === 0) {
       if (session.refreshToken.length > 0) {
-        const refreshed = await ServerAuthRepository.refreshWithBaseUrl(context, id, refreshBaseUrl);
-        return refreshed.accessToken.length > 0 ? refreshed : session;
+        return ServerAuthRepository.refreshWithBaseUrl(context, id, refreshBaseUrl);
       }
       return session;
     }
@@ -67,7 +64,7 @@ export class ServerAuthRepository {
     }
     const refreshed = await ServerAuthRepository.refreshWithBaseUrl(context, id, refreshBaseUrl);
     if (refreshed.accessToken.length === 0) {
-      return session;
+      return refreshed;
     }
     if (refreshBaseUrl.trim().length > 0) {
       refreshed.baseUrl = refreshBaseUrl.trim();
@@ -111,7 +108,7 @@ export class ServerAuthRepository {
     if (info.refreshToken.trim().length === 0) {
       return false;
     }
-    return info.accessTokenExpiresAt <= Date.now() + ServerAuthRepository.REFRESH_SKEW_MS;
+    return info.accessTokenExpiresAt <= Date.now();
   }
 
   private static session(serverInstanceId: string, info: StoredServerInfo): ServerAuthSession {

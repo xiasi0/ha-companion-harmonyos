@@ -15,11 +15,16 @@ export interface ExternalAuthRuntimeState {
   step: AppRoute;
 }
 
+export interface ExternalAuthToken {
+  accessToken: string;
+  expiresIn: number;
+}
+
 export interface ExternalAuthRuntimeCallbacks {
   isWebMounted: () => boolean;
   runScript: (script: string) => void;
   refreshAccessToken: (baseUrl: string) => Promise<boolean>;
-  loadAccessToken: (baseUrl: string, forceRefresh: boolean) => Promise<string>;
+  loadAccessToken: (baseUrl: string, forceRefresh: boolean) => Promise<ExternalAuthToken>;
   currentServerInfo: () => StoredServerInfo;
   applyServerInfo: (info: StoredServerInfo) => void;
   openCompanionSettings: () => void;
@@ -32,12 +37,13 @@ export class ExternalAuthRuntimeService {
     callback: string,
     success: boolean,
     callbacks: ExternalAuthRuntimeCallbacks,
-    token: string = ''
+    token: string = '',
+    expiresIn: number = 0
   ): void {
     if (!callback || !callbacks.isWebMounted()) {
       return;
     }
-    callbacks.runScript(ExternalBusService.buildExternalAuthCallbackScript(callback, success, token));
+    callbacks.runScript(ExternalBusService.buildExternalAuthCallbackScript(callback, success, token, expiresIn));
   }
 
   static sendExternalBusConfigResponse(messageId: number, callbacks: ExternalAuthRuntimeCallbacks): void {
@@ -93,12 +99,12 @@ export class ExternalAuthRuntimeService {
       ExternalAuthRuntimeService.invokeExternalAuthCallback(callback, false, callbacks);
       return;
     }
-    const finish = (accessToken: string): void => {
-      const token = accessToken.trim();
+    const finish = (result: ExternalAuthToken): void => {
+      const token = result.accessToken.trim();
       if (token) {
         state.dashboardAuthProvided = true;
         state.message = Localization.t('external_auth_providing_token');
-        ExternalAuthRuntimeService.invokeExternalAuthCallback(callback, true, callbacks, token);
+        ExternalAuthRuntimeService.invokeExternalAuthCallback(callback, true, callbacks, token, result.expiresIn);
         setTimeout((): void => {
           if (state.step === AppRoute.DASHBOARD && state.dashboardAuthProvided) {
             state.message = Localization.t('dashboard_visible');
@@ -109,8 +115,8 @@ export class ExternalAuthRuntimeService {
       }
     };
     callbacks.loadAccessToken(baseUrl, force)
-      .then((token: string): void => finish(token))
-      .catch((): void => finish(state.haAccessToken));
+      .then((token: ExternalAuthToken): void => finish(token))
+      .catch((): void => finish({ accessToken: '', expiresIn: 0 }));
   }
 
   static handleExternalRevokeAuth(
