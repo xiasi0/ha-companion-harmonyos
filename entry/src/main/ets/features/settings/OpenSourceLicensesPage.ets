@@ -39,7 +39,7 @@ export struct OpenSourceLicensesPage {
       },
       {
         name: 'HarmonyOS SDK',
-        version: '6.x',
+        version: '26.0.0',
         license: 'SDK',
         description: Localization.t('license_harmony_sdk')
       }
