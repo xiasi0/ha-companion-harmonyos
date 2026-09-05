@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HA Companion for HarmonyOS</title>
+    <meta
+      name="description"
+      content="A community-maintained native HarmonyOS companion app for Home Assistant."
+    >
+    <meta name="application-name" content="HA Companion for HarmonyOS">
+    <link
+      rel="redirect_uri"
+      href="https://xiasi0.github.io/ha-companion-harmonyos/auth-callback/"
+    >
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.5;
+      }
+
+      body {
+        margin: 0;
+        background: #f6f8fb;
+        color: #17202a;
+      }
+
+      main {
+        box-sizing: border-box;
+        min-height: 100vh;
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 48px 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      img {
+        width: 100%;
+        max-height: 300px;
+        object-fit: contain;
+        margin-bottom: 32px;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 2rem;
+        line-height: 1.15;
+      }
+
+      p {
+        margin: 0 0 16px;
+        color: #3f4d5a;
+        font-size: 1rem;
+      }
+
+      a {
+        color: #0366d6;
+      }
+
+      .meta {
+        margin-top: 20px;
+        font-size: 0.95rem;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #111827;
+          color: #f3f4f6;
+        }
+
+        p {
+          color: #cbd5e1;
+        }
+
+        a {
+          color: #7dd3fc;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img
+        src="./assets/home-assistant-harmonyos-hero.png"
+        alt="HA Companion for HarmonyOS"
+      >
+      <h1>HA Companion for HarmonyOS</h1>
+      <p>
+        HA Companion for HarmonyOS is a community-maintained native HarmonyOS
+        companion app for Home Assistant.
+      </p>
+      <p>
+        This project is not an official Open Home Foundation product. It uses a
+        project-owned IndieAuth client ID for Home Assistant authorization.
+      </p>
+      <p class="meta">
+        Source code:
+        <a href="https://github.com/xiasi0/ha-companion-harmonyos">
+          github.com/xiasi0/ha-companion-harmonyos
+        </a>
+      </p>
+    </main>
+  </body>
+</html>
