@@ -31,6 +31,12 @@ export class UrlService {
       trimmed = trimmed.slice(0, cut);
     }
 
+    if (trimmed.startsWith('http://') && trimmed.endsWith(':80')) {
+      trimmed = trimmed.slice(0, trimmed.length - 3);
+    } else if (trimmed.startsWith('https://') && trimmed.endsWith(':443')) {
+      trimmed = trimmed.slice(0, trimmed.length - 4);
+    }
+
     return trimmed.endsWith('/') ? trimmed.slice(0, trimmed.length - 1) : trimmed;
   }
 
