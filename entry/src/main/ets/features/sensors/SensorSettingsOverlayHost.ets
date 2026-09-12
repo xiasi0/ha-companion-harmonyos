@@ -10,15 +10,12 @@ export struct SensorSettingsOverlayHost {
   @Prop selectedFrequency: string = SensorUpdateFrequency.NORMAL;
   @Prop contentMaxWidth: number = 720;
   @Prop showControls: boolean = true;
-  @Prop healthAuthorizationState: string = '';
 
   onBack: () => void = () => {};
   onHelp: () => void = () => {};
   onSearch: () => void = () => {};
   onFilter: () => void = () => {};
   onToggleSensor: (id: string, enabled: boolean) => void = () => {};
-  onOpenHealthSensors: () => void = () => {};
-  onRequestHealthAuthorization: () => void = () => {};
   onSelectFrequency: (value: string) => void = () => {};
   onSwipeBack: () => void = () => {};
 
@@ -38,14 +35,11 @@ export struct SensorSettingsOverlayHost {
         groups: this.groups,
         contentMaxWidth: this.contentMaxWidth,
         showControls: this.showControls,
-        healthAuthorizationState: this.healthAuthorizationState,
         onBack: this.onBack,
         onHelp: this.onHelp,
         onSearch: this.onSearch,
         onFilter: this.onFilter,
         onToggleSensor: this.onToggleSensor,
-        onOpenHealthSensors: this.onOpenHealthSensors,
-        onRequestHealthAuthorization: this.onRequestHealthAuthorization,
         onSwipeBack: this.onSwipeBack
       })
     }

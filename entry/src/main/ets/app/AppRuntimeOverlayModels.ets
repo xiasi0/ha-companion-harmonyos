@@ -16,7 +16,6 @@ export interface AppRuntimeOverlaySnapshot {
   profile: DeviceProfileInfo;
   sensorGroups: SensorGroup[];
   directSensorIds: string[];
-  healthAuthorizationState: string;
   sensorUpdateFrequency: string;
   contentMaxWidth: number;
 }
@@ -35,7 +34,5 @@ export interface AppRuntimeOverlayActions {
   onSensorSearch: () => void;
   onSensorFilter: () => void;
   onToggleSensor: (id: string, enabled: boolean) => void;
-  onOpenHealthSensors: (onAuthorized: () => void) => void;
-  onRequestHealthAuthorization: () => void;
   onSelectSensorFrequency: (value: string) => void;
 }

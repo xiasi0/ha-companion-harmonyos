@@ -2,7 +2,6 @@ import { DeviceFormFactor, DeviceProfileInfo, DisplaySizeClass } from '../shared
 import { AssistRuntimeHost } from '../features/assist/AssistRuntimeHost';
 import { TagReaderPage } from '../features/nfc/TagReaderPage';
 import { NativeSettingsOverlayHost } from '../features/settings/NativeSettingsOverlayHost';
-import { HealthSensorCatalog } from '../features/sensors/HealthSensorCatalog';
 import { SensorSettingsOverlayHost } from '../features/sensors/SensorSettingsOverlayHost';
 import { SensorGroup, SensorUpdateFrequency } from '../features/sensors/SensorModels';
 import { AppRoute } from './AppRoute';
@@ -32,7 +31,6 @@ const DEFAULT_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   profile: new DefaultDeviceProfileInfo(),
   sensorGroups: [],
   directSensorIds: [],
-  healthAuthorizationState: 'unknown',
   sensorUpdateFrequency: SensorUpdateFrequency.NORMAL,
   contentMaxWidth: 720
 };
@@ -51,8 +49,6 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSensorSearch: () => {},
   onSensorFilter: () => {},
   onToggleSensor: (_id: string, _enabled: boolean): void => {},
-  onOpenHealthSensors: (_onAuthorized: () => void): void => {},
-  onRequestHealthAuthorization: () => {},
   onSelectSensorFrequency: () => {}
 };
 
@@ -110,19 +106,11 @@ export struct AppRuntimeOverlaysHost {
               groups: this.sensorOverlayGroups(),
               selectedFrequency: this.snapshot.sensorUpdateFrequency,
               contentMaxWidth: this.snapshot.contentMaxWidth,
-              showControls: this.snapshot.route !== AppRoute.HEALTH_SENSOR_SETTINGS,
-              healthAuthorizationState: this.snapshot.route === AppRoute.HEALTH_SENSOR_SETTINGS
-                ? this.snapshot.healthAuthorizationState
-                : '',
               onBack: this.sensorOverlayBackAction(),
               onHelp: this.actions.onSensorHelp,
               onSearch: this.actions.onSensorSearch,
               onFilter: this.actions.onSensorFilter,
               onToggleSensor: this.actions.onToggleSensor,
-              onOpenHealthSensors: (): void => {
-                this.actions.onOpenHealthSensors((): void => this.actions.onRoute(AppRoute.HEALTH_SENSOR_SETTINGS));
-              },
-              onRequestHealthAuthorization: this.actions.onRequestHealthAuthorization,
               onSelectFrequency: this.actions.onSelectSensorFrequency,
               onSwipeBack: this.sensorOverlayBackAction()
             })
@@ -151,21 +139,14 @@ export struct AppRuntimeOverlaysHost {
 
   private isSensorOverlayRoute(): boolean {
     return this.snapshot.route === AppRoute.SENSOR_SETTINGS ||
-      this.snapshot.route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
-      this.snapshot.route === AppRoute.HEALTH_SENSOR_SETTINGS;
+      this.snapshot.route === AppRoute.SENSOR_UPDATE_FREQUENCY;
   }
 
   private sensorOverlayGroups(): SensorGroup[] {
-    if (this.snapshot.route === AppRoute.HEALTH_SENSOR_SETTINGS) {
-      return HealthSensorCatalog.groups(this.snapshot.directSensorIds);
-    }
     return this.snapshot.sensorGroups;
   }
 
   private sensorOverlayBackAction(): () => void {
-    if (this.snapshot.route === AppRoute.HEALTH_SENSOR_SETTINGS) {
-      return (): void => this.actions.onRoute(AppRoute.SENSOR_SETTINGS);
-    }
     return this.actions.onBackToNativeTarget;
   }
 }

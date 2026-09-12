@@ -25,7 +25,6 @@ export interface AppRuntimeOverlayTarget extends AppRuntimeOverlayState {
   settingsContentMaxWidth(): number;
   overlaySensorGroups(): SensorGroup[];
   overlayDirectSensorIds(): string[];
-  healthAuthorizationState: string;
   handleBackNavigation(): boolean;
   closeAssistConversation(): void;
   closeNfcOverlay(): void;
@@ -36,8 +35,6 @@ export interface AppRuntimeOverlayTarget extends AppRuntimeOverlayState {
   armAssistOverlayDismiss(): void;
   refreshAssistWakeWordRuntime(): void;
   toggleSensor(sensorId: string, enabled?: boolean): void;
-  openHealthSensors(onAuthorized: () => void): void;
-  requestHealthAuthorization(): void;
 }
 
 export class AppRuntimeOverlayService {
@@ -58,7 +55,6 @@ export class AppRuntimeOverlayService {
       profile: profile,
       sensorGroups: target.overlaySensorGroups(),
       directSensorIds: target.overlayDirectSensorIds(),
-      healthAuthorizationState: target.healthAuthorizationState,
       sensorUpdateFrequency: target.sensorUpdateFrequency,
       contentMaxWidth: target.settingsContentMaxWidth()
     };
@@ -104,8 +100,6 @@ export class AppRuntimeOverlayService {
         target.message = Localization.t('sensor_filter');
       },
       onToggleSensor: (id: string, enabled: boolean): void => target.toggleSensor(id, enabled),
-      onOpenHealthSensors: (onAuthorized: () => void): void => target.openHealthSensors(onAuthorized),
-      onRequestHealthAuthorization: (): void => target.requestHealthAuthorization(),
       onSelectSensorFrequency: (value: string): void => {
         target.sensorUpdateFrequency = normalizeSensorUpdateFrequency(value);
       }

@@ -12,7 +12,6 @@ import { CompanionSettingsData } from './CompanionSettingsData';
 import { NativeSettingsOverlayHost } from './NativeSettingsOverlayHost';
 import { SensorSettingsOverlayHost } from '../sensors/SensorSettingsOverlayHost';
 import { SensorGroup } from '../sensors/SensorModels';
-import { HealthSensorCatalog } from '../sensors/HealthSensorCatalog';
 import { NotificationHistoryPage } from '../notifications/NotificationHistoryPage';
 import { NotificationService } from '../notifications/NotificationService';
 import { NfcTagPage } from '../nfc/NfcTagPage';
@@ -26,7 +25,6 @@ export const SETTINGS_NAV_SERVER: string = 'CompanionServerSettings';
 export const SETTINGS_NAV_DETAIL: string = 'CompanionSettingsDetail';
 export const SETTINGS_NAV_SENSOR: string = 'CompanionSensorSettings';
 export const SETTINGS_NAV_SENSOR_FREQUENCY: string = 'CompanionSensorFrequency';
-export const SETTINGS_NAV_HEALTH_SENSOR: string = 'CompanionHealthSensorSettings';
 export const SETTINGS_NAV_NOTIFICATION: string = 'CompanionNotificationSettings';
 export const SETTINGS_NAV_NOTIFICATION_HISTORY: string = 'CompanionNotificationHistory';
 export const SETTINGS_NAV_NFC: string = 'CompanionNfcSettings';
@@ -136,8 +134,6 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSensorSearch: () => {},
   onSensorFilter: () => {},
   onToggleSensor: (_id: string, _enabled: boolean): void => {},
-  onOpenHealthSensors: (_onAuthorized: () => void): void => {},
-  onRequestHealthAuthorization: () => {},
   onSelectSensorFrequency: () => {}
 };
 
@@ -247,10 +243,6 @@ function routeAction(
       pathStack.pushPath({ name: SETTINGS_NAV_SENSOR, param: navParam(SETTINGS_NAV_SENSOR) }, false);
       pathStack.pushPath({ name: SETTINGS_NAV_SENSOR_FREQUENCY, param: navParam(SETTINGS_NAV_SENSOR_FREQUENCY) }, true);
       notifySynced(onSynced, AppRoute.SENSOR_UPDATE_FREQUENCY);
-    } else if (actionId === 'open_health_sensor_settings') {
-      pathStack.pushPath({ name: SETTINGS_NAV_SENSOR, param: navParam(SETTINGS_NAV_SENSOR) }, false);
-      pathStack.pushPath({ name: SETTINGS_NAV_HEALTH_SENSOR, param: navParam(SETTINGS_NAV_HEALTH_SENSOR) }, true);
-      notifySynced(onSynced, AppRoute.HEALTH_SENSOR_SETTINGS);
     } else if (actionId === 'open_notification_settings') {
       pathStack.pushPath({ name: SETTINGS_NAV_NOTIFICATION, param: navParam(SETTINGS_NAV_NOTIFICATION) }, true);
       notifySynced(onSynced, AppRoute.NOTIFICATION_SETTINGS);
@@ -318,11 +310,6 @@ export function CompanionSensorSettingsBuilder(): void {
 @Builder
 export function CompanionSensorFrequencyBuilder(): void {
   CompanionSensorFrequencyRoute()
-}
-
-@Builder
-export function CompanionHealthSensorSettingsBuilder(): void {
-  CompanionHealthSensorSettingsRoute()
 }
 
 @Builder
@@ -405,13 +392,6 @@ struct CompanionSensorSettingsRoute {
         onSearch: this.overlayActions.onSensorSearch,
         onFilter: this.overlayActions.onSensorFilter,
         onToggleSensor: this.overlayActions.onToggleSensor,
-        onOpenHealthSensors: (): void => {
-          this.overlayActions.onOpenHealthSensors((): void => {
-            this.actions.onRoute(AppRoute.HEALTH_SENSOR_SETTINGS);
-            this.pathStack.pushPath({ name: SETTINGS_NAV_HEALTH_SENSOR, param: navParam(SETTINGS_NAV_HEALTH_SENSOR) }, true);
-            this.navSyncActions.onSynced({ route: AppRoute.HEALTH_SENSOR_SETTINGS, detailKey: '' });
-          });
-        },
         onSelectFrequency: this.overlayActions.onSelectSensorFrequency,
         onSwipeBack: this.overlayActions.onSwipeBack
       })
@@ -427,42 +407,6 @@ struct CompanionSensorSettingsRoute {
   }
 }
 
-@Component
-struct CompanionHealthSensorSettingsRoute {
-  @Consume('settingsRuntimeActions') actions: SettingsRuntimeActions = DEFAULT_SETTINGS_RUNTIME_ACTIONS;
-  @Consume('settingsOverlaySnapshot') overlaySnapshot: AppRuntimeOverlaySnapshot;
-  @Consume('settingsOverlayActions') overlayActions: AppRuntimeOverlayActions = DEFAULT_OVERLAY_ACTIONS;
-  @Consume('settingsPathStack') pathStack: NavPathStack;
-  @Consume('settingsNavSyncActions') navSyncActions: SettingsNavSyncActions = DEFAULT_SETTINGS_NAV_SYNC_ACTIONS;
-  @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
-
-  build() {
-    HdsNavDestination() {
-      SensorSettingsOverlayHost({
-        route: AppRoute.HEALTH_SENSOR_SETTINGS,
-        groups: HealthSensorCatalog.groups(this.overlaySnapshot.directSensorIds),
-        contentMaxWidth: this.overlaySnapshot.contentMaxWidth,
-        showControls: false,
-        healthAuthorizationState: this.overlaySnapshot.healthAuthorizationState,
-        onBack: (): void => routeToSensors(this.pathStack, this.actions, this.navSyncActions.onSynced),
-        onHelp: this.overlayActions.onSensorHelp,
-        onToggleSensor: this.overlayActions.onToggleSensor,
-        onRequestHealthAuthorization: this.overlayActions.onRequestHealthAuthorization,
-        onSwipeBack: (): void => routeToSensors(this.pathStack, this.actions, this.navSyncActions.onSynced)
-      })
-    }
-    .titleBar(SettingsUiConfig.titleBar(Localization.t('health_title'),
-      (): void => routeToSensors(this.pathStack, this.actions, this.navSyncActions.onSynced),
-      this.appResolvedDark,
-      this.overlayActions.onSensorHelp))
-    .backgroundColor(HaTheme.groupedBackground(this.appResolvedDark))
-    .hideBackButton(false)
-    .onBackPressed((): boolean => {
-      routeToSensors(this.pathStack, this.actions, this.navSyncActions.onSynced);
-      return true;
-    })
-  }
-}
 
 @Component
 struct CompanionSensorFrequencyRoute {

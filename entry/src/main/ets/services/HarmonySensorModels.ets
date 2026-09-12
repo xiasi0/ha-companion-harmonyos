@@ -15,9 +15,6 @@ export interface HarmonySensorSyncResult {
   updatedCount: number;
   locationUpdated: boolean;
   locationSummary: string;
-  healthAuthorizationCheckedAt?: number;
-  healthLastError?: string;
-  healthSynced?: boolean;
 }
 
 export type HarmonyLocationSentMode = 'exact' | 'zone' | 'never';
@@ -114,14 +111,6 @@ export interface SensorAttributes {
   connectde_not_paired_devices?: number;
   connectde_paired_devices?: number;
   paired_devices?: number;
-  health_authorization?: string;
-  health_daily_activity_authorized?: boolean;
-  health_workouts_authorized?: boolean;
-  health_error?: string;
-  health_last_workout_started_at?: number | null;
-  health_last_workout_duration?: number | null;
-  health_last_workout_calories?: number | null;
-  health_last_workout_distance?: number | null;
 }
 
 export interface SensorDescriptor {

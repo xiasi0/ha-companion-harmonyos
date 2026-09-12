@@ -87,38 +87,6 @@ export class AppSettingsStore {
     await AppSettingsStore.flush(pref);
   }
 
-  static async saveHealthAuthorizationState(context: common.Context, checkedAt: number, lastError: string): Promise<void> {
-    const pref = await AppSettingsStore.getPreferences(context);
-    await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_AUTHORIZATION_CHECKED_AT, checkedAt);
-    await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_LAST_ERROR, lastError);
-    AppSettingsStore.setAppStorage<number>('healthAuthorizationCheckedAt', checkedAt);
-    AppSettingsStore.setAppStorage<string>('healthLastError', lastError);
-    await AppSettingsStore.flush(pref);
-  }
-
-  static async loadHealthDataNoticeAccepted(context: common.Context): Promise<boolean> {
-    const pref = await AppSettingsStore.getPreferences(context);
-    return AppSettingsValueCodec.booleanField(
-      await AppSettingsStore.getValue(pref, '', AppSettingsKeys.HEALTH_DATA_NOTICE_ACCEPTED, false)
-    );
-  }
-
-  static async saveHealthDataNoticeAccepted(context: common.Context, accepted: boolean): Promise<void> {
-    const pref = await AppSettingsStore.getPreferences(context);
-    await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_DATA_NOTICE_ACCEPTED, accepted);
-    AppSettingsStore.setAppStorage<boolean>('healthDataNoticeAccepted', accepted);
-    await AppSettingsStore.flush(pref);
-  }
-
-  static async saveHealthSyncState(context: common.Context, syncedAt: number, lastError: string): Promise<void> {
-    const pref = await AppSettingsStore.getPreferences(context);
-    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.HEALTH_LAST_SYNC_AT, syncedAt);
-    await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_LAST_ERROR, lastError);
-    AppSettingsStore.setAppStorage<number>('healthLastSyncAt', syncedAt);
-    AppSettingsStore.setAppStorage<string>('healthLastError', lastError);
-    await AppSettingsStore.flush(pref);
-  }
-
   static async saveLocationHistoryJson(context: common.Context, value: string): Promise<void> {
     const pref = await AppSettingsStore.getPreferences(context);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_HISTORY_JSON, value);
@@ -238,10 +206,6 @@ export class AppSettingsStore {
         HarmonySensorService.directSensorIdsFromJson(AppStorage.get<string>('sensorDirectEnabledJson') ?? '[]')
       )
     );
-    await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_AUTHORIZATION_CHECKED_AT, AppStorage.get<number>('healthAuthorizationCheckedAt') ?? 0);
-    await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_DATA_NOTICE_ACCEPTED, AppStorage.get<boolean>('healthDataNoticeAccepted') ?? false);
-    await AppSettingsStore.putValue(pref, AppSettingsKeys.HEALTH_LAST_ERROR, AppStorage.get<string>('healthLastError') ?? '');
-    await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.HEALTH_LAST_SYNC_AT, AppStorage.get<number>('healthLastSyncAt') ?? 0);
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_HISTORY_JSON, AppStorage.get<string>('locationHistoryJson') ?? '[]');
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_SENT_MODE, AppSettingsStore.normalizeLocationSentMode(AppStorage.get<string>('locationSentMode') ?? 'never'));
     await AppSettingsStore.putActiveValue(context, pref, AppSettingsKeys.LOCATION_DIAGNOSTICS_JSON, AppStorage.get<string>('locationDiagnosticsJson') ?? '');
@@ -368,22 +332,6 @@ export class AppSettingsStore {
           AppSettingsValueCodec.stringField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.SENSOR_DIRECT_ENABLED_JSON, '[]'))
         )
       )
-    );
-    AppSettingsStore.setAppStorage<number>(
-      'healthAuthorizationCheckedAt',
-      AppSettingsValueCodec.numberField(await AppSettingsStore.getValue(pref, '', AppSettingsKeys.HEALTH_AUTHORIZATION_CHECKED_AT, 0), 0)
-    );
-    AppSettingsStore.setAppStorage<boolean>(
-      'healthDataNoticeAccepted',
-      AppSettingsValueCodec.booleanField(await AppSettingsStore.getValue(pref, '', AppSettingsKeys.HEALTH_DATA_NOTICE_ACCEPTED, false))
-    );
-    AppSettingsStore.setAppStorage<string>(
-      'healthLastError',
-      AppSettingsValueCodec.stringField(await AppSettingsStore.getValue(pref, '', AppSettingsKeys.HEALTH_LAST_ERROR, ''))
-    );
-    AppSettingsStore.setAppStorage<number>(
-      'healthLastSyncAt',
-      AppSettingsValueCodec.numberField(await AppSettingsStore.getValue(pref, serverId, AppSettingsKeys.HEALTH_LAST_SYNC_AT, 0), 0)
     );
     AppSettingsStore.setAppStorage<string>(
       'locationHistoryJson',
