@@ -284,18 +284,12 @@ export struct NfcTagPage {
     .padding(SettingsUiConfig.groupPadding)
   }
 
-  private isSupported(): boolean {
-    return NfcTagService.isSupported();
-  }
-
   @Builder
   private pageContent(): void {
     List({ scroller: this.scroller }) {
       ListItem() {
         Column({ space: 16 }) {
-          if (this.isSupported()) {
-            this.operationGroup()
-          }
+          this.operationGroup()
         }
         .width('100%')
       }

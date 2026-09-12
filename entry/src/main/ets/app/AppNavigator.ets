@@ -8,7 +8,6 @@ export class AppNavigator {
       route === AppRoute.NOTIFICATION_SETTINGS ||
       route === AppRoute.SENSOR_SETTINGS ||
       route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
-      route === AppRoute.HEALTH_SENSOR_SETTINGS ||
       route === AppRoute.NFC_TAG ||
       route === AppRoute.ASSIST_CONVERSATION ||
       route === AppRoute.CARD_BINDING;
@@ -33,7 +32,6 @@ export class AppNavigator {
       route === AppRoute.NOTIFICATION_SETTINGS ||
       route === AppRoute.SENSOR_SETTINGS ||
       route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
-      route === AppRoute.HEALTH_SENSOR_SETTINGS ||
       route === AppRoute.NFC_TAG ||
       route === AppRoute.ASSIST_CONVERSATION ||
       route === AppRoute.CARD_BINDING) {

@@ -13,13 +13,11 @@ import {
   CompanionNotificationHistoryBuilder,
   CompanionNotificationSettingsBuilder,
   CompanionNfcSettingsBuilder,
-  CompanionHealthSensorSettingsBuilder,
   CompanionSensorFrequencyBuilder,
   CompanionSensorSettingsBuilder,
   CompanionServerSettingsBuilder,
   CompanionSettingsDetailBuilder,
   SETTINGS_NAV_DETAIL,
-  SETTINGS_NAV_HEALTH_SENSOR,
   SETTINGS_NAV_NOTIFICATION,
   SETTINGS_NAV_NOTIFICATION_HISTORY,
   SETTINGS_NAV_NFC,
@@ -136,7 +134,6 @@ const DEFAULT_OVERLAY_SNAPSHOT: AppRuntimeOverlaySnapshot = {
   profile: new DefaultDeviceProfileInfo(),
   sensorGroups: [],
   directSensorIds: [],
-  healthAuthorizationState: 'unknown',
   sensorUpdateFrequency: 'normal',
   contentMaxWidth: 720
 };
@@ -155,8 +152,6 @@ const DEFAULT_OVERLAY_ACTIONS: AppRuntimeOverlayActions = {
   onSensorSearch: () => {},
   onSensorFilter: () => {},
   onToggleSensor: (_id: string, _enabled: boolean): void => {},
-  onOpenHealthSensors: (_onAuthorized: () => void): void => {},
-  onRequestHealthAuthorization: () => {},
   onSelectSensorFrequency: () => {}
 };
 
@@ -341,7 +336,6 @@ export struct SettingsRuntimeCoordinatorHost {
       left.assistStartListeningRequested === right.assistStartListeningRequested &&
       left.sensorGroups === right.sensorGroups &&
       this.sameStringArray(left.directSensorIds, right.directSensorIds) &&
-      left.healthAuthorizationState === right.healthAuthorizationState &&
       left.sensorUpdateFrequency === right.sensorUpdateFrequency &&
       left.contentMaxWidth === right.contentMaxWidth &&
       this.sameDeviceProfile(left.profile, right.profile);
@@ -368,7 +362,6 @@ export struct SettingsRuntimeCoordinatorHost {
       this.route === AppRoute.SETTINGS_DETAIL ||
       this.route === AppRoute.SENSOR_SETTINGS ||
       this.route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
-      this.route === AppRoute.HEALTH_SENSOR_SETTINGS ||
       this.route === AppRoute.NOTIFICATION_SETTINGS ||
       this.route === AppRoute.NFC_TAG;
   }
@@ -391,11 +384,6 @@ export struct SettingsRuntimeCoordinatorHost {
       const frequencyParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_SENSOR_FREQUENCY };
       this.pathStack.pushPath({ name: SETTINGS_NAV_SENSOR, param: sensorParam }, false);
       this.pathStack.pushPath({ name: SETTINGS_NAV_SENSOR_FREQUENCY, param: frequencyParam }, animated);
-    } else if (this.route === AppRoute.HEALTH_SENSOR_SETTINGS) {
-      const sensorParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_SENSOR };
-      const healthSensorParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_HEALTH_SENSOR };
-      this.pathStack.pushPath({ name: SETTINGS_NAV_SENSOR, param: sensorParam }, false);
-      this.pathStack.pushPath({ name: SETTINGS_NAV_HEALTH_SENSOR, param: healthSensorParam }, animated);
     } else if (this.route === AppRoute.NOTIFICATION_SETTINGS) {
       const notificationParam: SettingsNavDestinationParam = { key: SETTINGS_NAV_NOTIFICATION };
       this.pathStack.pushPath({ name: SETTINGS_NAV_NOTIFICATION, param: notificationParam }, animated);
@@ -509,8 +497,6 @@ export struct SettingsRuntimeCoordinatorHost {
       CompanionSensorSettingsBuilder()
     } else if (name === SETTINGS_NAV_SENSOR_FREQUENCY) {
       CompanionSensorFrequencyBuilder()
-    } else if (name === SETTINGS_NAV_HEALTH_SENSOR) {
-      CompanionHealthSensorSettingsBuilder()
     } else if (name === SETTINGS_NAV_NOTIFICATION) {
       CompanionNotificationSettingsBuilder()
     } else if (name === SETTINGS_NAV_NOTIFICATION_HISTORY) {

@@ -129,8 +129,7 @@ export class AppNavigationRuntimeService {
       state.step = AppRoute.DASHBOARD;
       return true;
     }
-    if (state.step === AppRoute.SENSOR_UPDATE_FREQUENCY ||
-      state.step === AppRoute.HEALTH_SENSOR_SETTINGS) {
+    if (state.step === AppRoute.SENSOR_UPDATE_FREQUENCY) {
       state.step = AppRoute.SENSOR_SETTINGS;
       return true;
     }
@@ -159,7 +158,6 @@ export class AppNavigationRuntimeService {
     return route === AppRoute.NOTIFICATION_SETTINGS ||
       route === AppRoute.SENSOR_SETTINGS ||
       route === AppRoute.SENSOR_UPDATE_FREQUENCY ||
-      route === AppRoute.HEALTH_SENSOR_SETTINGS ||
       route === AppRoute.NFC_TAG;
   }
 }

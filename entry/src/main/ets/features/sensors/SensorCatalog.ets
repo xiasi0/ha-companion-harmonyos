@@ -6,12 +6,6 @@ export class SensorCatalog {
   static groups(): SensorGroup[] {
     return [
       {
-        title: Localization.t('health_title'),
-        sensors: [
-          SensorCatalog.sensor('health_settings', Localization.t('health_title'), Localization.t('health_settings_summary'))
-        ]
-      },
-      {
         title: Localization.t('sensor_group_battery'),
         sensors: [
           SensorCatalog.sensor('charger_type', Localization.t('sensor_charger_type')),

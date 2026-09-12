@@ -7,11 +7,8 @@ import {
 } from '../../services/SensorSettingsLiveStateStore';
 import { SettingsBoundary } from '../settings/components/SettingsBoundary';
 import { SettingsCategory } from '../settings/components/SettingsCategory';
-import { SettingsRow } from '../settings/components/SettingsRow';
 import { SettingsSearchControl } from '../settings/components/SettingsSearchControl';
 import { SettingsUiConfig } from '../settings/components/SettingsUiConfig';
-import { SettingsItem, actionSettingsItem } from '../../models/SettingsItem';
-import { materialIcon } from '../../shared/icons/AppIconModels';
 import { SensorEntry, SensorGroup } from './SensorModels';
 import { SensorSettingsSwitchRow } from './SensorSettingsSwitchRow';
 
@@ -33,7 +30,6 @@ export struct SensorSettingsPage {
   groups: SensorGroup[] = [];
   @Prop contentMaxWidth: number = 720;
   @Prop showControls: boolean = true;
-  @Prop healthAuthorizationState: string = '';
   @StorageLink('appResolvedDark') appResolvedDark: boolean = false;
   @State private liveGroups: SensorSettingsLiveGroupState[] = [];
   @State private filterMode: SensorFilterMode = SensorFilterMode.ALL;
@@ -45,8 +41,6 @@ export struct SensorSettingsPage {
   onSearch: () => void = () => {};
   onFilter: () => void = () => {};
   onToggleSensor: (id: string, enabled: boolean) => void = () => {};
-  onOpenHealthSensors: () => void = () => {};
-  onRequestHealthAuthorization: () => void = () => {};
   onSwipeBack: () => void = () => {};
 
   aboutToAppear(): void {
@@ -66,9 +60,6 @@ export struct SensorSettingsPage {
         const row = SensorSettingsLiveStateStore.stateFor(sensor.id);
         row.title = sensor.title;
         row.icon = sensor.icon;
-        if (sensor.id === 'health_settings') {
-          row.summary = sensor.summary;
-        }
         groupState.rows.push(row);
       }
       nextGroups.push(groupState);
@@ -115,9 +106,6 @@ export struct SensorSettingsPage {
   }
 
   private matchesFilter(row: SensorSettingsLiveRowState): boolean {
-    if (this.isHealthSettingsRow(row)) {
-      return true;
-    }
     if (this.filterMode === SensorFilterMode.ENABLED) {
       return row.checked;
     }
@@ -180,41 +168,6 @@ export struct SensorSettingsPage {
   private updateFilterTrackWidth(width: Length): void {
     if (typeof width === 'number') {
       this.filterTrackWidth = width;
-    }
-  }
-
-  private isHealthSettingsRow(state: SensorSettingsLiveRowState): boolean {
-    return state.id === 'health_settings';
-  }
-
-  private healthSettingsItem(): SettingsItem {
-    return actionSettingsItem(
-      materialIcon('ecg_heart'),
-      Localization.t('health_title'),
-      Localization.t('health_settings_summary'),
-      '',
-      'open_health_sensor_settings'
-    );
-  }
-
-  private healthAuthorizationItem(): SettingsItem {
-    return actionSettingsItem(
-      materialIcon('approval_delegation'),
-      Localization.t('health_authorization_management_title'),
-      this.healthAuthorizationStatus(),
-      '',
-      'manage_health_authorization'
-    );
-  }
-
-  private healthAuthorizationStatus(): string {
-    switch (this.healthAuthorizationState) {
-      case 'authorized':
-        return Localization.t('health_authorization_authorized');
-      case 'partial_authorized':
-        return Localization.t('health_authorization_partial_authorized');
-      default:
-        return Localization.t('health_authorization_unauthorized');
     }
   }
 
@@ -304,33 +257,10 @@ export struct SensorSettingsPage {
 
   @Builder
   private renderSensor(state: SensorSettingsLiveRowState): void {
-    if (this.isHealthSettingsRow(state)) {
-      SettingsRow({
-        item: this.healthSettingsItem(),
-        onAction: (_actionId: string): void => {
-          this.onOpenHealthSensors();
-        }
-      })
-    } else {
-      SensorSettingsSwitchRow({
-        state: state,
-        onToggle: this.onToggleSensor
-      })
-    }
-  }
-
-  @Builder
-  private renderHealthAuthorizationGroup(): void {
-    Column() {
-      SettingsRow({
-        item: this.healthAuthorizationItem(),
-        onAction: (_actionId: string): void => {
-          this.onRequestHealthAuthorization();
-        }
-      })
-    }
-    .width('100%')
-    .borderRadius(SettingsUiConfig.groupRadius)
+    SensorSettingsSwitchRow({
+      state: state,
+      onToggle: this.onToggleSensor
+    })
     .backgroundColor(HaTheme.surface(this.appResolvedDark))
     .shadow(SettingsUiConfig.groupShadow())
     .padding(SettingsUiConfig.groupPadding)
@@ -362,18 +292,6 @@ export struct SensorSettingsPage {
         }
         .width('100%')
         .height(this.topContentSpacerHeight())
-
-        if (this.healthAuthorizationState.length > 0) {
-          ListItem() {
-            SettingsCategory({ title: Localization.t('health_authorization_group'), showBackground: false })
-          }
-          .width('100%')
-
-          ListItem() {
-            this.renderHealthAuthorizationGroup()
-          }
-          .width('100%')
-        }
 
         ForEach(this.visibleGroups(), (visibleGroup: VisibleSensorGroup) => {
           if (visibleGroup.group.title.trim().length > 0) {

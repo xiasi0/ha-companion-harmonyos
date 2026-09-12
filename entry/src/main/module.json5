@@ -13,12 +13,6 @@
     ],
     "deliveryWithInstall": true,
     "installationFree": false,
-    "metadata": [
-      {
-        "name": "client_id",
-        "value": "6917605619463398439"
-      }
-    ],
     "proxyData": [
       {
         "uri": "datashareproxy://io.homeassistant.companion/PushMessage",

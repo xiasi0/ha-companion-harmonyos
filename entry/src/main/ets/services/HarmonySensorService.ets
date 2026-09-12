@@ -42,8 +42,6 @@ import { Localization } from '../shared/i18n/Localization';
 import { HarmonyLocationSnapshot, HarmonyLocationZone } from './HarmonyLocationService';
 import { HarmonySensorEntityCategoryPolicy } from './HarmonySensorEntityCategoryPolicy';
 import { AppVersionService } from './AppVersionService';
-import { HarmonyHealthService } from './HarmonyHealthService';
-import { HEALTH_SENSOR_IDS } from './HarmonyHealthSensorModels';
 import {
   GetZonesWebhookBody,
   HarmonyLocationSentMode,
@@ -181,12 +179,6 @@ interface SensorUpdateResponseSummary {
   unregisteredDescriptors: SensorDescriptor[];
 }
 
-interface HealthSyncInfo {
-  authorizationCheckedAt: number;
-  lastError: string;
-  synced: boolean;
-}
-
 export class HarmonySensorService {
   private static lastSensorRegistrationSignatures: Map<string, string> = new Map<string, string>();
   private static lastSensorUpdateSignatures: Map<string, string> = new Map<string, string>();
@@ -269,7 +261,7 @@ export class HarmonySensorService {
     'geocoded_location',
     'light_sensor',
     'proximity_sensor'
-  ].concat(HEALTH_SENSOR_IDS);
+  ];
 
   static supportedPublicSensorIds(): string[] {
     return HarmonySensorService.CORE_PUBLIC_SENSOR_IDS.concat(HarmonySensorService.DIRECT_PUBLIC_SENSOR_IDS);
@@ -277,10 +269,6 @@ export class HarmonySensorService {
 
   static isCorePublicSensor(sensorId: string): boolean {
     return HarmonySensorService.containsText(HarmonySensorService.CORE_PUBLIC_SENSOR_IDS, sensorId);
-  }
-
-  static isHealthSensorId(sensorId: string): boolean {
-    return HarmonyHealthService.isHealthSensorId(sensorId);
   }
 
   static isSupportedPublicSensor(sensorId: string): boolean {
@@ -372,7 +360,6 @@ export class HarmonySensorService {
       locationSentMode,
       context
     );
-    const healthSyncInfo = HarmonySensorService.healthSyncInfo(descriptors);
     const webhookUrls = HarmonySensorService.webhookUrls(normalizedBaseUrl, trimmedWebhookId, cloudhookUrl);
     let registeredCount = 0;
     let updatedCount = 0;
@@ -454,10 +441,7 @@ export class HarmonySensorService {
       registeredCount,
       updatedCount,
       locationUpdated,
-      locationSummary,
-      healthAuthorizationCheckedAt: healthSyncInfo.authorizationCheckedAt,
-      healthLastError: healthSyncInfo.lastError,
-      healthSynced: healthSyncInfo.synced
+      locationSummary
     };
   }
 
@@ -1276,11 +1260,6 @@ export class HarmonySensorService {
         enabled: prefs.accurateLocationEnabled,
       }
     ];
-    if (context) {
-      const health = new HarmonyHealthService();
-      const snapshot = await health.readSnapshot(context);
-      descriptors.push(...HarmonyHealthService.descriptors(snapshot, prefs.directSensorIds));
-    }
     const categorized = HarmonySensorEntityCategoryPolicy.apply(descriptors);
     await HarmonySensorService.rememberSensorStates(categorized, context);
     return categorized;
@@ -1303,28 +1282,6 @@ export class HarmonySensorService {
       timeStamp: lastLocation.timeStamp,
       gps_accuracy: Math.round(lastLocation.accuracy),
       location_sent: locationSentMode
-    };
-  }
-
-  private static healthSyncInfo(descriptors: SensorDescriptor[]): HealthSyncInfo {
-    let authorizationCheckedAt = 0;
-    let lastError = '';
-    let synced = false;
-    for (let i = 0; i < descriptors.length; i++) {
-      const item = descriptors[i];
-      if (!HarmonyHealthService.isHealthSensorId(item.id)) {
-        continue;
-      }
-      const attrs = item.attributes;
-      authorizationCheckedAt = typeof attrs.sensor_updated_at === 'number' ? attrs.sensor_updated_at : authorizationCheckedAt;
-      lastError = typeof attrs.health_error === 'string' ? attrs.health_error : lastError;
-      synced = synced || (item.enabled &&
-        (attrs.health_authorization === 'authorized' || attrs.health_authorization === 'partial_authorized'));
-    }
-    return {
-      authorizationCheckedAt,
-      lastError,
-      synced
     };
   }
 
