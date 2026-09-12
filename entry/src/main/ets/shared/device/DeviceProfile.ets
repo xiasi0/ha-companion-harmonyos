@@ -26,9 +26,7 @@ export interface DeviceProfileInfo {
 export class DeviceProfile {
   static fromSize(widthVp: number, heightVp: number): DeviceProfileInfo {
     let formFactor = DeviceFormFactor.PHONE;
-    if (DeviceProfile.isWearableLike(widthVp, heightVp)) {
-      formFactor = DeviceFormFactor.WEARABLE;
-    } else if (widthVp >= Breakpoints.TABLET_MIN_WIDTH) {
+    if (widthVp >= Breakpoints.TABLET_MIN_WIDTH) {
       formFactor = DeviceFormFactor.TABLET;
     }
 
@@ -40,13 +38,6 @@ export class DeviceProfile {
       contentMaxWidth: Breakpoints.onboardingContentMaxWidth(widthVp),
       settingsMaxWidth: Breakpoints.settingsContentMaxWidth(widthVp)
     };
-  }
-
-  private static isWearableLike(widthVp: number, heightVp: number): boolean {
-    return widthVp > 0 &&
-      heightVp > 0 &&
-      widthVp <= Breakpoints.WEARABLE_MAX_WIDTH &&
-      heightVp <= Breakpoints.WEARABLE_MAX_WIDTH;
   }
 
   private static sizeClass(widthVp: number): DisplaySizeClass {

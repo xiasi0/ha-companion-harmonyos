@@ -4,7 +4,6 @@ export class Breakpoints {
   static readonly EXPANDED_MIN_WIDTH: number = 840;
   static readonly TABLET_MIN_WIDTH: number = Breakpoints.MEDIUM_MIN_WIDTH;
   static readonly LARGE_TABLET_MIN_WIDTH: number = Breakpoints.EXPANDED_MIN_WIDTH;
-  static readonly WEARABLE_MAX_WIDTH: number = 480;
   static readonly PHONE_CONTENT_MAX_WIDTH: number = 380;
   static readonly TABLET_CONTENT_MAX_WIDTH: number = 560;
   static readonly LARGE_CONTENT_MAX_WIDTH: number = 720;
