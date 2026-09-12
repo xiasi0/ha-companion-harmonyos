@@ -50,7 +50,6 @@ export struct LocationSharingPage {
         })
       }
       .width('100%')
-      .height('100%')
       .padding({
         left: OnboardingUiConfig.pagePadding,
         right: OnboardingUiConfig.pagePadding,
