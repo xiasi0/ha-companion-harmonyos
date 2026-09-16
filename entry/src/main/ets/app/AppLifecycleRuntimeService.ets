@@ -30,6 +30,8 @@ export interface AppLifecycleRuntimeCallbacks {
   applyThemePreferences: () => void;
   subscribeBatteryEvents: (onEvent: () => void) => void;
   subscribeNetworkEvents: (onEvent: () => void) => void;
+  recoverNetworkConnections: (force?: boolean) => void;
+  cancelNetworkRecovery: () => void;
   subscribeDirectSensorEvents: (onEvent: (reason: string) => void) => void;
   subscribeHardwareSensorEvents: (onEvent: (reason: string) => void) => void;
   refreshPeriodicSensorTimer: () => void;
@@ -70,6 +72,7 @@ export class AppLifecycleRuntimeService {
       callbacks.syncPublicSensors('battery_event');
     });
     callbacks.subscribeNetworkEvents((): void => {
+      callbacks.recoverNetworkConnections();
       callbacks.refreshHomeNetworkStatus(false);
       callbacks.syncPublicSensors('network_event');
     });
@@ -112,6 +115,7 @@ export class AppLifecycleRuntimeService {
 
   static aboutToDisappear(callbacks: AppLifecycleRuntimeCallbacks): void {
     AppLifecycleRuntimeService.setAppActive(false);
+    callbacks.cancelNetworkRecovery();
     callbacks.clearBackDispatcher();
     callbacks.unsubscribeSystemEvents();
     callbacks.stopSensorRuntime();
@@ -126,6 +130,7 @@ export class AppLifecycleRuntimeService {
     callbacks.prewarmDiscovery();
     callbacks.reconcileBackgroundLocationPermission();
     callbacks.refreshCurrentLocationForDiagnostics('app_foreground');
+    callbacks.recoverNetworkConnections();
     callbacks.refreshHomeNetworkStatus(false);
     callbacks.syncPublicSensors('app_foreground');
     const decision: AppForegroundDecision = AppStartupCoordinator.foreground({
@@ -150,6 +155,7 @@ export class AppLifecycleRuntimeService {
 
   static onBackground(state: AppLifecycleRuntimeState, callbacks: AppLifecycleRuntimeCallbacks): void {
     AppLifecycleRuntimeService.setAppActive(false);
+    callbacks.cancelNetworkRecovery();
     callbacks.syncPublicSensors('app_background');
     if (callbacks.isIgnoringAppLockTransitions()) {
       return;

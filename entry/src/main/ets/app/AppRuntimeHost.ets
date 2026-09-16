@@ -31,6 +31,7 @@ import { SensorRuntimeService, SensorRuntimeSnapshot } from '../features/sensors
 import { SensorRuntimeBridgeService } from '../features/sensors/SensorRuntimeBridgeService';
 import { SensorSettingsLiveStateStore } from '../services/SensorSettingsLiveStateStore';
 import { CardFormService } from '../features/cards/CardFormService';
+import { HaBackgroundConnectionService } from '../features/background/HaBackgroundConnectionService';
 import { CardEntityDetailLaunchService } from '../features/cards/CardEntityDetailLaunchService';
 import { MobileAppRegistrationService } from '../features/registration/MobileAppRegistrationService';
 import { RegistrationRuntimeService } from '../features/registration/RegistrationRuntimeService';
@@ -243,6 +244,13 @@ export struct AppRuntimeHost {
   @State onboardingBackTarget: number = AppRoute.WELCOME;
   @State addingServerFromSettings: boolean = false;
   private homeNetworkRefreshSeq: number = 0;
+  private networkObserved: boolean = false;
+  private observedNetId: number = 0;
+  private observedNetworkSignature: string = '';
+  private networkRecoveryTimer: number = -1;
+  private networkRecoveryInFlight: boolean = false;
+  private networkRecoveryPending: boolean = false;
+  private lastForcedNetworkRecoveryAt: number = 0;
   private overlaySensorGroupsCacheKey: string = '';
   private overlaySensorGroupsCache: SensorGroup[] = [];
   private overlaySnapshotCacheKey: string = '';
@@ -332,6 +340,70 @@ export struct AppRuntimeHost {
   subscribeBatteryEvents(onEvent: () => void): void { this.systemEventService.subscribeBatteryEvents(onEvent); }
 
   subscribeNetworkEvents(onEvent: () => void): void { this.systemEventService.subscribeNetworkEvents(onEvent); }
+
+  recoverNetworkConnections(force: boolean = false): void {
+    const currentNetId = NetworkService.defaultNetId();
+    const currentNetworkSignature = NetworkService.defaultNetworkSignature();
+    if (!this.networkObserved) {
+      this.networkObserved = true;
+      this.observedNetId = currentNetId;
+      this.observedNetworkSignature = currentNetworkSignature;
+      if (!force) {
+        return;
+      }
+    }
+    if (!force && currentNetworkSignature === this.observedNetworkSignature) {
+      return;
+    }
+    if (this.networkRecoveryInFlight) {
+      if (currentNetworkSignature !== this.observedNetworkSignature) {
+        this.networkRecoveryPending = true;
+      }
+      return;
+    }
+    if (force && Date.now() - this.lastForcedNetworkRecoveryAt < 60 * 1000) {
+      return;
+    }
+    if (force) {
+      this.lastForcedNetworkRecoveryAt = Date.now();
+    }
+    this.observedNetId = currentNetId;
+    this.observedNetworkSignature = currentNetworkSignature;
+    if (this.networkRecoveryTimer >= 0) {
+      clearTimeout(this.networkRecoveryTimer);
+    }
+    this.networkRecoveryTimer = setTimeout((): void => {
+      this.networkRecoveryTimer = -1;
+      this.networkRecoveryInFlight = true;
+      const requiresLongRunning = (AppStorage.get<string>('websocketMode') ?? 'system') === 'always';
+      const restart = HaBackgroundConnectionService.restart(this.context(), requiresLongRunning);
+      restart.catch((): void => {}).finally((): void => {
+        this.networkRecoveryInFlight = false;
+        if (this.networkRecoveryPending) {
+          this.networkRecoveryPending = false;
+          this.recoverNetworkConnections();
+        }
+      });
+      if (this.step === AppRoute.DASHBOARD && !this.dashboardInsecureBlocked &&
+        this.dashboardUrl.trim().length > 0) {
+        this.dashboardConnectionWaitToken += 1;
+        this.dashboardConnectionErrorVisible = false;
+        this.dashboardFrontendConnected = false;
+        this.dashboardBridgeReady = false;
+        this.dashboardAuthProvided = false;
+        this.forceLoadDashboard(this.dashboardUrl);
+      }
+    }, 1500);
+  }
+
+  cancelNetworkRecovery(): void {
+    if (this.networkRecoveryTimer < 0) {
+      return;
+    }
+    clearTimeout(this.networkRecoveryTimer);
+    this.networkRecoveryTimer = -1;
+    this.networkRecoveryPending = false;
+  }
 
   subscribeDirectSensorEvents(onEvent: (reason: string) => void): void {
     this.systemEventService.subscribeDirectSensorEvents(onEvent);
@@ -704,6 +776,7 @@ export struct AppRuntimeHost {
     this.dashboardFrontendConnected = false;
     this.dashboardBridgeReady = false;
     this.dashboardAuthProvided = false;
+    this.recoverNetworkConnections(true);
     this.scheduleDashboardConnectionWait();
   }
 
@@ -785,6 +858,7 @@ export struct AppRuntimeHost {
         !this.isAppActive() || this.shouldSkipDashboardConnectionWait()) {
         return;
       }
+      this.recoverNetworkConnections(true);
       this.dashboardConnectionErrorVisible = true;
     }, DASHBOARD_CONNECTION_WAIT_MS);
   }
@@ -1252,12 +1326,6 @@ export struct AppRuntimeHost {
         this.tryLoadWebUrl(targetUrl);
       }
     }, 0);
-    setTimeout((): void => {
-      if (this.step === AppRoute.DASHBOARD && this.dashboardUrl === targetUrl) {
-        this.dashboardClearHistoryPending = true;
-        this.tryLoadWebUrl(targetUrl);
-      }
-    }, 250);
   }
 
   maybeResetDashboardToFirstView(): void { DashboardRuntimeService.maybeResetDashboardToFirstView(this.webCtrl, this); }

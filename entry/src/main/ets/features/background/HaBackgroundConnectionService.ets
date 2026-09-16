@@ -67,17 +67,32 @@ export class HaBackgroundConnectionService {
   private static requiresLongRunning = false;
   private static subscribedEntityIds: string[] = [];
   private static subscribedEntityIdsLoadedAt = 0;
+  private static closePromise: Promise<void> | undefined = undefined;
+  private static connectionGeneration = 0;
 
   static async start(context: common.Context, requiresLongRunning: boolean = false): Promise<void> {
+    const generation = HaBackgroundConnectionService.connectionGeneration;
     HaBackgroundConnectionService.context = context;
     HaBackgroundConnectionService.requiresLongRunning = requiresLongRunning;
+    if (HaBackgroundConnectionService.closePromise) {
+      await HaBackgroundConnectionService.closePromise;
+    }
+    if (generation !== HaBackgroundConnectionService.connectionGeneration) {
+      return;
+    }
     if (HaBackgroundConnectionService.running) {
       return;
     }
     if (requiresLongRunning) {
       await LongRunningTaskService.ensureActive(context as common.UIAbilityContext);
+      if (generation !== HaBackgroundConnectionService.connectionGeneration) {
+        return;
+      }
     }
     const connection = await HaBackgroundConnectionService.resolveConnection(context);
+    if (generation !== HaBackgroundConnectionService.connectionGeneration) {
+      return;
+    }
     if (connection.baseUrl.length === 0 || connection.accessToken.length === 0) {
       hilog.warn(DOMAIN, TAG, 'skip start: missing connection');
       return;
@@ -88,6 +103,9 @@ export class HaBackgroundConnectionService {
     HaBackgroundConnectionService.initialRefreshDone = false;
     HaBackgroundConnectionService.serverInstanceId = connection.serverInstanceId;
     await HaBackgroundConnectionService.reloadBoundEntityIds(context, connection.serverInstanceId);
+    if (generation !== HaBackgroundConnectionService.connectionGeneration) {
+      return;
+    }
     HaBackgroundConnectionService.connect(connection.baseUrl, connection.accessToken);
   }
 
@@ -107,6 +125,7 @@ export class HaBackgroundConnectionService {
   }
 
   static stop(): void {
+    HaBackgroundConnectionService.connectionGeneration += 1;
     HaBackgroundConnectionService.stopping = true;
     HaBackgroundConnectionService.running = false;
     HaBackgroundConnectionService.subscribed = false;
@@ -119,17 +138,20 @@ export class HaBackgroundConnectionService {
     HaBackgroundConnectionService.clearReconnect();
     const current = HaBackgroundConnectionService.client;
     HaBackgroundConnectionService.client = undefined;
-    if (current) {
-      current.close().catch((): void => {});
-    }
+    HaBackgroundConnectionService.closeClient(current);
   }
 
   private static connect(baseUrl: string, accessToken: string): void {
     const client = NetworkService.createWebSocket();
+    const generation = HaBackgroundConnectionService.connectionGeneration;
     HaBackgroundConnectionService.client = client;
     HaBackgroundConnectionService.subscribed = false;
     HaBackgroundConnectionService.pushSubscribed = false;
     client.on('message', (err: Error, data: string | ArrayBuffer): void => {
+      if (generation !== HaBackgroundConnectionService.connectionGeneration ||
+        client !== HaBackgroundConnectionService.client) {
+        return;
+      }
       if (err) {
         HaBackgroundConnectionService.scheduleReconnect();
         return;
@@ -137,15 +159,27 @@ export class HaBackgroundConnectionService {
       HaBackgroundConnectionService.handleMessage(client, baseUrl, accessToken, data);
     });
     client.on('error', (): void => {
+      if (generation !== HaBackgroundConnectionService.connectionGeneration ||
+        client !== HaBackgroundConnectionService.client) {
+        return;
+      }
       HaBackgroundConnectionService.scheduleReconnect();
     });
     client.on('close', (): void => {
+      if (generation !== HaBackgroundConnectionService.connectionGeneration ||
+        client !== HaBackgroundConnectionService.client) {
+        return;
+      }
       HaBackgroundConnectionService.scheduleReconnect();
     });
     client.connect(HaBackgroundConnectionService.webSocketUrl(baseUrl), {
       pingInterval: 60,
       pongTimeout: 30
     }).catch((err: Error): void => {
+      if (generation !== HaBackgroundConnectionService.connectionGeneration ||
+        client !== HaBackgroundConnectionService.client) {
+        return;
+      }
       hilog.warn(DOMAIN, TAG, 'connect failed: %{public}s', err.message);
       HaBackgroundConnectionService.scheduleReconnect();
     });
@@ -485,15 +519,14 @@ export class HaBackgroundConnectionService {
       return;
     }
     const current = HaBackgroundConnectionService.client;
+    HaBackgroundConnectionService.connectionGeneration += 1;
     HaBackgroundConnectionService.client = undefined;
     HaBackgroundConnectionService.subscribed = false;
     HaBackgroundConnectionService.pushSubscribed = false;
     HaBackgroundConnectionService.initialRefreshDone = false;
     HaBackgroundConnectionService.subscribedEntityIds = [];
     HaBackgroundConnectionService.subscribedEntityIdsLoadedAt = 0;
-    if (current) {
-      current.close().catch((): void => {});
-    }
+    HaBackgroundConnectionService.closeClient(current);
     HaBackgroundConnectionService.reconnectTimer = setTimeout((): void => {
       HaBackgroundConnectionService.reconnectTimer = -1;
       const context = HaBackgroundConnectionService.context;
@@ -527,6 +560,21 @@ export class HaBackgroundConnectionService {
     }
     clearTimeout(HaBackgroundConnectionService.reconnectTimer);
     HaBackgroundConnectionService.reconnectTimer = -1;
+  }
+
+  private static closeClient(client: NetworkWebSocket | undefined): void {
+    if (!client) {
+      return;
+    }
+    const closePromise = client.close()
+      .catch((): boolean => false)
+      .then((): void => {});
+    HaBackgroundConnectionService.closePromise = closePromise;
+    closePromise.finally((): void => {
+      if (HaBackgroundConnectionService.closePromise === closePromise) {
+        HaBackgroundConnectionService.closePromise = undefined;
+      }
+    });
   }
 
   private static async resolveConnection(context: common.Context): Promise<BackgroundConnection> {

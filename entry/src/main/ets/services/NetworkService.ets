@@ -134,6 +134,39 @@ export class NetworkService {
     }
   }
 
+  static defaultNetId(): number {
+    try {
+      return connection.getDefaultNetSync().netId;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  static defaultNetworkSignature(): string {
+    try {
+      const netHandle = connection.getDefaultNetSync();
+      if (netHandle.netId === 0) {
+        return 'net_id=0';
+      }
+      const capabilities = connection.getNetCapabilitiesSync(netHandle);
+      const properties = connection.getConnectionPropertiesSync(netHandle);
+      return JSON.stringify({
+        netId: netHandle.netId,
+        bearerTypes: capabilities.bearerTypes,
+        networkCap: capabilities.networkCap ?? [],
+        interfaceName: properties.interfaceName,
+        domains: properties.domains,
+        linkAddresses: properties.linkAddresses,
+        dnses: properties.dnses,
+        routes: properties.routes,
+        isIPv4LinkValid: properties.isIPv4LinkValid,
+        isIPv6LinkValid: properties.isIPv6LinkValid
+      });
+    } catch (_) {
+      return `net_id=${NetworkService.defaultNetId()}`;
+    }
+  }
+
   static isNotMeteredCap(target: NetworkNetCap): boolean {
     return target === connection.NetCap.NET_CAPABILITY_NOT_METERED;
   }

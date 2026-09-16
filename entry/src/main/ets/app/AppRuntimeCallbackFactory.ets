@@ -42,6 +42,8 @@ export interface AppRuntimeCallbackTarget {
   applySensorDefaultMigration(): void;
   subscribeBatteryEvents(onEvent: () => void): void;
   subscribeNetworkEvents(onEvent: () => void): void;
+  recoverNetworkConnections(force?: boolean): void;
+  cancelNetworkRecovery(): void;
   subscribeDirectSensorEvents(onEvent: (reason: string) => void): void;
   subscribeHardwareSensorEvents(onEvent: (reason: string) => void): void;
   refreshPeriodicSensorTimer(): void;
@@ -214,6 +216,8 @@ export class AppRuntimeCallbackFactory {
       applyThemePreferences: (): void => target.applyThemePreferences(),
       subscribeBatteryEvents: (onEvent: () => void): void => target.subscribeBatteryEvents(onEvent),
       subscribeNetworkEvents: (onEvent: () => void): void => target.subscribeNetworkEvents(onEvent),
+      recoverNetworkConnections: (force?: boolean): void => target.recoverNetworkConnections(force),
+      cancelNetworkRecovery: (): void => target.cancelNetworkRecovery(),
       subscribeDirectSensorEvents: (onEvent: (reason: string) => void): void =>
         target.subscribeDirectSensorEvents(onEvent),
       subscribeHardwareSensorEvents: (onEvent: (reason: string) => void): void =>
