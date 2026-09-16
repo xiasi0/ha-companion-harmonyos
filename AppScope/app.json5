@@ -2,8 +2,8 @@
   "app": {
     "bundleName": "io.homeassistant.companion",
     "vendor": "Home Assistant",
-    "versionCode": 1040100,
-    "versionName": "1.4.1",
+    "versionCode": 1040200,
+    "versionName": "1.4.2",
     "icon": "$media:layered_image",
     "label": "$string:app_name"
   }
