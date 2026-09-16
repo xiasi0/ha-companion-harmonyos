@@ -79,6 +79,8 @@ export class SystemEventService {
       netConnection.on('netAvailable', onChanged);
       netConnection.on('netLost', onChanged);
       netConnection.on('netCapabilitiesChange', onChanged);
+      netConnection.on('netConnectionPropertiesChange', onChanged);
+      netConnection.on('netUnavailable', onChanged);
       netConnection.register((): void => {});
       this.netConnection = netConnection;
     } catch (_) {
