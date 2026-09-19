@@ -84,5 +84,6 @@ export class AppStorageDefaults {
     AppStorage.setOrCreate<string>('cardPendingEntityDetailEntityId', AppStorage.get<string>('cardPendingEntityDetailEntityId') ?? '');
     AppStorage.setOrCreate<string>('cardPendingEntityDetailServerInstanceId', AppStorage.get<string>('cardPendingEntityDetailServerInstanceId') ?? '');
     AppStorage.setOrCreate<number>('cardPendingEntityDetailTick', AppStorage.get<number>('cardPendingEntityDetailTick') ?? 0);
+    AppStorage.setOrCreate<boolean>('shortcutSettingsPending', AppStorage.get<boolean>('shortcutSettingsPending') ?? false);
   }
 }
