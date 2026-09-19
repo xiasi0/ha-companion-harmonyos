@@ -17,6 +17,10 @@
       "value": "Settings"
     },
     {
+      "name": "shortcut_assist",
+      "value": "Assist"
+    },
+    {
       "name": "microphone_permission_reason",
       "value": "Used to record voice commands in the Home Assistant assistant."
     },

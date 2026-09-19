@@ -14,6 +14,21 @@
           }
         }
       ]
+    },
+    {
+      "shortcutId": "open_assist",
+      "label": "$string:shortcut_assist",
+      "icon": "$media:ha_ic_assist",
+      "wants": [
+        {
+          "bundleName": "io.homeassistant.companion",
+          "moduleName": "entry",
+          "abilityName": "EntryAbility",
+          "parameters": {
+            "action": "ha.open_assist"
+          }
+        }
+      ]
     }
   ]
 }
