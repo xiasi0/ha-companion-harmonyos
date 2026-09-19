@@ -13,6 +13,10 @@
       "value": "Home Assistant"
     },
     {
+      "name": "shortcut_settings",
+      "value": "设置"
+    },
+    {
       "name": "microphone_permission_reason",
       "value": "用于在 Home Assistant 助手中录制语音指令。"
     },

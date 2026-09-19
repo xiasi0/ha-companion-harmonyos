@@ -14,6 +14,7 @@ import { CardEntityDetailLaunchService } from '../features/cards/CardEntityDetai
 import { PushKitPersistentMessageStore } from '../features/pushkit/PushKitPersistentMessageStore';
 import { AssistLaunchService } from '../features/assist/AssistLaunchService';
 import { NfcTagReaderService } from '../features/nfc/NfcTagReaderService';
+import { ShortcutLaunchService } from '../services/ShortcutLaunchService';
 
 const DOMAIN = 0x0000;
 const TAG = 'HACompanion';
@@ -27,6 +28,7 @@ export default class EntryAbility extends UIAbility {
     this.handleNfcTagWant(want);
     this.handleEntityDetailWant(want);
     this.handleAssistWant(want);
+    this.handleShortcutWant(want);
     LongRunningTaskService.setRecoveryHandler((context): void => {
       if ((AppStorage.get<string>('websocketMode') ?? 'system') !== 'always') {
         return;
@@ -46,6 +48,7 @@ export default class EntryAbility extends UIAbility {
     this.handleNfcTagWant(want);
     this.handleEntityDetailWant(want);
     this.handleAssistWant(want);
+    this.handleShortcutWant(want);
   }
 
   onDestroy(): void {
@@ -180,6 +183,13 @@ export default class EntryAbility extends UIAbility {
       return;
     }
     AssistLaunchService.publishPending(startListening);
+    AppStorage.setOrCreate<number>('appForegroundTick', Date.now());
+  }
+
+  private handleShortcutWant(want: Want): void {
+    if (!ShortcutLaunchService.handleWant(want)) {
+      return;
+    }
     AppStorage.setOrCreate<number>('appForegroundTick', Date.now());
   }
 

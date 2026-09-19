@@ -176,6 +176,7 @@ export struct AppRuntimeHost {
   @StorageLink('nfcReaderError') nfcError: string = '';
   @StorageLink('nfcReaderTick') @Watch('onNfcReaderTick') nfcTick: number = 0;
   @StorageLink('nfcReaderPending') nfcReaderPending: boolean = false;
+  @StorageLink('shortcutSettingsPending') shortcutSettingsPending: boolean = false;
 
   @State @Watch('onStepChanged') step: number = initialRuntimeRoute();
   @State loading: boolean = false;
@@ -709,6 +710,7 @@ export struct AppRuntimeHost {
         this.openPendingEntityDetailFromCard();
         this.openPendingAssistLaunch();
         this.openPendingNfcOverlay();
+        this.openPendingShortcut();
       });
   }
 
@@ -1249,6 +1251,7 @@ export struct AppRuntimeHost {
       (): void => {
         this.openPendingAssistLaunch();
         this.openPendingNfcOverlay();
+        this.openPendingShortcut();
       }
     );
   }
@@ -1486,6 +1489,7 @@ export struct AppRuntimeHost {
       this.handleDashboardForegroundConnectionWait();
     }
     this.openPendingAssistLaunch();
+    this.openPendingShortcut();
   }
 
   private onAppBackgroundTick(): void {
@@ -1511,6 +1515,14 @@ export struct AppRuntimeHost {
 
   private onNfcReaderTick(): void {
     this.openPendingNfcOverlay();
+  }
+
+  private openPendingShortcut(): void {
+    if (!this.shortcutSettingsPending || this.appLocked || this.appUnlocking) {
+      return;
+    }
+    this.openCompanionSettings();
+    this.shortcutSettingsPending = false;
   }
 
   private openPendingNfcOverlay(): void {

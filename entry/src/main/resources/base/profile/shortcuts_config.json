@@ -1,0 +1,19 @@
+{
+  "shortcuts": [
+    {
+      "shortcutId": "open_settings",
+      "label": "$string:shortcut_settings",
+      "icon": "$media:ha_ic_settings",
+      "wants": [
+        {
+          "bundleName": "io.homeassistant.companion",
+          "moduleName": "entry",
+          "abilityName": "EntryAbility",
+          "parameters": {
+            "shortcutAction": "open_settings"
+          }
+        }
+      ]
+    }
+  ]
+}
