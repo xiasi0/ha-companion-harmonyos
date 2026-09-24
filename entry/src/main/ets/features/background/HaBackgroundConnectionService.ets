@@ -12,7 +12,10 @@ import { CardRuntimeRepository } from '../cards/CardRuntimeRepository';
 import { HomeAssistantNotificationAdapter } from '../notifications/HomeAssistantNotificationAdapter';
 import { NotificationService } from '../notifications/NotificationService';
 import { HarmonyPushTokenService } from '../pushkit/HarmonyPushTokenService';
-import { MobileAppRegistrationService } from '../registration/MobileAppRegistrationService';
+import {
+  MobileAppRegistrationService,
+  MobileAppUpdateRegistrationData
+} from '../registration/MobileAppRegistrationService';
 import { LongRunningTaskService } from './LongRunningTaskService';
 
 const DOMAIN = 0x0000;
@@ -33,13 +36,9 @@ interface WebhookPostResult {
   body: string;
 }
 
-interface PushRegistrationData {
-  app_data: Record<string, string | number | boolean>;
-}
-
 interface PushRegistrationRequest {
   type: string;
-  data: PushRegistrationData;
+  data: MobileAppUpdateRegistrationData;
 }
 
 interface SupportedFeatures {
@@ -339,11 +338,10 @@ export class HaBackgroundConnectionService {
     const urls = HaBackgroundConnectionService.webhookUrls(baseUrl, webhookId.trim());
     let lastError = '';
     const pushKitToken = await HarmonyPushTokenService.ensureToken();
+    const deviceName = await HaBackgroundConnectionService.currentDeviceName();
     const body: PushRegistrationRequest = {
       type: 'update_registration',
-      data: {
-        app_data: MobileAppRegistrationService.appData(pushKitToken)
-      }
+      data: MobileAppRegistrationService.updateRegistrationData(deviceName, pushKitToken)
     };
     for (let i = 0; i < urls.length; i++) {
       const result = await HaBackgroundConnectionService.postWebhook(urls[i], body);
@@ -358,6 +356,18 @@ export class HaBackgroundConnectionService {
       lastError = `${result.responseCode}:${result.body}`;
     }
     throw new Error(lastError.length > 0 ? lastError : 'update_registration failed');
+  }
+
+  private static async currentDeviceName(): Promise<string> {
+    const context = HaBackgroundConnectionService.context;
+    if (context) {
+      const active = await ServerManager.getActiveServer(context);
+      if (active && active.id === HaBackgroundConnectionService.serverInstanceId &&
+        active.info.deviceName.trim().length > 0) {
+        return active.info.deviceName.trim();
+      }
+    }
+    return MobileAppRegistrationService.defaultDeviceName();
   }
 
   private static async reregisterMobileAppForPush(): Promise<void> {
