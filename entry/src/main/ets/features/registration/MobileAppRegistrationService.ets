@@ -10,6 +10,15 @@ import {
 import { AppVersionService } from '../../services/AppVersionService';
 import { Localization } from '../../shared/i18n/Localization';
 
+export interface MobileAppUpdateRegistrationData {
+  app_version: string;
+  device_name: string;
+  manufacturer: string;
+  model: string;
+  os_version: string;
+  app_data: Record<string, string | number | boolean>;
+}
+
 export class MobileAppRegistrationService {
   static readonly APP_ID: string = 'io.homeassistant.companion';
 
@@ -50,6 +59,20 @@ export class MobileAppRegistrationService {
       data['pushkit_token'] = token;
     }
     return data;
+  }
+
+  static updateRegistrationData(
+    deviceName: string,
+    pushKitToken: string = ''
+  ): MobileAppUpdateRegistrationData {
+    return {
+      'app_version': AppVersionService.versionLabel(),
+      'device_name': deviceName.trim(),
+      'manufacturer': MobileAppRegistrationService.deviceManufacturer(),
+      'model': MobileAppRegistrationService.deviceModelName(deviceName),
+      'os_version': MobileAppRegistrationService.osVersionLabel(),
+      'app_data': MobileAppRegistrationService.appData(pushKitToken)
+    };
   }
 
   static async registerDevice(
