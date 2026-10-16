@@ -227,12 +227,6 @@ export struct DashboardPage {
     if (!event) {
       return;
     }
-    try {
-      if (event.error.getErrorCode() === -3) {
-        return;
-      }
-    } catch (_) {
-    }
     let requestUrl = '';
     let isMainFrame = true;
     try {
