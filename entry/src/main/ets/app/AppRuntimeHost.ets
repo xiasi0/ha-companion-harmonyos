@@ -671,6 +671,26 @@ export struct AppRuntimeHost {
     const activeBaseUrl = this.step === AppRoute.DASHBOARD && this.dashboardUrl.trim().length > 0
       ? this.dashboardUrl
       : this.haBaseUrl;
+    if (
+      this.step === AppRoute.DASHBOARD &&
+      UrlService.isHttpLikeUrl(currentUrl) &&
+      UrlService.isHttpLikeUrl(activeBaseUrl)
+    ) {
+      const currentKey = UrlService.normalizeBaseUrl(currentUrl).toLowerCase();
+      const knownServerUrls = [this.haBaseUrl, this.serverExternalUrl, this.serverInternalUrl, activeBaseUrl];
+      let isKnownServerUrl = false;
+      for (let i = 0; i < knownServerUrls.length; i++) {
+        const knownUrl = UrlService.normalizeBaseUrl(knownServerUrls[i]).toLowerCase();
+        if (knownUrl.length > 0 && knownUrl === currentKey) {
+          isKnownServerUrl = true;
+          break;
+        }
+      }
+      if (!isKnownServerUrl) {
+        this.openExternalUrl(currentUrl);
+        return { intercept: true, rewrittenUrl: '' };
+      }
+    }
     return UrlService.guardAndRewriteUrl(currentUrl, activeBaseUrl);
   }
 
@@ -2373,15 +2393,23 @@ export struct AppRuntimeHost {
 
   openAssistSettings(): void { this.step = 13; }
 
+  openExternalUrl(url: string): void {
+    const target = url.trim();
+    if (target.length === 0) {
+      return;
+    }
+    (this.context() as common.UIAbilityContext).startAbility({
+      action: 'ohos.want.action.viewData',
+      uri: target
+    }).catch((): void => {
+      this.message = target;
+    });
+  }
+
   handleSettingsAction(actionId: string): void {
     if (actionId === 'report_issue') {
       const url = 'https://github.com/xiasi0/ha-companion-harmonyos/issues';
-      (this.context() as common.UIAbilityContext).startAbility({
-        action: 'ohos.want.action.viewData',
-        uri: url
-      }).catch((): void => {
-        this.message = url;
-      });
+      this.openExternalUrl(url);
       return;
     }
     if (actionId.startsWith('open_server_detail:')) {
