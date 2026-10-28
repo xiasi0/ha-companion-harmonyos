@@ -577,12 +577,15 @@ export struct DashboardPage {
               if (this.shouldSuppressResumeReload(currentUrl, isMainFrame, requestMethod, userGesture)) {
                 return true;
               }
-              this.rememberDashboardUrl(currentUrl);
               const guard = this.onUrlGuard(currentUrl);
               if (guard.intercept) {
-                this.controller.loadUrl(guard.rewrittenUrl);
+                if (guard.rewrittenUrl.length > 0) {
+                  this.rememberDashboardUrl(currentUrl);
+                  this.controller.loadUrl(guard.rewrittenUrl);
+                }
                 return true;
               }
+              this.rememberDashboardUrl(currentUrl);
             }
 
             return false;
