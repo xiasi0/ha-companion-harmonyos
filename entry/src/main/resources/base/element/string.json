@@ -61,6 +61,14 @@
       "value": "控制 Home Assistant 灯光实体。"
     },
     {
+      "name": "switch_card_display_name",
+      "value": "通用开关"
+    },
+    {
+      "name": "switch_card_description",
+      "value": "控制 Home Assistant 中支持开关操作的实体。"
+    },
+    {
       "name": "media_card_display_name",
       "value": "媒体控制"
     },

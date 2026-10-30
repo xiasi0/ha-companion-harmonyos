@@ -108,6 +108,10 @@ export struct SettingsHomePage {
     return `${row.type}-${this.rowKey(row)}`;
   }
 
+  private groupRenderKey(section: SettingsLiveGroupState): string {
+    return `${section.key}:${this.searchText.trim().toLowerCase()}`;
+  }
+
   @Builder
   private renderSettingsItem(row: SettingsLiveRowState): void {
     if (row.type === SettingsItemType.SWITCH) {
@@ -216,7 +220,7 @@ export struct SettingsHomePage {
             }
             .width('100%')
           }
-        }, (section: SettingsLiveGroupState) => section.key)
+        }, (section: SettingsLiveGroupState) => this.groupRenderKey(section))
       }
       .padding(SettingsUiConfig.listPadding())
       .width('100%')

@@ -129,7 +129,7 @@ export class CardFormWantParser {
       return '';
     }
     const value = raw.trim();
-    if (value === 'light' || value === 'media' || value === 'scene' || value === 'camera' || value === 'climate') {
+    if (value === 'light' || value === 'switch' || value === 'media' || value === 'scene' || value === 'camera' || value === 'climate') {
       return value;
     }
     return '';
@@ -142,6 +142,9 @@ export class CardFormWantParser {
     }
     if (value === 'harmony_light_service_card') {
       return 'light';
+    }
+    if (value === 'harmony_switch_service_card') {
+      return 'switch';
     }
     if (value === 'harmony_scene_service_card') {
       return 'scene';

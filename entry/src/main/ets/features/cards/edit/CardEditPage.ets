@@ -116,6 +116,9 @@ struct CardEditPage {
     if (binding.cardType === CardType.LIGHT) {
       return CardType.LIGHT;
     }
+    if (binding.cardType === CardType.SWITCH) {
+      return CardType.SWITCH;
+    }
     if (binding.cardType === CardType.SCENE) {
       return CardType.SCENE;
     }
@@ -127,6 +130,9 @@ struct CardEditPage {
     }
     if (this.cardEditCardType === CardType.MEDIA) {
       return CardType.MEDIA;
+    }
+    if (this.cardEditCardType === CardType.SWITCH) {
+      return CardType.SWITCH;
     }
     if (this.cardEditCardType === CardType.SCENE) {
       return CardType.SCENE;
@@ -153,10 +159,17 @@ struct CardEditPage {
     if (this.cardType === CardType.CLIMATE) {
       return 'climate';
     }
+    if (this.cardType === CardType.SWITCH) {
+      return '';
+    }
     return 'light';
   }
 
   private async loadEntitiesForCurrentCard(context: common.Context, serverInstanceId: string): Promise<HaEntityCatalogRecord[]> {
+    if (this.cardType === CardType.SWITCH) {
+      const entities = await CardDataStore.listEntityCatalog(context, serverInstanceId);
+      return entities.filter((entity: HaEntityCatalogRecord): boolean => this.isSwitchLikeEntity(entity));
+    }
     if (this.cardType !== CardType.CAMERA) {
       return CardDataStore.listEntityCatalog(context, serverInstanceId, this.domainForCurrentCard());
     }
@@ -180,6 +193,9 @@ struct CardEditPage {
     }
     if (this.cardType === CardType.CLIMATE) {
       return 'thermometer';
+    }
+    if (this.cardType === CardType.SWITCH) {
+      return 'power';
     }
     return 'lightbulb';
   }
@@ -240,7 +256,7 @@ struct CardEditPage {
       if (state === 'idle') {
         return Localization.t('state_idle');
       }
-    } else if (this.cardType === CardType.LIGHT) {
+    } else if (this.cardType === CardType.LIGHT || this.cardType === CardType.SWITCH) {
       if (state === 'on') {
         return Localization.t('state_on');
       }
@@ -308,6 +324,18 @@ struct CardEditPage {
         if (this.cardType === CardType.CLIMATE) {
           return CardRuntimeRepository.bindClimateCatalogEntity(context, this.formId, this.serverInstanceId, target);
         }
+        if (this.cardType === CardType.SWITCH) {
+          return CardRuntimeRepository.bindSwitchEntity(
+            context,
+            this.formId,
+            this.serverInstanceId,
+            target.entityId,
+            target.entityName.length > 0 ? target.entityName : target.entityId,
+            target.areaId,
+            target.areaName,
+            target.state
+          );
+        }
         return CardRuntimeRepository.bindLightEntity(
             context,
             this.formId,
@@ -327,6 +355,18 @@ struct CardEditPage {
         this.sections = this.messageSections('关联失败', '请稍后重试。');
         this.revision++;
       });
+  }
+
+  private isSwitchLikeEntity(entity: HaEntityCatalogRecord): boolean {
+    const domain = entity.domain.trim();
+    return domain === 'switch' ||
+      domain === 'light' ||
+      domain === 'fan' ||
+      domain === 'input_boolean' ||
+      domain === 'group' ||
+      domain === 'automation' ||
+      domain === 'script' ||
+      domain === 'humidifier';
   }
 
   private close(): void {
