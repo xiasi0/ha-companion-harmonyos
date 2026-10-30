@@ -5,6 +5,10 @@ import { notificationManager } from '@kit.NotificationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { Localization } from '../../shared/i18n/Localization';
 import { NotificationRecentRecord, NotificationRecentStore } from './NotificationRecentStore';
+import { NotificationActionService } from './NotificationActionService';
+import { LocalNotificationPayload, NotificationAction } from './NotificationModels';
+
+export { LocalNotificationPayload, NotificationAction } from './NotificationModels';
 
 const DOMAIN = 0x0000;
 const TAG = 'HANotificationService';
@@ -14,17 +18,6 @@ export interface NotificationCapability {
   summary: string;
   status: string;
   actionId: string;
-}
-
-export interface LocalNotificationPayload {
-  id?: number;
-  dedupeKey?: string;
-  serverInstanceId?: string;
-  title: string;
-  text: string;
-  additionalText?: string;
-  source?: string;
-  data?: Record<string, string>;
 }
 
 export class NotificationService {
@@ -58,12 +51,13 @@ export class NotificationService {
   }
 
   static async publishLocal(context: common.Context, payload: LocalNotificationPayload): Promise<void> {
+    const notificationId = payload.id ?? Date.now() % 1000000000;
     const enabled = await NotificationService.isEnabled();
     if (!enabled) {
       throw new Error(Localization.t('notifications_permission_required'));
     }
-    const notificationId = payload.id ?? Date.now() % 1000000000;
     await NotificationService.ensureAlertSlot();
+    const actionButtons = await NotificationService.actionButtons(notificationId, payload);
     try {
       await notificationManager.publish({
         id: notificationId,
@@ -77,7 +71,8 @@ export class NotificationService {
             text: payload.text,
             additionalText: payload.additionalText ?? payload.source ?? ''
           }
-        }
+        },
+        actionButtons
       });
     } catch (error) {
       throw NotificationService.errorFrom(error);
@@ -94,7 +89,8 @@ export class NotificationService {
       text: payload.text,
       additionalText: payload.additionalText ?? Localization.t('app_name'),
       source: payload.source,
-      data: payload.data
+      data: payload.data,
+      actions: payload.actions
     });
   }
 
@@ -108,7 +104,8 @@ export class NotificationService {
       text: payload.text,
       additionalText: payload.additionalText ?? Localization.t('app_name'),
       source: payload.source,
-      data: payload.data
+      data: payload.data,
+      actions: payload.actions
     });
   }
 
@@ -159,6 +156,44 @@ export class NotificationService {
     }
   }
 
+  private static async actionButtons(
+    notificationId: number,
+    payload: LocalNotificationPayload
+  ): Promise<notificationManager.NotificationActionButton[]> {
+    const actions = payload.actions ?? [];
+    const buttons: notificationManager.NotificationActionButton[] = [];
+    for (let i = 0; i < actions.length && buttons.length < 2; i++) {
+      const action = actions[i];
+      if (!NotificationService.isSupportedAction(action)) {
+        continue;
+      }
+      try {
+        buttons.push({
+          title: action.title,
+          wantAgent: await NotificationActionService.createWantAgent(notificationId, payload, action)
+        });
+      } catch (error) {
+        hilog.warn(DOMAIN, TAG, 'create notification action failed: %{public}s',
+          NotificationService.errorText(error));
+      }
+    }
+    return buttons;
+  }
+
+  private static isSupportedAction(action: NotificationAction): boolean {
+    const key = action.key.trim().toUpperCase();
+    if (key.length === 0 || action.title.trim().length === 0) {
+      return false;
+    }
+    if (action.authenticationRequired || key === 'REPLY') {
+      return false;
+    }
+    if ((key === 'URI' || key === 'URL') && action.uri.trim().length === 0) {
+      return false;
+    }
+    return action.behavior.trim().toLowerCase() !== 'textinput';
+  }
+
   private static capability(title: string, summary: string, status: string, actionId: string): NotificationCapability {
     return { title, summary, status, actionId };
   }
@@ -194,7 +229,10 @@ export class NotificationService {
         text: payload.text,
         additionalText: payload.additionalText ?? payload.source ?? '',
         source: payload.source ?? '',
-        dataJson: JSON.stringify(payload.data ?? {}),
+        dataJson: JSON.stringify({
+          data: payload.data ?? {},
+          actions: payload.actions ?? []
+        }),
         receivedAt: Date.now()
       });
       const unreadCount = await NotificationRecentStore.unreadCount(context);

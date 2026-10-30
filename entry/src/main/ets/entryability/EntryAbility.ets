@@ -15,6 +15,7 @@ import { PushKitPersistentMessageStore } from '../features/pushkit/PushKitPersis
 import { AssistLaunchService } from '../features/assist/AssistLaunchService';
 import { NfcTagReaderService } from '../features/nfc/NfcTagReaderService';
 import { ShortcutLaunchService } from '../services/ShortcutLaunchService';
+import { NotificationActionService } from '../features/notifications/NotificationActionService';
 
 const DOMAIN = 0x0000;
 const TAG = 'HACompanion';
@@ -24,6 +25,8 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     AppStorageDefaults.register();
+    NotificationActionService.start(this.context);
+    NotificationActionService.requestFromWant(want);
     AppStorage.setOrCreate<boolean>('nfcReaderPending', false);
     this.handleNfcTagWant(want);
     this.handleEntityDetailWant(want);
@@ -45,6 +48,7 @@ export default class EntryAbility extends UIAbility {
   }
 
   onNewWant(want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+    NotificationActionService.requestFromWant(want);
     this.handleNfcTagWant(want);
     this.handleEntityDetailWant(want);
     this.handleAssistWant(want);
