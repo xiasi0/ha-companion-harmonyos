@@ -32,6 +32,7 @@ import { SensorRuntimeBridgeService } from '../features/sensors/SensorRuntimeBri
 import { SensorSettingsLiveStateStore } from '../services/SensorSettingsLiveStateStore';
 import { CardFormService } from '../features/cards/CardFormService';
 import { CardEntityDetailLaunchService } from '../features/cards/CardEntityDetailLaunchService';
+import { NotificationActionService } from '../features/notifications/NotificationActionService';
 import { MobileAppRegistrationService } from '../features/registration/MobileAppRegistrationService';
 import { RegistrationRuntimeService } from '../features/registration/RegistrationRuntimeService';
 import { DeviceProfileInfo } from '../shared/device/DeviceProfile';
@@ -176,6 +177,12 @@ export struct AppRuntimeHost {
   @StorageLink('nfcReaderTick') @Watch('onNfcReaderTick') nfcTick: number = 0;
   @StorageLink('nfcReaderPending') nfcReaderPending: boolean = false;
   @StorageLink('shortcutSettingsPending') shortcutSettingsPending: boolean = false;
+  @StorageLink('notificationPendingUri')
+  @Watch('onNotificationPendingUriTick') notificationPendingUri: string = '';
+  @StorageLink('notificationPendingServerInstanceId')
+  @Watch('onNotificationPendingUriTick') notificationPendingServerInstanceId: string = '';
+  @StorageLink('notificationPendingUriTick')
+  @Watch('onNotificationPendingUriTick') notificationPendingUriTick: number = 0;
 
   @State @Watch('onStepChanged') step: number = initialRuntimeRoute();
   @State loading: boolean = false;
@@ -273,6 +280,7 @@ export struct AppRuntimeHost {
   private pendingEntityDetailScriptInFlight: boolean = false;
   private pendingEntityDetailDashboardNavigation: boolean = false;
   private entityDetailOpenedFromCard: boolean = false;
+  private pendingNotificationUriProcessingTick: number = 0;
   discoveryAnimationToken: number = 0;
   discoveryAnimationRunning: boolean = false;
   discoverySheetPresented: boolean = false;
@@ -635,6 +643,7 @@ export struct AppRuntimeHost {
         }
         this.refreshHomeNetworkStatus();
         this.refreshAssistWakeWordRuntime();
+        this.openPendingNotificationUri();
         this.openPendingEntityDetailFromCard();
         this.openPendingAssistLaunch();
         this.openPendingNfcOverlay();
@@ -1195,6 +1204,7 @@ export struct AppRuntimeHost {
       this,
       (): void => this.ignoreAppLockTransitions(),
       (): void => {
+        this.openPendingNotificationUri();
         this.openPendingAssistLaunch();
         this.openPendingNfcOverlay();
         this.openPendingShortcut();
@@ -1440,6 +1450,7 @@ export struct AppRuntimeHost {
     if (this.step === AppRoute.DASHBOARD && !this.appLocked) {
       this.handleDashboardForegroundConnectionWait();
     }
+    this.openPendingNotificationUri();
     this.openPendingAssistLaunch();
     this.openPendingShortcut();
   }
@@ -1456,6 +1467,10 @@ export struct AppRuntimeHost {
   private onAppConfigurationTick(): void { AppLifecycleRuntimeService.onConfiguration(this, AppRuntimeCallbackFactory.lifecycle(this)); }
 
   private onCardPendingEntityDetailTick(): void { this.openPendingEntityDetailFromCard(); }
+
+  private onNotificationPendingUriTick(): void {
+    this.openPendingNotificationUri();
+  }
 
   private onAssistPendingLaunchTick(): void {
     if (!(AppStorage.get<boolean>('appActive') ?? false)) {
@@ -1475,6 +1490,155 @@ export struct AppRuntimeHost {
     }
     this.openCompanionSettings();
     this.shortcutSettingsPending = false;
+  }
+
+  private openPendingNotificationUri(): void {
+    const uri = this.notificationPendingUri.trim();
+    const tick = this.notificationPendingUriTick;
+    if (tick <= 0 || uri.length === 0 || this.appLocked || this.appUnlocking) {
+      return;
+    }
+    if (this.pendingNotificationUriProcessingTick === tick) {
+      return;
+    }
+    this.pendingNotificationUriProcessingTick = tick;
+    this.openNotificationUri(uri, this.notificationPendingServerInstanceId.trim(), tick)
+      .catch((): void => {
+        if (this.notificationPendingUriTick === tick) {
+          this.clearPendingNotificationUri();
+        }
+      })
+      .finally((): void => {
+        if (this.pendingNotificationUriProcessingTick === tick) {
+          this.pendingNotificationUriProcessingTick = 0;
+        }
+      });
+  }
+
+  private async openNotificationUri(uri: string, serverInstanceId: string, tick: number): Promise<void> {
+    const context = this.context();
+    const activeServerId = ServerManager.getActiveServerIdSync(context);
+    let baseUrl = this.haBaseUrl;
+    let serverSwitched = false;
+    const isHomeAssistantNavigation = !UrlService.isHttpLikeUrl(uri) ||
+      uri.startsWith('homeassistant://navigate/');
+    if (serverInstanceId.length > 0 && isHomeAssistantNavigation) {
+      const targetInfo = await ServerManager.getServerInfo(context, serverInstanceId);
+      if (!StorageService.hasCredentials(targetInfo)) {
+        throw new Error('notification target server is unavailable');
+      }
+      if (!this.isCurrentNotificationUri(tick)) {
+        return;
+      }
+      if (serverInstanceId !== activeServerId) {
+        const activatedInfo = await this.activateServerForNotificationUri(serverInstanceId, tick);
+        if (!this.isCurrentNotificationUri(tick)) {
+          return;
+        }
+        baseUrl = activatedInfo.baseUrl;
+        serverSwitched = true;
+      } else {
+        baseUrl = targetInfo.baseUrl;
+      }
+    }
+    const normalizedBaseUrl = UrlService.normalizeBaseUrl(baseUrl);
+    if (normalizedBaseUrl.length === 0) {
+      return;
+    }
+    const resolved = UrlService.resolveFrontendUrl(normalizedBaseUrl, uri);
+    if (!UrlService.isHttpLikeUrl(resolved)) {
+      return;
+    }
+    if (UrlService.endpointKey(resolved) !== UrlService.endpointKey(normalizedBaseUrl)) {
+      this.openExternalUrl(resolved);
+      this.clearPendingNotificationUri();
+      return;
+    }
+    const targetUrl = UrlService.buildDashboardUrl(resolved);
+    const reuseCurrentDashboard = !serverSwitched &&
+      this.step === AppRoute.DASHBOARD && this.isWebControllerMounted();
+    if (!reuseCurrentDashboard) {
+      this.openDashboard();
+    }
+    this.dashboardUrl = targetUrl;
+    this.dashboardCurrentUrl = targetUrl;
+    this.dashboardConnectionErrorVisible = false;
+    if (reuseCurrentDashboard) {
+      this.dashboardClearHistoryPending = false;
+      this.dashboardConnectionWaitToken += 1;
+    } else {
+      this.dashboardLoadedUrl = '';
+      this.dashboardClearHistoryPending = true;
+      this.dashboardFrontendConnected = false;
+      this.dashboardBridgeReady = false;
+      this.dashboardAuthProvided = false;
+    }
+    if (serverSwitched) {
+      this.handleDashboardConnectionLoadStarted();
+      this.forceLoadDashboard(targetUrl);
+      this.clearPendingNotificationUri();
+      return;
+    }
+    this.tryRunWebScript(CardEntityDetailLaunchService.navigateToDashboardScript(targetUrl), (raw): void => {
+      const result = String(raw);
+      if (result === 'true' || result === '"true"') {
+        this.dashboardFrontendConnected = true;
+        this.dashboardConnectionErrorVisible = false;
+        this.dashboardConnectionWaitToken += 1;
+        return;
+      }
+      this.dashboardLoadedUrl = '';
+      this.dashboardFrontendConnected = false;
+      this.dashboardBridgeReady = false;
+      this.dashboardAuthProvided = false;
+      this.handleDashboardConnectionLoadStarted();
+      this.forceLoadDashboard(targetUrl);
+    });
+    this.clearPendingNotificationUri();
+  }
+
+  private async activateServerForNotificationUri(
+    serverInstanceId: string,
+    tick: number
+  ): Promise<StoredServerInfo> {
+    const context = this.context();
+    await AppSettingsStore.saveCurrentAppStorage(context);
+    if (!this.isCurrentNotificationUri(tick)) {
+      throw new Error('stale notification URI request');
+    }
+    const info = await ServerManager.activateServer(context, serverInstanceId);
+    if (!StorageService.hasCredentials(info)) {
+      throw new Error('notification target server is unavailable');
+    }
+    await this.restoreInstanceAppSettingsState();
+    if (!this.isCurrentNotificationUri(tick)) {
+      throw new Error('stale notification URI request');
+    }
+    AppSessionRuntimeService.applyServerInfoToState(this, info);
+    this.syncCardServerConnection();
+    this.configSummary = Localization.t('common_not_set');
+    this.applyThemePreferences();
+    this.applyWindowPreferences();
+    this.applyDashboardPreferences();
+    this.resetSensorRuntime();
+    this.syncPublicSensors('server_switched');
+    this.selectedServerSettingsId = serverInstanceId;
+    this.selectedServerSettingsInfo = info;
+    this.selectedServerSettingsName = SettingsSummaryService.serverDisplayName('', info.baseUrl);
+    this.selectedServerSettingsActive = true;
+    this.refreshServerOptions();
+    this.fetchHaConfig().catch((): void => {});
+    return info;
+  }
+
+  private isCurrentNotificationUri(tick: number): boolean {
+    return this.notificationPendingUriTick === tick && this.notificationPendingUri.trim().length > 0;
+  }
+
+  private clearPendingNotificationUri(): void {
+    AppStorage.setOrCreate<string>(NotificationActionService.PENDING_URI_KEY, '');
+    AppStorage.setOrCreate<string>(NotificationActionService.PENDING_SERVER_INSTANCE_ID_KEY, '');
+    AppStorage.setOrCreate<number>(NotificationActionService.PENDING_TICK_KEY, 0);
   }
 
   private openPendingNfcOverlay(): void {

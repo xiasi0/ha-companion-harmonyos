@@ -71,6 +71,9 @@ export class AppStorageDefaults {
     AppStorage.setOrCreate<number>('appConfigTick', AppStorage.get<number>('appConfigTick') ?? 0);
     AppStorage.setOrCreate<number>('notificationUnreadCount', AppStorage.get<number>('notificationUnreadCount') ?? 0);
     AppStorage.setOrCreate<number>('notificationHistoryRevision', AppStorage.get<number>('notificationHistoryRevision') ?? 0);
+    AppStorage.setOrCreate<string>('notificationPendingUri', AppStorage.get<string>('notificationPendingUri') ?? '');
+    AppStorage.setOrCreate<string>('notificationPendingServerInstanceId', AppStorage.get<string>('notificationPendingServerInstanceId') ?? '');
+    AppStorage.setOrCreate<number>('notificationPendingUriTick', AppStorage.get<number>('notificationPendingUriTick') ?? 0);
     AppStorage.setOrCreate<string>('gestureSwipeLeftTwoAction', AppStorage.get<string>('gestureSwipeLeftTwoAction') ?? 'none');
     AppStorage.setOrCreate<string>('gestureSwipeLeftThreeAction', AppStorage.get<string>('gestureSwipeLeftThreeAction') ?? 'none');
     AppStorage.setOrCreate<string>('gestureSwipeRightTwoAction', AppStorage.get<string>('gestureSwipeRightTwoAction') ?? 'none');

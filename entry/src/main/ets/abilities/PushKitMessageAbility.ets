@@ -12,17 +12,17 @@ type PushKitMessageType = 'DEFAULT' | 'BACKGROUND';
 
 export default class PushKitMessageAbility extends UIAbility {
   onCreate(_want: Want, _launchParam: AbilityConstant.LaunchParam): void {
+    this.registerMessageType('DEFAULT');
+    this.registerMessageType('BACKGROUND');
     PushKitPersistentMessageStore.migrateToNotificationHistory(this.context).catch((error: Error): void => {
       hilog.warn(DOMAIN, TAG, 'migrate Push Kit persistence failed: %{public}s', error.message);
     });
-    this.registerMessageType('DEFAULT');
-    this.registerMessageType('BACKGROUND');
   }
 
   private registerMessageType(type: PushKitMessageType): void {
     try {
       pushService.receiveMessage(type, this, (payload: pushCommon.PushPayload): void => {
-        this.handlePayload(type, payload);
+        this.handlePayload(payload);
       });
     } catch (error) {
       const err = error as BusinessError;
@@ -31,21 +31,14 @@ export default class PushKitMessageAbility extends UIAbility {
     }
   }
 
-  private handlePayload(type: PushKitMessageType, payload: pushCommon.PushPayload): void {
+  private handlePayload(payload: pushCommon.PushPayload): void {
     const localPayload = HomeAssistantNotificationAdapter.fromPayload(payload.data ?? {}, 'pushkit');
     if (!localPayload) {
       return;
     }
-    if (type === 'BACKGROUND') {
-      NotificationService.recordHomeAssistantNotification(this.context, localPayload)
-        .catch((error: Error): void => {
-          hilog.warn(DOMAIN, TAG, 'record Push Kit notification failed: %{public}s', error.message);
-        });
-      return;
-    }
-    NotificationService.publishHomeAssistantNotification(this.context, localPayload)
+    NotificationService.recordHomeAssistantNotification(this.context, localPayload)
       .catch((error: Error): void => {
-        hilog.warn(DOMAIN, TAG, 'publish Push Kit notification failed: %{public}s', error.message);
+        hilog.warn(DOMAIN, TAG, 'record Push Kit notification failed: %{public}s', error.message);
       });
   }
 }

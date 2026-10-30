@@ -45,6 +45,22 @@ export {
 } from './HaApiModels';
 
 export class HaApiService {
+  static async fireEvent(
+    baseUrl: string,
+    accessToken: string,
+    eventType: string,
+    eventData: Record<string, string>
+  ): Promise<void> {
+    await HaApiService.withAuthenticatedWebSocket(baseUrl, accessToken,
+      async (client, nextId): Promise<void> => {
+        await HaApiService.sendWebSocketCommand(client, nextId(), {
+          'type': 'fire_event',
+          'event_type': eventType,
+          'event_data': eventData
+        });
+      });
+  }
+
   static async updateCoreLocationName(baseUrl: string, accessToken: string, locationName: string): Promise<void> {
     await HaApiService.withAuthenticatedWebSocket(baseUrl, accessToken,
       async (client, nextId): Promise<void> => {

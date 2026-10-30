@@ -1,4 +1,4 @@
-import { LocalNotificationPayload } from './NotificationService';
+import { LocalNotificationPayload, NotificationAction } from './NotificationModels';
 
 type JsonValue = Object | string | number | boolean | null;
 type JsonRecord = Record<string, JsonValue>;
@@ -20,6 +20,10 @@ export class HomeAssistantNotificationAdapter {
     }
     const title = HomeAssistantNotificationAdapter.title(event);
     const dataRecord = HomeAssistantNotificationAdapter.recordField(event, 'data');
+    const actionData = HomeAssistantNotificationAdapter.mergeRecords(
+      HomeAssistantNotificationAdapter.stringRecord(event),
+      dataRecord ? HomeAssistantNotificationAdapter.stringRecord(dataRecord) : {}
+    );
     const dedupeKey = HomeAssistantNotificationAdapter.notificationKey(event);
     const resolvedServerId = HomeAssistantNotificationAdapter.serverInstanceId(event, serverInstanceId);
     const scopedKey = HomeAssistantNotificationAdapter.scopedKey(resolvedServerId, dedupeKey);
@@ -31,7 +35,8 @@ export class HomeAssistantNotificationAdapter {
       text,
       additionalText: 'Home Assistant',
       source,
-      data: HomeAssistantNotificationAdapter.stringRecord(dataRecord ?? event)
+      data: actionData,
+      actions: HomeAssistantNotificationAdapter.actions(dataRecord ?? event, actionData)
     };
   }
 
@@ -185,6 +190,71 @@ export class HomeAssistantNotificationAdapter {
       }
     }
     return result;
+  }
+
+  private static mergeRecords(
+    first: Record<string, string>,
+    second: Record<string, string>
+  ): Record<string, string> {
+    const result: Record<string, string> = {};
+    const firstKeys = Object.keys(first);
+    for (let i = 0; i < firstKeys.length; i++) {
+      result[firstKeys[i]] = first[firstKeys[i]];
+    }
+    const secondKeys = Object.keys(second);
+    for (let i = 0; i < secondKeys.length; i++) {
+      result[secondKeys[i]] = second[secondKeys[i]];
+    }
+    return result;
+  }
+
+  private static actions(
+    record: JsonRecord,
+    actionData: Record<string, string>
+  ): NotificationAction[] {
+    const rawActions = record['actions'];
+    if (!Array.isArray(rawActions)) {
+      return [];
+    }
+    const actionValues = rawActions as Object[];
+    const actions: NotificationAction[] = [];
+    for (let i = 0; i < actionValues.length; i++) {
+      const rawAction = actionValues[i];
+      if (!rawAction || typeof rawAction !== 'object' || Array.isArray(rawAction)) {
+        continue;
+      }
+      const actionRecord = rawAction as JsonRecord;
+      const action: NotificationAction = {
+        key: HomeAssistantNotificationAdapter.stringField(actionRecord, 'action'),
+        title: HomeAssistantNotificationAdapter.stringField(actionRecord, 'title'),
+        uri: HomeAssistantNotificationAdapter.stringField(actionRecord, 'uri'),
+        behavior: HomeAssistantNotificationAdapter.stringField(actionRecord, 'behavior'),
+        authenticationRequired: HomeAssistantNotificationAdapter.booleanField(
+          actionRecord,
+          'authenticationRequired'
+        ),
+        data: actionData
+      };
+      const prefix = `action_${i + 1}_`;
+      actionData[`${prefix}key`] = action.key;
+      actionData[`${prefix}title`] = action.title;
+      if (action.uri.length > 0) {
+        actionData[`${prefix}uri`] = action.uri;
+      }
+      if (action.behavior.length > 0) {
+        actionData[`${prefix}behavior`] = action.behavior;
+      }
+      if (action.authenticationRequired) {
+        actionData[`${prefix}authenticationRequired`] = 'true';
+      }
+      actions.push(action);
+    }
+    return actions;
+  }
+
+  private static booleanField(source: JsonRecord, key: string): boolean {
+    const value = source[key];
+    return value === true || (typeof value === 'string' && value.trim().toLowerCase() === 'true');
   }
 
   private static hashId(value: string): number {
