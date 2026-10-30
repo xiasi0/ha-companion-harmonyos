@@ -2,7 +2,13 @@ import common from '@ohos.app.ability.common';
 import { formBindingData } from '@kit.FormKit';
 import { AppSettingsStore } from '../../services/AppSettingsStore';
 import { HaConnectionPolicyService } from '../../services/HaConnectionPolicyService';
-import { HaApiService, HaCameraEntity, HaClimateEntity, HaLightActionResult, HaMediaPlayerEntity } from '../../services/HaApiService';
+import {
+  HaApiService,
+  HaCameraEntity,
+  HaClimateEntity,
+  HaLightActionResult,
+  HaMediaPlayerEntity,
+} from '../../services/HaApiService';
 import { ServerAuthRepository, ServerAuthSession } from '../../services/ServerAuthRepository';
 import { CardBindingRecord, CardDataStore, CardTargetType, CardType, HaEntityCatalogRecord } from './CardDataStore';
 import { CardEventGate } from './CardEventGate';
@@ -30,6 +36,10 @@ export class CardRuntimeRepository {
     const record = await CardDataStore.loadBinding(context, formId);
     if (record.cardType === CardType.MEDIA) {
       await CardRuntimeRepository.refreshMedia(context, formId, record, true);
+      return;
+    }
+    if (record.cardType === CardType.SWITCH) {
+      await CardRuntimeRepository.refreshSwitch(context, formId, record, true);
       return;
     }
     if (record.cardType === CardType.CAMERA) {
@@ -70,6 +80,9 @@ export class CardRuntimeRepository {
         if (record.cardType === CardType.SCENE || event === 'activate_scene') {
           return CardRuntimeRepository.activateScene(context, formId, record);
         }
+        if (record.cardType === CardType.SWITCH || event === 'toggle_switch') {
+          return CardRuntimeRepository.toggleSwitch(context, formId, record);
+        }
         return CardRuntimeRepository.toggleLight(context, formId, record);
       })
       .catch((): void => {})
@@ -86,6 +99,10 @@ export class CardRuntimeRepository {
     const light = await CardDataStore.listBindingsByType(context, CardType.LIGHT);
     for (let i = 0; i < light.length; i++) {
       await CardRuntimeRepository.refreshLight(context, light[i].formId, light[i]).catch((): void => {});
+    }
+    const switches = await CardDataStore.listBindingsByType(context, CardType.SWITCH);
+    for (let i = 0; i < switches.length; i++) {
+      await CardRuntimeRepository.refreshSwitch(context, switches[i].formId, switches[i]).catch((): void => {});
     }
     const media = await CardDataStore.listBindingsByType(context, CardType.MEDIA);
     for (let i = 0; i < media.length; i++) {
@@ -108,6 +125,9 @@ export class CardRuntimeRepository {
   static async hasRegisteredForms(context: common.Context): Promise<boolean> {
     const light = await CardDataStore.listFormIdsByType(context, CardType.LIGHT);
     if (light.length > 0) {
+      return true;
+    }
+    if ((await CardDataStore.listFormIdsByType(context, CardType.SWITCH)).length > 0) {
       return true;
     }
     if ((await CardDataStore.listFormIdsByType(context, CardType.MEDIA)).length > 0) {
@@ -160,6 +180,31 @@ export class CardRuntimeRepository {
     record.areaName = areaName.trim();
     record.state = state.trim().length > 0 ? state.trim() : 'unknown';
     await CardRuntimeCoordinator.submit(context, formId, CardType.LIGHT, record, CardRuntimeSource.BIND_INITIAL, true);
+  }
+
+  static async bindSwitchEntity(
+    context: common.Context,
+    formId: string,
+    serverInstanceId: string,
+    entityId: string,
+    entityName: string,
+    areaId: string,
+    areaName: string,
+    state: string
+  ): Promise<void> {
+    const current = await CardDataStore.loadBinding(context, formId);
+    const record = CardDataStore.emptyRecord(CardType.SWITCH);
+    record.formId = formId.trim();
+    record.formName = current.formName;
+    record.formDimension = current.formDimension;
+    record.serverInstanceId = serverInstanceId.trim();
+    record.targetType = CardTargetType.ENTITY;
+    record.targetId = entityId.trim();
+    record.targetName = entityName.trim();
+    record.areaId = areaId.trim();
+    record.areaName = areaName.trim();
+    record.state = state.trim().length > 0 ? state.trim() : 'unknown';
+    await CardRuntimeCoordinator.submit(context, formId, CardType.SWITCH, record, CardRuntimeSource.BIND_INITIAL, true);
   }
 
   static async bindMediaEntity(
@@ -316,6 +361,18 @@ export class CardRuntimeRepository {
     }
   }
 
+  static async syncSwitchState(context: common.Context, entityId: string, state: string): Promise<void> {
+    const records = await CardDataStore.listBindingsByType(context, CardType.SWITCH);
+    for (let i = 0; i < records.length; i++) {
+      if (records[i].targetId !== entityId) {
+        continue;
+      }
+      records[i].state = state.trim().length > 0 ? state.trim() : 'unknown';
+      await CardRuntimeCoordinator.submit(context, records[i].formId, CardType.SWITCH, records[i], CardRuntimeSource.WEBSOCKET_PUSH)
+        .catch((): void => {});
+    }
+  }
+
   static async syncMediaState(context: common.Context, entityId: string, entity: HaMediaPlayerEntity): Promise<void> {
     const records = await CardDataStore.listBindingsByType(context, CardType.MEDIA);
     for (let i = 0; i < records.length; i++) {
@@ -370,6 +427,9 @@ export class CardRuntimeRepository {
     if (formName === 'harmony_light_service_card') {
       return CardType.LIGHT;
     }
+    if (formName === 'harmony_switch_service_card') {
+      return CardType.SWITCH;
+    }
     if (formName === 'harmony_media_service_card') {
       return CardType.MEDIA;
     }
@@ -416,6 +476,37 @@ export class CardRuntimeRepository {
     await CardRuntimeCoordinator.renderForm(context, formId, CardType.LIGHT, record);
   }
 
+  private static async refreshSwitch(
+    context: common.Context,
+    formId: string,
+    record: CardBindingRecord,
+    forceRender: boolean = false
+  ): Promise<void> {
+    if (!CardDataStore.hasBinding(record) || record.cardType !== CardType.SWITCH) {
+      await CardRuntimeCoordinator.renderForm(context, formId, CardType.SWITCH, CardDataStore.emptyRecord(CardType.SWITCH));
+      return;
+    }
+    const session = await CardRuntimeRepository.loadAllowedSession(context, record.serverInstanceId);
+    if (session.accessToken.length === 0) {
+      await CardRuntimeCoordinator.renderForm(context, formId, CardType.SWITCH, record).catch((): void => {});
+      return;
+    }
+    let result = await HaApiService.fetchEntityPowerState(session.baseUrl, session.accessToken, record.targetId);
+    if (!result.success && result.responseCode === 401) {
+      const refreshed = await ServerAuthRepository.refreshWithBaseUrl(context, record.serverInstanceId, session.baseUrl);
+      if (refreshed.accessToken.length > 0) {
+        result = await HaApiService.fetchEntityPowerState(refreshed.baseUrl, refreshed.accessToken, record.targetId);
+      }
+    }
+    if (result.success) {
+      record.state = result.state;
+      record = await CardRuntimeCoordinator.applyCatalogMetadata(context, record);
+      await CardRuntimeCoordinator.submit(context, formId, CardType.SWITCH, record, CardRuntimeSource.SYSTEM_REFRESH, forceRender);
+      return;
+    }
+    await CardRuntimeCoordinator.renderForm(context, formId, CardType.SWITCH, record);
+  }
+
   private static async toggleLight(context: common.Context, formId: string, record: CardBindingRecord): Promise<void> {
     if (!CardDataStore.hasBinding(record) || record.cardType !== CardType.LIGHT) {
       await CardRuntimeCoordinator.renderForm(context, formId, CardType.LIGHT, CardDataStore.emptyRecord(CardType.LIGHT));
@@ -444,6 +535,41 @@ export class CardRuntimeRepository {
       return;
     }
     await CardRuntimeCoordinator.rollbackIfCurrent(context, formId, CardType.LIGHT, optimistic, record).catch((): void => {});
+  }
+
+  private static async toggleSwitch(context: common.Context, formId: string, record: CardBindingRecord): Promise<void> {
+    if (!CardDataStore.hasBinding(record) || record.cardType !== CardType.SWITCH) {
+      await CardRuntimeCoordinator.renderForm(context, formId, CardType.SWITCH, CardDataStore.emptyRecord(CardType.SWITCH));
+      return;
+    }
+    const turnOn = record.state !== 'on';
+    const optimistic = CardRuntimeRepository.copyRecord(record);
+    optimistic.state = turnOn ? 'on' : 'off';
+    CardRuntimeCoordinator.submitOptimistic(context, formId, CardType.SWITCH, optimistic);
+    const session = await CardRuntimeRepository.loadAllowedSession(context, record.serverInstanceId);
+    if (session.accessToken.length === 0) {
+      await CardRuntimeCoordinator.rollbackIfCurrent(context, formId, CardType.SWITCH, optimistic, record).catch((): void => {});
+      return;
+    }
+    let result: HaLightActionResult = await HaApiService.setEntityPowerState(
+      session.baseUrl,
+      session.accessToken,
+      record.targetId,
+      turnOn
+    );
+    if (!result.success && result.responseCode === 401) {
+      const refreshed = await ServerAuthRepository.refreshWithBaseUrl(context, record.serverInstanceId, session.baseUrl);
+      if (refreshed.accessToken.length > 0) {
+        result = await HaApiService.setEntityPowerState(refreshed.baseUrl, refreshed.accessToken, record.targetId, turnOn);
+      }
+    }
+    if (result.success) {
+      const next = CardRuntimeRepository.copyRecord(record);
+      next.state = result.state;
+      await CardRuntimeCoordinator.submit(context, formId, CardType.SWITCH, next, CardRuntimeSource.API_CONFIRMED).catch((): void => {});
+      return;
+    }
+    await CardRuntimeCoordinator.rollbackIfCurrent(context, formId, CardType.SWITCH, optimistic, record).catch((): void => {});
   }
 
   private static async refreshMedia(
@@ -577,6 +703,10 @@ export class CardRuntimeRepository {
 
   private static async refreshByTicker(context: common.Context, formId: string, record: CardBindingRecord): Promise<void> {
     if (await AppSettingsStore.loadServiceCardUpdateFrequency(context) === 'default') {
+      return;
+    }
+    if (record.cardType === CardType.SWITCH) {
+      await CardRuntimeRepository.refreshSwitch(context, formId, record);
       return;
     }
     if (record.cardType === CardType.MEDIA) {
@@ -830,11 +960,12 @@ export class CardRuntimeRepository {
 
   private static async recordsByServer(context: common.Context, serverInstanceId: string): Promise<CardBindingRecord[]> {
     const light = await CardDataStore.listBindingsByType(context, CardType.LIGHT);
+    const switches = await CardDataStore.listBindingsByType(context, CardType.SWITCH);
     const media = await CardDataStore.listBindingsByType(context, CardType.MEDIA);
     const scenes = await CardDataStore.listBindingsByType(context, CardType.SCENE);
     const cameras = await CardDataStore.listBindingsByType(context, CardType.CAMERA);
     const climates = await CardDataStore.listBindingsByType(context, CardType.CLIMATE);
-    return light.concat(media).concat(scenes).concat(cameras).concat(climates)
+    return light.concat(switches).concat(media).concat(scenes).concat(cameras).concat(climates)
       .filter((record: CardBindingRecord): boolean => record.serverInstanceId === serverInstanceId.trim());
   }
 

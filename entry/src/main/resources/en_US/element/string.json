@@ -61,6 +61,14 @@
       "value": "Controls a Home Assistant light entity."
     },
     {
+      "name": "switch_card_display_name",
+      "value": "Generic Switch"
+    },
+    {
+      "name": "switch_card_description",
+      "value": "Controls Home Assistant entities that support power switching."
+    },
+    {
       "name": "media_card_display_name",
       "value": "Media Control"
     },

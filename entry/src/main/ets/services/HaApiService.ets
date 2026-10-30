@@ -218,6 +218,52 @@ export class HaApiService {
     }
   }
 
+  static async setEntityPowerState(
+    baseUrl: string,
+    accessToken: string,
+    entityId: string,
+    turnOn: boolean
+  ): Promise<HaLightActionResult> {
+    const service = turnOn ? 'turn_on' : 'turn_off';
+    try {
+      const resp = await NetworkService.requestText(`${baseUrl}/api/services/homeassistant/${service}`, {
+        method: NetworkHttpMethod.POST,
+        header: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        extraData: JSON.stringify({
+          'entity_id': entityId
+        }),
+        connectTimeout: 12000,
+        readTimeout: 12000
+      });
+      const body = resp.body;
+      if (resp.responseCode >= 200 && resp.responseCode < 300) {
+        return {
+          success: true,
+          responseCode: resp.responseCode,
+          state: turnOn ? 'on' : 'off',
+          failureSummary: ''
+        };
+      }
+      return {
+        success: false,
+        responseCode: resp.responseCode,
+        state: '',
+        failureSummary: Localization.format2('ha_error_control_power_http',
+          'status', resp.responseCode, 'detail', NetworkService.shortText(body))
+      };
+    } catch (err) {
+      return {
+        success: false,
+        responseCode: 0,
+        state: '',
+        failureSummary: NetworkService.errorText(err as Error | string | number | boolean)
+      };
+    }
+  }
+
   static async fetchLightState(
     baseUrl: string,
     accessToken: string,
@@ -246,6 +292,46 @@ export class HaApiService {
         responseCode: resp.responseCode,
         state: '',
         failureSummary: Localization.format2('ha_error_fetch_light_state_http',
+          'status', resp.responseCode, 'detail', NetworkService.shortText(body))
+      };
+    } catch (err) {
+      return {
+        success: false,
+        responseCode: 0,
+        state: '',
+        failureSummary: NetworkService.errorText(err as Error | string | number | boolean)
+      };
+    }
+  }
+
+  static async fetchEntityPowerState(
+    baseUrl: string,
+    accessToken: string,
+    entityId: string
+  ): Promise<HaLightActionResult> {
+    try {
+      const resp = await NetworkService.requestText(`${baseUrl}/api/states/${encodeURIComponent(entityId)}`, {
+        method: NetworkHttpMethod.GET,
+        header: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        connectTimeout: 5000,
+        readTimeout: 5000
+      });
+      const body = resp.body;
+      if (resp.responseCode >= 200 && resp.responseCode < 300) {
+        return {
+          success: true,
+          responseCode: resp.responseCode,
+          state: HaEntityParser.parseLightState(body),
+          failureSummary: ''
+        };
+      }
+      return {
+        success: false,
+        responseCode: resp.responseCode,
+        state: '',
+        failureSummary: Localization.format2('ha_error_fetch_power_state_http',
           'status', resp.responseCode, 'detail', NetworkService.shortText(body))
       };
     } catch (err) {

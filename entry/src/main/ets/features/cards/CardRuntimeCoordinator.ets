@@ -286,6 +286,12 @@ export class CardRuntimeCoordinator {
         data: await CardRuntimeCoordinator.sceneFormData(context, formId, nextRecord)
       };
     }
+    if (cardType === CardType.SWITCH) {
+      return {
+        record: nextRecord,
+        data: await CardRuntimeCoordinator.switchFormData(context, formId, nextRecord)
+      };
+    }
     return {
       record: nextRecord,
       data: await CardRuntimeCoordinator.lightFormData(context, formId, nextRecord)
@@ -414,6 +420,21 @@ export class CardRuntimeCoordinator {
       openEntityDetailEnabled: bound,
       title: bound ? record.targetName : Localization.t('card_light_control_title'),
       subtitle: bound ? CardRuntimeCoordinator.lightSubtitle(record) : Localization.t('card_bind_light_device'),
+      state: bound ? record.state : 'unknown',
+      updateFrequency: await AppSettingsStore.loadServiceCardUpdateFrequency(context)
+    };
+  }
+
+  private static async switchFormData(context: common.Context, formId: string, record: CardBindingRecord): Promise<LightFormData> {
+    const bound = CardDataStore.hasBinding(record) && record.cardType === CardType.SWITCH;
+    return {
+      formId,
+      bound,
+      targetId: bound ? record.targetId : '',
+      serverInstanceId: bound ? record.serverInstanceId : '',
+      openEntityDetailEnabled: bound,
+      title: bound ? record.targetName : Localization.t('card_switch_control_title'),
+      subtitle: bound ? CardRuntimeCoordinator.lightSubtitle(record) : Localization.t('card_bind_switch_entity'),
       state: bound ? record.state : 'unknown',
       updateFrequency: await AppSettingsStore.loadServiceCardUpdateFrequency(context)
     };

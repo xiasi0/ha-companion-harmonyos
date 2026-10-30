@@ -5,6 +5,7 @@ import { relationalStore } from '@kit.ArkData';
 
 export class CardType {
   static readonly LIGHT: string = 'light';
+  static readonly SWITCH: string = 'switch';
   static readonly MEDIA: string = 'media';
   static readonly SCENE: string = 'scene';
   static readonly CAMERA: string = 'camera';

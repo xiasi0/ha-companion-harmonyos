@@ -386,6 +386,11 @@ export class HaBackgroundConnectionService {
       !await HaBackgroundConnectionService.reloadAndCheckBoundEntity(context, rawEntityId)) {
       return;
     }
+    await CardRuntimeRepository.syncSwitchState(
+      context,
+      rawEntityId,
+      HaBackgroundConnectionService.switchState(newState)
+    );
     if (rawEntityId.startsWith('light.')) {
       await HaBackgroundConnectionService.syncLight(context, rawEntityId, newState);
       return;
@@ -462,9 +467,12 @@ export class HaBackgroundConnectionService {
   }
 
   private static async syncLight(context: common.Context, entityId: string, newState: JsonRecord): Promise<void> {
+    await CardRuntimeRepository.syncLightState(context, entityId, HaBackgroundConnectionService.switchState(newState));
+  }
+
+  private static switchState(newState: JsonRecord): string {
     const rawState = newState['state'];
-    const state = typeof rawState === 'string' && (rawState === 'on' || rawState === 'off') ? rawState : 'unknown';
-    await CardRuntimeRepository.syncLightState(context, entityId, state);
+    return typeof rawState === 'string' && (rawState === 'on' || rawState === 'off') ? rawState : 'unknown';
   }
 
   private static async syncMedia(context: common.Context, entityId: string, newState: JsonRecord): Promise<void> {
