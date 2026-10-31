@@ -6,9 +6,20 @@ export struct DashboardConnectionErrorDialog {
   onWait: () => void = () => {};
   onRefreshExternal: () => void = () => {};
   onOpenSettings: () => void = () => {};
+  @Prop
+  noticeMode: boolean = false;
+  onNoticeClose: () => void = () => {};
+
+  private title(): string {
+    return this.noticeMode
+      ? Localization.t('dashboard_notice_title')
+      : Localization.t('dashboard_connection_error_title');
+  }
 
   private message(): string {
-    return Localization.t('dashboard_connection_error_message');
+    return this.noticeMode
+      ? Localization.t('dashboard_notice_message')
+      : Localization.t('dashboard_connection_error_message');
   }
 
   @Builder
@@ -32,38 +43,63 @@ export struct DashboardConnectionErrorDialog {
         .backgroundColor(HaColors.SCRIM)
 
       Column({ space: 14 }) {
-        Text(Localization.t('dashboard_connection_error_title'))
+        Text(this.title())
           .fontSize(18)
           .fontWeight(FontWeight.Bold)
           .fontColor(HaColors.TEXT_PRIMARY)
           .width('100%')
-        Text(this.message())
-          .fontSize(14)
-          .fontColor(HaColors.TEXT_PRIMARY)
-          .lineHeight(20)
+        if (this.noticeMode) {
+          Scroll() {
+            Text(this.message())
+              .fontSize(14)
+              .fontColor(HaColors.TEXT_PRIMARY)
+              .lineHeight(20)
+              .width('100%')
+          }
           .width('100%')
-
-        Row({ space: 0 }) {
-          Column() {
-            this.actionButton(Localization.t('dashboard_connection_wait'), this.onWait)
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Center)
-
-          Column() {
-            this.actionButton(Localization.t('dashboard_connection_refresh_external'), this.onRefreshExternal)
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Center)
-
-          Column() {
-            this.actionButton(Localization.t('block_insecure_open_settings'), this.onOpenSettings)
-          }
-          .layoutWeight(1)
-          .alignItems(HorizontalAlign.Center)
+          .constraintSize({ maxHeight: 320 })
+          .scrollBar(BarState.Auto)
+        } else {
+          Text(this.message())
+            .fontSize(14)
+            .fontColor(HaColors.TEXT_PRIMARY)
+            .lineHeight(20)
+            .width('100%')
         }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
+
+        if (this.noticeMode) {
+          Row() {
+            Column() {
+              this.actionButton(Localization.t('action_got_it'), this.onNoticeClose)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Center)
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+        } else {
+          Row({ space: 0 }) {
+            Column() {
+              this.actionButton(Localization.t('dashboard_connection_wait'), this.onWait)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Center)
+
+            Column() {
+              this.actionButton(Localization.t('dashboard_connection_refresh_external'), this.onRefreshExternal)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Center)
+
+            Column() {
+              this.actionButton(Localization.t('block_insecure_open_settings'), this.onOpenSettings)
+            }
+            .layoutWeight(1)
+            .alignItems(HorizontalAlign.Center)
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Center)
+        }
       }
       .width('86%')
       .constraintSize({ maxWidth: 500 })

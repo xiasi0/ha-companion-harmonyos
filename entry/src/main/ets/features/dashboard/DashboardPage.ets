@@ -5,6 +5,8 @@ import { window } from '@kit.ArkUI';
 import { UrlGuardResult } from '../../models/UrlGuardResult';
 import { ExternalAppProxy } from './ExternalAppProxy';
 import { DashboardWebBridge } from './DashboardWebBridge';
+import { DashboardConnectionErrorDialog } from './DashboardConnectionErrorDialog';
+import { DashboardNoticeService } from './DashboardNoticeService';
 import { Localization } from '../../shared/i18n/Localization';
 import { NetworkService } from '../../services/NetworkService';
 import { UrlService } from '../../services/UrlService';
@@ -69,9 +71,19 @@ export struct DashboardPage {
   private dashboardWindow: window.Window | undefined = undefined;
   private avoidAreaChangeCallback: ((data: window.AvoidAreaOptions) => void) | undefined = undefined;
   private isDashboardVisible: boolean = false;
+  private dashboardPageReady: boolean = false;
+  private dashboardNoticeToken: number = 0;
+  private dashboardNoticeStateLoaded: boolean = false;
+  private dashboardNoticeAcknowledged: boolean = false;
+  @State private dashboardNoticeVisible: boolean = false;
 
   aboutToAppear(): void {
     this.isDashboardVisible = true;
+    this.dashboardPageReady = false;
+    this.dashboardNoticeStateLoaded = false;
+    this.dashboardNoticeAcknowledged = false;
+    this.dashboardNoticeVisible = false;
+    this.loadDashboardNoticeState();
     try {
       this.controller.setCustomUserAgent(NetworkService.ANDROID_COMPATIBLE_USER_AGENT);
     } catch (_) {
@@ -85,6 +97,8 @@ export struct DashboardPage {
 
   aboutToDisappear(): void {
     this.isDashboardVisible = false;
+    this.cancelDashboardNotice();
+    this.dashboardPageReady = false;
     if (this.dashboardWindow && this.avoidAreaChangeCallback) {
       try {
         this.dashboardWindow.off('avoidAreaChange', this.avoidAreaChangeCallback);
@@ -113,11 +127,55 @@ export struct DashboardPage {
       return;
     }
     if (!this.isActiveDashboard) {
+      this.cancelDashboardNotice();
       this.restoreDefaultSystemBars();
       return;
     }
+    this.scheduleDashboardNotice();
     this.runDashboardStartupScript();
     this.refreshDashboardSystemBars();
+  }
+
+  private loadDashboardNoticeState(): void {
+    const context = this.getUIContext().getHostContext() as common.Context;
+    DashboardNoticeService.isAcknowledged(context)
+      .then((acknowledged: boolean): void => {
+        this.dashboardNoticeAcknowledged = acknowledged;
+        this.dashboardNoticeStateLoaded = true;
+        this.scheduleDashboardNotice();
+      })
+      .catch((): void => {
+        this.dashboardNoticeStateLoaded = true;
+        this.scheduleDashboardNotice();
+      });
+  }
+
+  private scheduleDashboardNotice(): void {
+    if (!this.isDashboardVisible || !this.isActiveDashboard || !this.dashboardPageReady ||
+      !this.dashboardNoticeStateLoaded || this.dashboardNoticeAcknowledged || this.dashboardNoticeVisible) {
+      return;
+    }
+    const token = this.dashboardNoticeToken + 1;
+    this.dashboardNoticeToken = token;
+    setTimeout((): void => {
+      if (this.dashboardNoticeToken !== token || !this.isDashboardVisible ||
+        !this.isActiveDashboard || !this.dashboardPageReady) {
+        return;
+      }
+      this.dashboardNoticeVisible = true;
+    }, 2000);
+  }
+
+  private cancelDashboardNotice(): void {
+    this.dashboardNoticeToken += 1;
+    this.dashboardNoticeVisible = false;
+  }
+
+  private closeDashboardNotice(): void {
+    this.cancelDashboardNotice();
+    this.dashboardNoticeAcknowledged = true;
+    const context = this.getUIContext().getHostContext() as common.Context;
+    DashboardNoticeService.acknowledge(context).catch((): void => {});
   }
 
   private shouldExpandTopSafeArea(): boolean {
@@ -484,7 +542,7 @@ export struct DashboardPage {
   }
 
   build() {
-    Column() {
+    Stack() {
       if (this.dashboardUrl) {
         Web({ src: this.initialWebSource(), controller: this.controller })
           .javaScriptAccess(true)
@@ -518,6 +576,8 @@ export struct DashboardPage {
             this.onBridgeReady();
           })
           .onPageBegin((event) => {
+            this.dashboardPageReady = false;
+            this.cancelDashboardNotice();
             this.rememberDashboardUrl(event.url);
             this.rememberLoadedDashboardUrl(event.url);
             if (!this.dashboardAuthProvided) {
@@ -525,6 +585,7 @@ export struct DashboardPage {
             }
           })
           .onPageEnd((event) => {
+            this.dashboardPageReady = true;
             this.rememberDashboardUrl(event.url);
             this.rememberLoadedDashboardUrl(event.url);
             const zoomLevel = Number(this.pageZoomLevel);
@@ -538,6 +599,7 @@ export struct DashboardPage {
             this.runDashboardStartupScript();
             this.refreshDashboardSystemBars();
             this.onPageReady();
+            this.scheduleDashboardNotice();
           })
           .onErrorReceive((event) => {
             this.handleWebError(event);
@@ -599,6 +661,13 @@ export struct DashboardPage {
         .layoutWeight(1)
         .justifyContent(FlexAlign.Center)
         .alignItems(HorizontalAlign.Center)
+      }
+
+      if (this.dashboardNoticeVisible) {
+        DashboardConnectionErrorDialog({
+          noticeMode: true,
+          onNoticeClose: (): void => this.closeDashboardNotice()
+        })
       }
     }
     .width('100%')

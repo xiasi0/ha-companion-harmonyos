@@ -75,6 +75,8 @@ export const ZH_CN: Map<string, string> = new Map<string, string>([
   ['back', '后退'],
   ['dashboard_connection_error_title', '无法连接到 Home Assistant'],
   ['dashboard_connection_error_message', '加载 Home Assistant 时出错，请检查连接设置并重试。当您选择“刷新外部网址”时，我们将尝试访问您提供的其它网址。'],
+  ['dashboard_notice_title', '温馨提示'],
+  ['dashboard_notice_message', '社区伙伴，您好！\n\n这是由社区开发者维护的第三方应用，并非由华为或 Open Home Foundation（开放家庭基金会）发布。应用基于 Home Assistant 官方 Android 版移植而来，受系统和平台差异影响，部分功能可能无法正常使用，社区无法保证所有功能均能稳定运行。\n\n本应用的全部源码和实现均已开源，欢迎您参与开发、构建与测试。\n\n如果您在使用过程中遇到问题，请不要在华为应用市场评论区提交。评论区无法提供及时、有效的问题跟进。请通过以下方式反馈：\n1. 在伴侣应用中打开“设置 → 报告问题”，跳转至 GitHub Issues 提交问题；\n2. 加入 QQ 交流群：753827528，与社区交流反馈。\n\n如果您认为该应用对您有所帮助，欢迎在华为应用市场给予五星好评，这将帮助更多用户发现并使用它。\n\n我们知道这条通知可能会打扰到您，但请放心，它是安全的。点击“知道了”后，这条通知将不再出现。\n\n感谢您的理解与支持！'],
   ['dashboard_connection_wait', '等待'],
   ['dashboard_connection_refresh_external', '刷新外部网址'],
   ['name_device_title', '您想如何命名此设备？'],
